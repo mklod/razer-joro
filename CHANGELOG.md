@@ -8,6 +8,8 @@
 > - Windows autostart registration
 > - Release build + single exe packaging
 > - Config polish (more key names, validation)
+> - **INVESTIGATE: Keyboard has persistent remap storage — likely F-keys only.** F4 was remapped to F2 in Synapse and persists across reboots/replugs without daemon or Synapse running. But Copilot/RWin remap does NOT persist — reverts when Synapse closes. Hypothesis: F-key row has onboard persistent storage (maybe related to multimedia/Fn layer), other keys are volatile only. Need to understand: which remaps persist? Is there a separate "save to onboard" command (one of unexplored class 0x02 SET commands)?
+> - **INVESTIGATE: Fn key row defaults to multimedia keys** (F4=WindowArrange, F5=VolMute, F6=VolDown, F7=VolUp, etc). Standard F-keys require Fn modifier. Need to understand how this interacts with remaps and whether there's a command to toggle Fn-lock mode.
 
 ## Build 2026-04-09--1830
 **Changes**

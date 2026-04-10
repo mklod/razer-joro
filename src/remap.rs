@@ -181,8 +181,11 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
         let elapsed = p.timestamp.elapsed();
         if vk == p.expected_vk && is_down && elapsed.as_millis() < 100 {
             // The expected key arrived! This is the combo key (e.g., Copilot 0x86).
-            // Don't restore the companion, just proceed to remap lookup below.
-            if debug { eprintln!("    companion confirmed for 0x{vk:04X}"); }
+            // Explicitly release the companion modifier via SendInput to clear OS key state,
+            // otherwise Windows thinks it's still held and mangles our combo.
+            let inputs = [make_key_input(p.companion_vk, true)]; // key-up
+            send_inputs(&inputs);
+            if debug { eprintln!("    companion confirmed for 0x{vk:04X}, released 0x{:04X}", p.companion_vk); }
         } else {
             // Something else arrived, or timeout. Replay the companion modifier.
             if debug { eprintln!("    companion expired (got 0x{vk:04X}), replaying 0x{:04X}", p.companion_vk); }
