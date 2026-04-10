@@ -34,6 +34,31 @@ unsafe impl Send for SendHook {}
 static HOOK_HANDLE: Mutex<Option<SendHook>> = Mutex::new(None);
 static REMAP_TABLE: Mutex<Vec<ComboRemap>> = Mutex::new(Vec::new());
 
+/// VK codes that accompany remapped keys and need to be suppressed.
+/// Maps: companion VK → the remapped VK it precedes.
+/// E.g., Copilot sends LWin(0x5B) then 0x86 — so 0x5B is a companion of 0x86.
+static COMPANION_MODIFIERS: &[(VkCode, VkCode)] = &[
+    (0x5B, 0x86), // LWin accompanies Copilot key
+];
+
+/// Tracks whether we're holding a companion modifier, waiting to see if its
+/// remapped key follows.
+static PENDING_COMPANION: Mutex<Option<PendingCompanion>> = Mutex::new(None);
+
+struct PendingCompanion {
+    companion_vk: VkCode,
+    expected_vk: VkCode,
+    timestamp: std::time::Instant,
+}
+
+/// When true, log all key events to stderr (for debugging key identification).
+static DEBUG_LOG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Enable/disable VK debug logging in the hook.
+pub fn set_debug_log(enabled: bool) {
+    DEBUG_LOG.store(enabled, std::sync::atomic::Ordering::Relaxed);
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /// Build a remap table from config entries.
@@ -118,16 +143,84 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
     let msg = wparam.0 as u32;
     let is_down = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
     let is_up = msg == WM_KEYUP || msg == WM_SYSKEYUP;
+    let debug = DEBUG_LOG.load(std::sync::atomic::Ordering::Relaxed);
 
-    // Look up in remap table
+    if debug && is_down {
+        let ext = if kb.flags.0 & 0x01 != 0 { "EXT " } else { "" };
+        eprintln!("  KEY {ext}vk=0x{vk:04X} scan=0x{:04X}", kb.scanCode);
+    }
+
+    // --- Companion modifier state machine ---
+    // Some keys (e.g., Copilot) send a modifier (LWin) BEFORE the actual key (0x86).
+    // We intercept the modifier and hold it, waiting for the expected key.
+
+    // Check if this VK is a companion modifier we should hold
+    if is_down {
+        for &(companion, expected) in COMPANION_MODIFIERS {
+            if vk == companion {
+                // Check if the expected key is actually in our remap table
+                let table = REMAP_TABLE.lock().unwrap();
+                let has_remap = table.iter().any(|r| r.from_vk == expected);
+                drop(table);
+                if has_remap {
+                    *PENDING_COMPANION.lock().unwrap() = Some(PendingCompanion {
+                        companion_vk: companion,
+                        expected_vk: expected,
+                        timestamp: std::time::Instant::now(),
+                    });
+                    if debug { eprintln!("    holding companion 0x{companion:04X}, expecting 0x{expected:04X}"); }
+                    return LRESULT(1); // suppress the companion modifier
+                }
+            }
+        }
+    }
+
+    // Check if we have a pending companion
+    let pending = PENDING_COMPANION.lock().unwrap().take();
+    if let Some(p) = pending {
+        let elapsed = p.timestamp.elapsed();
+        if vk == p.expected_vk && is_down && elapsed.as_millis() < 100 {
+            // The expected key arrived! This is the combo key (e.g., Copilot 0x86).
+            // Don't restore the companion, just proceed to remap lookup below.
+            if debug { eprintln!("    companion confirmed for 0x{vk:04X}"); }
+        } else {
+            // Something else arrived, or timeout. Replay the companion modifier.
+            if debug { eprintln!("    companion expired (got 0x{vk:04X}), replaying 0x{:04X}", p.companion_vk); }
+            let inputs = [make_key_input(p.companion_vk, false)];
+            send_inputs(&inputs);
+            // Fall through to process current key normally
+        }
+    }
+
+    // Also handle companion key-up: suppress the up event for the companion
+    // when it was already suppressed on key-down
+    if is_up {
+        for &(companion, _) in COMPANION_MODIFIERS {
+            if vk == companion {
+                // Check if the companion's expected key is in the remap table
+                // If so, suppress the key-up too
+                let table = REMAP_TABLE.lock().unwrap();
+                let active = table.iter().any(|r| {
+                    COMPANION_MODIFIERS.iter().any(|&(c, e)| c == vk && r.from_vk == e)
+                });
+                drop(table);
+                if active {
+                    return LRESULT(1); // suppress companion key-up
+                }
+            }
+        }
+    }
+
+    // --- Standard remap lookup ---
     let table = REMAP_TABLE.lock().unwrap();
     let found = table.iter().find(|r| r.from_vk == vk).cloned();
     drop(table);
 
     if let Some(remap) = found {
         if is_down {
+            if debug { eprintln!("    -> remap: mods={:?} key=0x{:04X}", remap.modifier_vks, remap.key_vk); }
             send_combo_down(&remap.modifier_vks, remap.key_vk);
-            return LRESULT(1); // suppress original key
+            return LRESULT(1);
         } else if is_up {
             send_combo_up(&remap.modifier_vks, remap.key_vk);
             return LRESULT(1);
@@ -161,8 +254,25 @@ fn send_combo_up(modifier_vks: &[VkCode], key_vk: VkCode) {
     send_inputs(&inputs);
 }
 
+fn is_extended_key(vk: VkCode) -> bool {
+    matches!(vk,
+        0x21..=0x28 | // PgUp, PgDn, End, Home, Arrows
+        0x2D..=0x2E | // Insert, Delete
+        0x5B..=0x5C | // LWin, RWin
+        0x5D |        // Apps
+        0xA3 |        // RCtrl
+        0xA5 |        // RAlt
+        0x6F |        // Numpad /
+        0x90 |        // NumLock
+        0x2C          // PrintScreen
+    )
+}
+
 fn make_key_input(vk: VkCode, key_up: bool) -> INPUT {
-    let mut flags = KEYEVENTF_EXTENDEDKEY;
+    let mut flags = KEYBD_EVENT_FLAGS(0);
+    if is_extended_key(vk) {
+        flags = KEYEVENTF_EXTENDEDKEY;
+    }
     if key_up {
         flags = KEYBD_EVENT_FLAGS(flags.0 | KEYEVENTF_KEYUP.0);
     }
