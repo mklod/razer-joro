@@ -23,6 +23,7 @@ struct App {
     config_modified: Option<std::time::SystemTime>,
     last_device_poll: Instant,
     last_config_poll: Instant,
+    _window: Option<winit::window::Window>, // hidden window to keep event loop alive
 }
 
 impl App {
@@ -56,6 +57,7 @@ impl App {
             config_modified,
             last_device_poll: now,
             last_config_poll: now,
+            _window: None,
         }
     }
 
@@ -180,7 +182,15 @@ impl App {
 // ── ApplicationHandler ────────────────────────────────────────────────────────
 
 impl ApplicationHandler for App {
-    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        // Create a hidden window to keep the event loop alive (winit exits without windows)
+        if self._window.is_none() {
+            let attrs = winit::window::Window::default_attributes()
+                .with_visible(false)
+                .with_title("joro-daemon");
+            self._window = event_loop.create_window(attrs).ok();
+        }
+
         // Create the tray icon
         self.tray = Some(tray::JoroTray::new());
 

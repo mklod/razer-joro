@@ -148,6 +148,13 @@ impl RazerDevice {
 
             match device.open() {
                 Ok(handle) => {
+                    // Detach kernel driver and claim interface 3 (HID control interface)
+                    let iface = WINDEX as u8; // interface 3
+                    let _ = handle.set_auto_detach_kernel_driver(true);
+                    if handle.claim_interface(iface).is_err() {
+                        // Try without claiming — some Windows setups don't need it
+                        eprintln!("Warning: could not claim USB interface {iface}");
+                    }
                     return Some(RazerDevice { handle, pid });
                 }
                 Err(_) => continue,
