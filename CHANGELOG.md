@@ -2,12 +2,71 @@
 
 ## TODO
 > [!tip] Queued for next build
-> - Map full keyboard matrix indices (find CapsLock, modifiers, etc.)
-> - Test modifier combo remaps (e.g., CapsLock -> Ctrl+F12)
-> - Decode and test sleep/idle SET commands (class 0x06)
-> - BLE GATT exploration with bleak
-> - Write formal `proto/test_remap.py` with proper index table
-> - Begin Rust phase (scaffold, packet builder, config module)
+> - Test 2.4GHz dongle (PID 0x02CE)
+> - Map Copilot key matrix index
+> - Map remaining keyboard indices (only 1-8 + 30 known)
+> - Windows autostart registration
+> - Release build + single exe packaging
+> - Config polish (more key names, validation)
+
+## Build 2026-04-09--1830
+**Changes**
+- Built complete Rust systray daemon (`joro-daemon`) — 6 modules, 30 unit tests
+- `src/keys.rs` — VK code + HID usage lookup tables, combo string parser
+- `src/usb.rs` — Razer 90-byte packet builder/parser + RazerDevice USB transport
+- `src/config.rs` — TOML config schema, loader, color parser, default creation
+- `src/remap.rs` — WH_KEYBOARD_LL keyboard hook + SendInput combo synthesis
+- `src/tray.rs` — systray icon (green/grey circle), right-click menu
+- `src/main.rs` — winit event loop, device lifecycle, config auto-reload
+- Config at `%APPDATA%\razer-joro\config.toml`, auto-created on first run
+- Fixed USB interface claiming (claim_interface + auto_detach_kernel_driver)
+- Fixed winit event loop exit (hidden window required for systray-only apps)
+- Build infrastructure: `build.ps1`, `.cargo/config.toml.example`, local target dir
+
+**Hardware Verification**
+- Static color orange (#FF4400) at brightness 200 — confirmed on keyboard
+- CapsLock -> Ctrl+F12 host-side combo — confirmed working
+- Firmware version query — confirmed
+- Systray icon shows connected/disconnected state — confirmed
+- Right-click menu (reload, open config, quit) — confirmed
+
+> [!warning] Testing Checklist
+> - [x] Static color set from config — observed on keyboard
+>   - Notes: Orange (#FF4400) at brightness 200, applied on startup
+> - [x] Host-side combo remap (CapsLock -> Ctrl+F12)
+>   - Notes: Keyboard hook intercepts CapsLock, synthesizes Ctrl+F12 via SendInput
+> - [x] Systray icon and menu
+>   - Notes: Green circle when connected, right-click menu works
+> - [ ] USB replug reconnect
+>   - Notes: Not yet tested this build
+> - [ ] Config file auto-reload
+>   - Notes: Not yet tested this build
+> - [ ] 2.4GHz dongle
+>   - Notes: Not yet tested
+
+## Build 2026-04-09--2100
+**Changes**
+- Identified CapsLock matrix index: **30** (confirmed via F12 remap test)
+- Exhaustive modifier combo remap testing — **firmware does NOT support combos**
+  - Tested: type field variations (01/02, 02/01, 03/02, 07/02, 02/07), modifier in pad/extra bytes, two-entry writes, modifier usage in pad
+  - Only 1:1 key swaps work (including remap to modifier alone, e.g., CapsLock -> LCtrl)
+  - Combos/macros must be implemented in host software
+- Scanned all class 0x02 commands: GET 0x82/0x83/0x87/0x8D/0xA4/0xA8, SET 0x02/0x03/0x07/0x0D/0x24/0x28
+- Created `proto/validate_keymap.py` — full keymap dump tool
+- Created `proto/find_capslock_v2.py` — batch remap index finder
+- Created `proto/map_all_keys.py` — batch-by-batch full keyboard mapper
+
+> [!warning] Testing Checklist
+> - [x] CapsLock remap — matrix index 30 confirmed
+>   - Notes: Remapped to F12, verified CapsLock triggers F12 (opens devtools)
+> - [x] CapsLock -> LCtrl — confirmed working (hold + C copies)
+>   - Notes: Simple modifier remap works with usage=0xE0
+> - [x] Modifier combo remap (Ctrl+Esc, Ctrl+A) — NOT SUPPORTED
+>   - Notes: All entry format variations tested, firmware ignores modifier fields
+> - [ ] Sleep/idle config SET command
+>   - Notes: Not yet tested
+> - [x] BLE GATT exploration
+>   - Notes: 6 services found. Custom Razer service `52401523-...` has TX/RX/RX2 characteristics. 20-byte max write (PDU=23). BLE command protocol requires authentication — device returns nonce + status 0x03 for all writes. BLE VID=0x068E PID=0x02CE. Battery=100%. Conn params: 7.5-15ms interval, latency=20, timeout=3s. maintain_connection=False by default.
 
 ## Build 2026-04-09--1630
 **Changes**
