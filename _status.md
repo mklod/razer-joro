@@ -3,7 +3,7 @@
 ## Current milestone
 Stage 3: Rust Daemon — MVP complete and verified on hardware. Systray app with USB lighting, firmware remaps, and host-side combo remaps (CapsLock->Ctrl+F12 working). Next: dongle testing, more key index mapping, config polish.
 
-## Last session (2026-04-09 late) — Rust Daemon MVP
+## Last session (2026-04-09 late) — Rust Daemon MVP + Key Identification
 
 ### Completed
 - Built full Rust systray daemon (`joro-daemon`) — 6 source modules, 30 unit tests
@@ -11,8 +11,15 @@ Stage 3: Rust Daemon — MVP complete and verified on hardware. Systray app with
 - CapsLock -> Ctrl+F12 confirmed working via WH_KEYBOARD_LL keyboard hook
 - Auto-reconnect on USB replug, config file auto-reload on change
 - Systray icon with connected/disconnected state, right-click menu (reload, open config, quit)
-- Fixed two integration issues: USB interface claiming (claim_interface + auto_detach), hidden winit window for event loop
+- Fixed: USB interface claiming, hidden winit window for event loop, KEYEVENTF_EXTENDEDKEY only for extended keys
 - Config at `%APPDATA%\razer-joro\config.toml`
+
+### Key Identification
+- **Copilot key** = sends LWin (0x5B) + VK 0x86. NOT RWin as initially assumed.
+  - Companion modifier state machine: holds LWin, waits for 0x86, suppresses both
+  - Intercept works (search no longer opens), but SendInput combo not reaching apps — TODO
+- **Lock key** = firmware macro sending LWin+L. Indistinguishable from manual Win+L. Not remappable without intercepting all Win+L.
+- **Persistent remaps:** F-key row remaps persist on-device (Synapse-written). Modifier/special key remaps are volatile. Fn row defaults to multimedia keys (F4=arrange, F5=mute, F6=vol-, F7=vol+).
 
 ### Build Infrastructure
 - Rust 1.94.1 + MSVC 14.44, VS Build Tools 2022
@@ -185,11 +192,12 @@ Stage 3: Rust Daemon — MVP complete and verified on hardware. Systray app with
 - `HHOOK` is `!Send` (wraps `*mut c_void`) — added `SendHook` newtype with `unsafe impl Send` to allow `Mutex<Option<SendHook>>` as a static
 
 ## Next immediate task
+- **FIX: Copilot key combo output** — companion state machine intercepts LWin+0x86 correctly, but SendInput combo doesn't reach target app. Likely needs scan codes via MapVirtualKeyW or different SendInput approach. CapsLock→Ctrl+F12 works fine (no companion involved).
 - Test 2.4GHz dongle (PID 0x02CE) — should work with same USB protocol
-- Map Copilot key matrix index (for firmware-level remap to Ctrl+F12)
 - Map more keyboard indices (only 1-8 + 30 known)
 - Add Windows autostart registration
 - Release build + single exe packaging
+- Investigate persistent vs volatile firmware remaps (F-key row persists, others don't)
 
 ## Blockers
 - None (USBPcap not needed, brute-force scan + direct command testing works)
