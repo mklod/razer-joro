@@ -1,5 +1,5 @@
 // src/remap.rs — Host-side keyboard hook remap engine
-// Last modified: 2026-04-09--2340
+// Last modified: 2026-04-09--2355
 
 use crate::keys::{self, VkCode};
 use std::sync::Mutex;
@@ -15,6 +15,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+/// Single-key → combo remap (e.g., CapsLock → Ctrl+F12).
+/// Source is one VK, output is modifier(s) + key.
 #[derive(Debug, Clone)]
 pub struct ComboRemap {
     pub from_vk: VkCode,
@@ -22,32 +24,35 @@ pub struct ComboRemap {
     pub key_vk: VkCode,
 }
 
+/// Combo-source remap via pending-modifier state machine.
+/// Holds a modifier keydown, waits for a trigger key, then emits output.
+/// Handles both: Copilot (LWin+0x86 → Ctrl+F12) and Lock (LWin+L → Delete).
+#[derive(Debug, Clone)]
+pub struct PendingModifierRemap {
+    pub held_vk: VkCode,
+    pub trigger_vk: VkCode,
+    pub output_mods: Vec<VkCode>,
+    pub output_key: VkCode,
+}
+
 // ── Global state (hook callback is a C function pointer, must be static) ─────
 
-// HHOOK wraps a raw pointer which is !Send. We know it's only accessed under
-// a Mutex and only from the hook-install thread, so this wrapper is safe.
 struct SendHook(HHOOK);
-// SAFETY: We only touch the HHOOK value while holding the Mutex, and the
-// hook is always installed/removed on the same thread that owns the event loop.
 unsafe impl Send for SendHook {}
 
 static HOOK_HANDLE: Mutex<Option<SendHook>> = Mutex::new(None);
 static REMAP_TABLE: Mutex<Vec<ComboRemap>> = Mutex::new(Vec::new());
+static PENDING_MOD_TABLE: Mutex<Vec<PendingModifierRemap>> = Mutex::new(Vec::new());
 
-/// VK codes that accompany remapped keys and need to be suppressed.
-/// Maps: companion VK → the remapped VK it precedes.
-/// E.g., Copilot sends LWin(0x5B) then 0x86 — so 0x5B is a companion of 0x86.
-static COMPANION_MODIFIERS: &[(VkCode, VkCode)] = &[
-    (0x5B, 0x86), // LWin accompanies Copilot key
-];
+/// Active pending-modifier state: we suppressed a modifier keydown and are
+/// waiting for the trigger key.
+static PENDING_STATE: Mutex<Option<PendingState>> = Mutex::new(None);
 
-/// Tracks whether we're holding a companion modifier, waiting to see if its
-/// remapped key follows.
-static PENDING_COMPANION: Mutex<Option<PendingCompanion>> = Mutex::new(None);
-
-struct PendingCompanion {
-    companion_vk: VkCode,
-    expected_vk: VkCode,
+struct PendingState {
+    held_vk: VkCode,
+    trigger_vk: VkCode,
+    output_mods: Vec<VkCode>,
+    output_key: VkCode,
     timestamp: std::time::Instant,
 }
 
@@ -105,6 +110,11 @@ pub fn update_remap_table(table: Vec<ComboRemap>) {
     *REMAP_TABLE.lock().unwrap() = table;
 }
 
+/// Replace the active pending-modifier remap table.
+pub fn update_pending_mod_table(table: Vec<PendingModifierRemap>) {
+    *PENDING_MOD_TABLE.lock().unwrap() = table;
+}
+
 /// Install the low-level keyboard hook on the current thread.
 pub fn install_hook() -> Result<(), String> {
     let hook = unsafe {
@@ -135,7 +145,7 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
     let kb = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
     let vk = kb.vkCode as VkCode;
 
-    // Skip injected events (bit 4 = LLKHF_INJECTED = 0x10) to prevent recursion
+    // Skip injected events (LLKHF_INJECTED = 0x10) to prevent recursion
     if kb.flags.0 & 0x10 != 0 {
         return CallNextHookEx(None, code, wparam, lparam);
     }
@@ -150,78 +160,104 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
         eprintln!("  KEY {ext}vk=0x{vk:04X} scan=0x{:04X}", kb.scanCode);
     }
 
-    // --- Companion modifier state machine ---
-    // Some keys (e.g., Copilot) send a modifier (LWin) BEFORE the actual key (0x86).
-    // We intercept the modifier and hold it, waiting for the expected key.
-
-    // Check if this VK is a companion modifier we should hold
+    // --- Pending-modifier state machine ---
+    // On keydown: check if this VK is a held_vk in the pending-modifier table.
+    // If so, suppress it and enter pending state.
     if is_down {
-        for &(companion, expected) in COMPANION_MODIFIERS {
-            if vk == companion {
-                // Check if the expected key is actually in our remap table
-                let table = REMAP_TABLE.lock().unwrap();
-                let has_remap = table.iter().any(|r| r.from_vk == expected);
-                drop(table);
-                if has_remap {
-                    *PENDING_COMPANION.lock().unwrap() = Some(PendingCompanion {
-                        companion_vk: companion,
-                        expected_vk: expected,
-                        timestamp: std::time::Instant::now(),
-                    });
-                    if debug { eprintln!("    holding companion 0x{companion:04X}, expecting 0x{expected:04X}"); }
-                    return LRESULT(1); // suppress the companion modifier
-                }
+        let table = PENDING_MOD_TABLE.lock().unwrap();
+        let found = table.iter().find(|r| r.held_vk == vk).cloned();
+        drop(table);
+        if let Some(pmr) = found {
+            *PENDING_STATE.lock().unwrap() = Some(PendingState {
+                held_vk: pmr.held_vk,
+                trigger_vk: pmr.trigger_vk,
+                output_mods: pmr.output_mods,
+                output_key: pmr.output_key,
+                timestamp: std::time::Instant::now(),
+            });
+            if debug {
+                eprintln!("    holding 0x{:04X}, expecting 0x{:04X}", pmr.held_vk, pmr.trigger_vk);
             }
+            return LRESULT(1); // suppress
         }
     }
 
-    // Check if we have a pending companion
-    let pending = PENDING_COMPANION.lock().unwrap().take();
+    // Check pending state: did the expected trigger arrive?
+    let pending = PENDING_STATE.lock().unwrap().take();
     if let Some(p) = pending {
         let elapsed = p.timestamp.elapsed();
-        if vk == p.expected_vk && is_down && elapsed.as_millis() < 100 {
-            // The expected key arrived! This is the combo key (e.g., Copilot 0x86).
-            // Explicitly release the companion modifier via SendInput to clear OS key state,
-            // otherwise Windows thinks it's still held and mangles our combo.
-            let inputs = [make_key_input(p.companion_vk, true)]; // key-up
+        if vk == p.trigger_vk && is_down && elapsed.as_millis() < 100 {
+            // Trigger arrived — emit the output combo/key
+            if debug {
+                eprintln!("    trigger 0x{vk:04X} confirmed, emitting output");
+            }
+            send_combo_down(&p.output_mods, p.output_key);
+            // Store the remap info so we can emit key-up later
+            // Re-enter pending state with a "confirmed" marker (trigger_vk = 0 means confirmed)
+            *PENDING_STATE.lock().unwrap() = Some(PendingState {
+                held_vk: p.held_vk,
+                trigger_vk: 0, // 0 = confirmed, waiting for key-ups
+                output_mods: p.output_mods,
+                output_key: p.output_key,
+                timestamp: p.timestamp,
+            });
+            return LRESULT(1); // suppress trigger keydown
+        } else if elapsed.as_millis() >= 100 {
+            // Timeout — replay the held modifier
+            if debug {
+                eprintln!("    pending timeout, replaying 0x{:04X}", p.held_vk);
+            }
+            let inputs = [make_key_input(p.held_vk, false)];
             send_inputs(&inputs);
-            if debug { eprintln!("    companion confirmed for 0x{vk:04X}, released 0x{:04X}", p.companion_vk); }
+            // Fall through to process current key normally
         } else {
-            // Something else arrived, or timeout. Replay the companion modifier.
-            if debug { eprintln!("    companion expired (got 0x{vk:04X}), replaying 0x{:04X}", p.companion_vk); }
-            let inputs = [make_key_input(p.companion_vk, false)];
+            // Different key arrived before trigger — replay held modifier
+            if debug {
+                eprintln!("    wrong key 0x{vk:04X}, replaying 0x{:04X}", p.held_vk);
+            }
+            let inputs = [make_key_input(p.held_vk, false)];
             send_inputs(&inputs);
             // Fall through to process current key normally
         }
     }
 
-    // Also handle companion key-up: suppress the up event for the companion
-    // when it was already suppressed on key-down
-    if is_up {
-        for &(companion, _) in COMPANION_MODIFIERS {
-            if vk == companion {
-                // Check if the companion's expected key is in the remap table
-                // If so, suppress the key-up too
-                let table = REMAP_TABLE.lock().unwrap();
-                let active = table.iter().any(|r| {
-                    COMPANION_MODIFIERS.iter().any(|&(c, e)| c == vk && r.from_vk == e)
-                });
-                drop(table);
-                if active {
-                    return LRESULT(1); // suppress companion key-up
-                }
+    // Check for confirmed pending state (trigger_vk == 0): handle key-ups
+    let confirmed = {
+        let state = PENDING_STATE.lock().unwrap();
+        state.as_ref().and_then(|p| {
+            if p.trigger_vk == 0 {
+                Some((p.held_vk, p.output_mods.clone(), p.output_key))
+            } else {
+                None
             }
+        })
+    };
+    if let Some((held_vk, output_mods, output_key)) = confirmed {
+        // Suppress key-ups for the held modifier and trigger key
+        if is_up && (vk == held_vk || vk == get_confirmed_trigger(held_vk)) {
+            // When the trigger key goes up, release the output combo
+            if vk != held_vk {
+                // Trigger key-up: release output
+                send_combo_up(&output_mods, output_key);
+            }
+            // When held modifier goes up, clear the confirmed state
+            if vk == held_vk {
+                *PENDING_STATE.lock().unwrap() = None;
+            }
+            return LRESULT(1); // suppress
         }
     }
 
-    // --- Standard remap lookup ---
+    // --- Standard single-key remap lookup ---
     let table = REMAP_TABLE.lock().unwrap();
     let found = table.iter().find(|r| r.from_vk == vk).cloned();
     drop(table);
 
     if let Some(remap) = found {
         if is_down {
-            if debug { eprintln!("    -> remap: mods={:?} key=0x{:04X}", remap.modifier_vks, remap.key_vk); }
+            if debug {
+                eprintln!("    -> remap: mods={:?} key=0x{:04X}", remap.modifier_vks, remap.key_vk);
+            }
             send_combo_down(&remap.modifier_vks, remap.key_vk);
             return LRESULT(1);
         } else if is_up {
@@ -234,6 +270,15 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
 }
 
 // ── SendInput helpers ────────────────────────────────────────────────────────
+
+/// Look up the trigger VK associated with a held modifier from the pending-mod table.
+fn get_confirmed_trigger(held_vk: VkCode) -> VkCode {
+    let table = PENDING_MOD_TABLE.lock().unwrap();
+    table.iter()
+        .find(|r| r.held_vk == held_vk)
+        .map(|r| r.trigger_vk)
+        .unwrap_or(0)
+}
 
 fn send_combo_down(modifier_vks: &[VkCode], key_vk: VkCode) {
     let mut inputs: Vec<INPUT> = Vec::new();
