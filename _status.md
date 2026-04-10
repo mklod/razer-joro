@@ -1,9 +1,41 @@
 # Razer Joro — Status
 
 ## Current milestone
-Stage 3: Rust Daemon — Lock→Delete and Copilot→Ctrl+F12 both WORKING. Modifier gate architecture verified on hardware.
+Stage 3: Rust Daemon — Lock→Delete and Copilot→Ctrl+F12 both WORKING. Autostart added. Persistent storage investigated.
 
-## Last session (2026-04-10 0130) — Modifier Gate: Both Remaps Working
+## Last session (2026-04-10 0230) — Autostart + Persistent Storage Investigation
+
+### Completed
+- **Autostart toggle** — tray menu "Autostart: On/Off", writes `HKCU\...\Run\JoroDaemon` registry key
+- **Persistent remap storage investigation** — CONCLUDED: not available for arbitrary keys
+  - Probed all class 0x02 SET candidates (0x02, 0x03, 0x07, 0x0D, 0x28) with size=0 after volatile keymap write — none made remap survive replug
+  - Varstore prefix (0x01 byte before entry) — firmware didn't recognize format
+  - Probed classes 0x03, 0x04, 0x05 GET commands — no storage/save commands found
+  - Class 0x04 has 48 GET commands (0x80-0xAF) all returning size=0 — possibly empty macro/profile slots
+- **Lighting persistence confirmed** — SET 0x0F/0x02 (static color) auto-persists across USB replug. Firmware stores lighting state permanently without explicit save command.
+- **Python USB transport broken for keymap writes** — pyusb ctrl_transfer no longer writes keymaps after replug. Rust daemon (rusb with claim_interface) still works. Root cause unclear.
+
+### Key Discoveries
+- **Lighting: auto-persistent.** Color/brightness survive replug. Class 0x0F writes to non-volatile storage automatically.
+- **Keymaps: always volatile.** Class 0x02/0x0F writes reset on replug. No save command found. Daemon must re-apply on every connect (which it already does).
+- **F-key persistent remaps (Synapse):** likely use a separate firmware mechanism for the multimedia/Fn layer, not the general keymap API. Or Synapse re-applies on startup like our daemon.
+- **Fn key row defaults to multimedia** (volume, mute, etc). Fn modifier enables actual F-keys. Fn hold makes backlight solid white.
+
+## Next immediate task
+- Test 2.4GHz dongle (PID 0x02CE)
+- Release build + single exe packaging
+- Map more keyboard matrix indices
+
+## Blockers
+- None
+
+## Key decisions
+- Persistent keymap storage not available — daemon re-applies on connect (correct approach)
+- Autostart via registry Run key (not Startup folder)
+
+---
+
+## Previous session (2026-04-10 0130) — Modifier Gate: Both Remaps Working
 
 ### Completed
 - **Complete rewrite of hook architecture** — replaced old pending-modifier state machine with "modifier gate" approach
