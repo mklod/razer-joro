@@ -1,0 +1,17 @@
+# Copy to .cargo/config.toml and adjust paths for your machine.
+#
+# REQUIRED: Project source is on a network/SMB drive (L:\PROJECTS\razer-joro).
+# Cargo build scripts cannot execute from SMB shares on Windows, so the target
+# directory must be on a local drive.
+#
+# REQUIRED: LIB and INCLUDE env vars must point to MSVC + Windows SDK.
+# Set these in your shell profile or in a build wrapper script.
+# See build.ps1 for a ready-to-use wrapper.
+
+[build]
+target-dir = "C:\\Users\\YOUR_USER\\AppData\\Local\\razer-joro-target"
+
+[target.x86_64-pc-windows-msvc]
+# Use MSVC linker — Git's link.exe (C:\Program Files\Git\usr\bin\link.exe) must
+# NOT take precedence, so we specify the full path here.
+linker = "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\bin\\Hostx64\\x64\\link.exe"

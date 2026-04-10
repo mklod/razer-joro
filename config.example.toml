@@ -1,0 +1,16 @@
+# Razer Joro Daemon — Example Config
+# Copy to %APPDATA%\razer-joro\config.toml
+
+[lighting]
+mode = "static"
+color = "#FF4400"
+brightness = 200
+
+# Known matrix indices:
+#   1=Grave, 2=1, 3=2, 4=3, 5=4, 6=5, 7=6, 8=7, 30=CapsLock
+
+[[remap]]
+name = "CapsLock to Ctrl+F12"
+from = "CapsLock"
+to = "Ctrl+F12"
+matrix_index = 30

@@ -1,0 +1,7 @@
+target/
+.cargo/config.toml
+*.exe
+proto/.venv/
+proto/__pycache__/
+proto/captures/
+openrazer-ref/
