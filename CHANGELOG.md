@@ -4,11 +4,27 @@
 > [!tip] Queued for next build
 > - Test 2.4GHz dongle (PID 0x02CE)
 > - Map remaining keyboard indices (only 1-8 + 30 known)
-> - Windows autostart registration
 > - Release build + single exe packaging
 > - Config polish (more key names, validation)
-> - **INVESTIGATE: Keyboard has persistent remap storage — likely F-keys only.** F4 was remapped to F2 in Synapse and persists across reboots/replugs without daemon or Synapse running. But Copilot/RWin remap does NOT persist — reverts when Synapse closes. Hypothesis: F-key row has onboard persistent storage (maybe related to multimedia/Fn layer), other keys are volatile only. Need to understand: which remaps persist? Is there a separate "save to onboard" command (one of unexplored class 0x02 SET commands)?
-> - **INVESTIGATE: Fn key row defaults to multimedia keys** (F4=WindowArrange, F5=VolMute, F6=VolDown, F7=VolUp, etc). Standard F-keys require Fn modifier. Need to understand how this interacts with remaps and whether there's a command to toggle Fn-lock mode.
+> - Investigate Fn-lock toggle command (Fn row defaults to multimedia keys)
+
+## Build 2026-04-10--0230
+**Changes**
+- Autostart toggle in tray menu (registry Run key)
+- Persistent remap storage investigation — CONCLUDED: not available
+
+**Investigation Results**
+- **Lighting: auto-persistent.** Color/brightness survive USB replug. No save command needed.
+- **Keymaps: always volatile.** No save command found among class 0x02 SET candidates or other classes. Daemon re-applies on connect (correct approach).
+- F-key persistent remaps in Synapse likely use separate Fn-layer firmware mechanism.
+
+> [!warning] Testing Checklist
+> - [x] Autostart toggle — registry key written/deleted correctly
+>   - Notes: Verified via tray menu. Uses HKCU\...\Run\JoroDaemon.
+> - [x] Lighting persistence — survives USB replug
+>   - Notes: Set red, replugged, still red. Confirmed auto-persistent.
+> - [x] Keymap persistence — does NOT survive USB replug
+>   - Notes: Wrote backtick→F12, sent all save candidates, replugged, reverted to backtick.
 
 ## Build 2026-04-10--0130
 **Changes**

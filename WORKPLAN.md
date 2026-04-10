@@ -57,6 +57,8 @@ Lightweight Windows background process to replace Razer Synapse for the Razer Jo
 - [x] Hardware verified: lighting, firmware query, CapsLock->Ctrl+F12 combo
 - [x] **Lock key → Delete** (combo-source remap via DisableLockWorkstation + modifier gate)
 - [x] **Copilot key → Ctrl+F12** (modifier gate + prefix mod cancellation)
+- [x] Windows autostart (registry Run key toggle in tray menu)
+- [x] Persistent remap storage — investigated, not available (keymaps volatile, lighting auto-persists)
 - [ ] Test 2.4GHz dongle (PID 0x02CE)
 
 ### Stage 4: BLE + Dongle Transports — `TODO`
