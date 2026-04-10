@@ -1,12 +1,12 @@
 // src/remap.rs — Host-side keyboard hook remap engine
-// Last modified: 2026-04-09--2300
+// Last modified: 2026-04-09--2340
 
 use crate::keys::{self, VkCode};
 use std::sync::Mutex;
 use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
-    KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, VIRTUAL_KEY,
+    MapVirtualKeyW, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
+    KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, MAP_VIRTUAL_KEY_TYPE, VIRTUAL_KEY,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, SetWindowsHookExW, UnhookWindowsHookEx, HHOOK, KBDLLHOOKSTRUCT,
@@ -272,6 +272,9 @@ fn is_extended_key(vk: VkCode) -> bool {
 }
 
 fn make_key_input(vk: VkCode, key_up: bool) -> INPUT {
+    let scan = unsafe {
+        MapVirtualKeyW(vk as u32, MAP_VIRTUAL_KEY_TYPE(0)) as u16 // MAPVK_VK_TO_VSC = 0
+    };
     let mut flags = KEYBD_EVENT_FLAGS(0);
     if is_extended_key(vk) {
         flags = KEYEVENTF_EXTENDEDKEY;
@@ -284,7 +287,7 @@ fn make_key_input(vk: VkCode, key_up: bool) -> INPUT {
         Anonymous: INPUT_0 {
             ki: KEYBDINPUT {
                 wVk: VIRTUAL_KEY(vk),
-                wScan: 0,
+                wScan: scan,
                 dwFlags: flags,
                 time: 0,
                 dwExtraInfo: 0,
