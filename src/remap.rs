@@ -1,12 +1,30 @@
 // src/remap.rs — Host-side keyboard hook remap engine
-// Last modified: 2026-04-09--2350
+// Last modified: 2026-04-10--0115
+//
+// Architecture: "modifier gate"
+//
+// For combo-source remaps (keyboard sends Win+L, Win+0x86, etc.), we gate the
+// modifier key (Win) on keydown and resolve on the VERY NEXT keypress:
+//   - Trigger key (L, 0x86) → fire remap
+//   - Non-trigger key (E, D, ...) → replay modifier, pass key through
+//   - Modifier key-up (Win↑) → replay modifier tap (Start menu opens normally)
+//
+// No timeout. No state machine. Resolves on the next keypress, which is <1ms
+// for firmware macros and instant for non-trigger keys.
+//
+// For Copilot key (LShift↓, LWin↓, 0x86↓), LShift arrives before LWin. We
+// suppress LShift too (it's a known "prefix mod" for this trigger).
+//
+// Crash safety: if daemon dies while modifier is gated, re-tapping that key
+// physically fixes it. The gated window is typically <1ms for firmware macros.
 
 use crate::keys::{self, VkCode};
 use std::sync::Mutex;
+use std::io::Write;
 use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    MapVirtualKeyW, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
-    KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, MAP_VIRTUAL_KEY_TYPE, VIRTUAL_KEY,
+    MapVirtualKeyW, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT,
+    KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, MAP_VIRTUAL_KEY_TYPE, VIRTUAL_KEY,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, SetWindowsHookExW, UnhookWindowsHookEx, HHOOK, KBDLLHOOKSTRUCT,
@@ -24,14 +42,19 @@ pub struct ComboRemap {
     pub key_vk: VkCode,
 }
 
-/// Combo-source remap via pending-modifier state machine.
-/// Holds a modifier keydown, waits for a trigger key, then emits output.
-/// Handles both: Copilot (LWin+0x86 → Ctrl+F12) and Lock (LWin+L → Delete).
+/// Trigger-based remap for combo-source keys (e.g., Lock key sends Win+L → Delete).
 #[derive(Debug, Clone)]
-pub struct PendingModifierRemap {
-    pub held_vk: VkCode,
+pub struct TriggerRemap {
+    /// The modifier that gets gated (suppressed until resolved)
+    pub gate_mod_vk: VkCode,
+    /// The trigger key that fires the remap
     pub trigger_vk: VkCode,
+    /// Extra modifier VKs sent by the keyboard before the gate mod (e.g., LShift for Copilot).
+    /// These are suppressed when they arrive during the prefix window.
+    pub prefix_mods: Vec<VkCode>,
+    /// Output modifier(s) to inject (e.g., Ctrl for Ctrl+F12)
     pub output_mods: Vec<VkCode>,
+    /// Output key to inject
     pub output_key: VkCode,
 }
 
@@ -42,21 +65,39 @@ unsafe impl Send for SendHook {}
 
 static HOOK_HANDLE: Mutex<Option<SendHook>> = Mutex::new(None);
 static REMAP_TABLE: Mutex<Vec<ComboRemap>> = Mutex::new(Vec::new());
-static PENDING_MOD_TABLE: Mutex<Vec<PendingModifierRemap>> = Mutex::new(Vec::new());
+static TRIGGER_TABLE: Mutex<Vec<TriggerRemap>> = Mutex::new(Vec::new());
 
-/// Active pending-modifier state: we suppressed a modifier keydown and are
-/// waiting for the trigger key.
-static PENDING_STATE: Mutex<Option<PendingState>> = Mutex::new(None);
+/// Modifier gate state. When a gated modifier is pressed, we suppress it and
+/// wait for the next key to decide what to do.
+static GATE: Mutex<Option<GateState>> = Mutex::new(None);
 
-struct PendingState {
-    held_vk: VkCode,
-    trigger_vk: VkCode,
-    output_mods: Vec<VkCode>,
-    output_key: VkCode,
-    timestamp: std::time::Instant,
+#[derive(Clone)]
+struct GateState {
+    /// The modifier VK we suppressed
+    gate_vk: VkCode,
+    /// Prefix mods we also suppressed (e.g., LShift for Copilot)
+    suppressed_prefix: Vec<VkCode>,
 }
 
-/// When true, log all key events to stderr (for debugging key identification).
+/// Track which output combo is currently "held down" so we can release it on
+/// the trigger's key-up. Only one trigger remap can be active at a time.
+static ACTIVE_TRIGGER: Mutex<Option<ActiveTrigger>> = Mutex::new(None);
+
+#[derive(Clone)]
+struct ActiveTrigger {
+    trigger_vk: VkCode,
+    /// The gate modifier that was suppressed — suppress its key-up too
+    gate_vk: VkCode,
+    /// Prefix mods that were suppressed — suppress their key-ups too
+    suppressed_prefix: Vec<VkCode>,
+    output_mods: Vec<VkCode>,
+    output_key: VkCode,
+    /// True after trigger key-up sent combo_up. We keep the ActiveTrigger
+    /// alive until gate_vk key-up arrives so we can suppress it.
+    output_released: bool,
+}
+
+/// When true, log key events to a file for debugging.
 static DEBUG_LOG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Enable/disable VK debug logging in the hook.
@@ -64,23 +105,35 @@ pub fn set_debug_log(enabled: bool) {
     DEBUG_LOG.store(enabled, std::sync::atomic::Ordering::Relaxed);
 }
 
+/// Write a debug line to the log file. Opened in append mode each time to keep
+/// the hook callback fast (no persistent file handle needing synchronization).
+fn dbg_log(msg: &str) {
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(r"C:\Users\mklod\AppData\Local\razer-joro-target\hook_debug.log")
+    {
+        let _ = writeln!(f, "{msg}");
+    }
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /// Build both remap tables from config entries.
 ///
-/// Returns `(combo_remaps, pending_modifier_remaps)`:
+/// Returns `(combo_remaps, trigger_remaps)`:
 /// - combo_remaps: single key → combo (e.g., CapsLock → Ctrl+F12)
-/// - pending_modifier_remaps: combo → key/combo (e.g., Win+L → Delete)
+/// - trigger_remaps: combo-source → key/combo (e.g., Win+L → Delete)
 ///
 /// Classification:
-/// - `from` has `+` → combo-source → PendingModifierRemap
+/// - `from` has `+` → combo-source → TriggerRemap
 /// - `from` single key, `to` has `+` → combo-output → ComboRemap
 /// - `from` single key, `to` single key → firmware remap (skipped)
 pub fn build_remap_tables(
     remaps: &[crate::config::RemapConfig],
-) -> (Vec<ComboRemap>, Vec<PendingModifierRemap>) {
+) -> (Vec<ComboRemap>, Vec<TriggerRemap>) {
     let mut combo_table = Vec::new();
-    let mut pending_table = Vec::new();
+    let mut trigger_table = Vec::new();
 
     for entry in remaps {
         if entry.from.contains('+') {
@@ -109,9 +162,12 @@ pub fn build_remap_tables(
                 }
             };
 
-            pending_table.push(PendingModifierRemap {
-                held_vk: from_mods[0],
+            let prefix_mods = determine_prefix_mods(from_mods[0], from_key);
+
+            trigger_table.push(TriggerRemap {
+                gate_mod_vk: from_mods[0],
                 trigger_vk: from_key,
+                prefix_mods,
                 output_mods: to_mods,
                 output_key: to_key,
             });
@@ -146,7 +202,18 @@ pub fn build_remap_tables(
         }
     }
 
-    (combo_table, pending_table)
+    (combo_table, trigger_table)
+}
+
+/// Determine prefix modifier VKs sent before the gate modifier.
+/// Copilot key sends LShift↓ before LWin↓ — LShift is a prefix mod.
+fn determine_prefix_mods(gate_mod: VkCode, trigger: VkCode) -> Vec<VkCode> {
+    // Copilot key (VK 0x86) sends: LShift↓, LWin↓, 0x86↓
+    if trigger == 0x86 && gate_mod == 0x5B {
+        vec![0xA0] // LShift
+    } else {
+        vec![]
+    }
 }
 
 /// Replace the active remap table.
@@ -154,9 +221,9 @@ pub fn update_remap_table(table: Vec<ComboRemap>) {
     *REMAP_TABLE.lock().unwrap() = table;
 }
 
-/// Replace the active pending-modifier remap table.
-pub fn update_pending_mod_table(table: Vec<PendingModifierRemap>) {
-    *PENDING_MOD_TABLE.lock().unwrap() = table;
+/// Replace the active trigger remap table.
+pub fn update_trigger_table(table: Vec<TriggerRemap>) {
+    *TRIGGER_TABLE.lock().unwrap() = table;
 }
 
 /// Install the low-level keyboard hook on the current thread.
@@ -169,14 +236,31 @@ pub fn install_hook() -> Result<(), String> {
     Ok(())
 }
 
-/// Remove the installed hook (if any).
+/// Remove the installed hook (if any). Releases all modifier keys to prevent
+/// stuck keyboard state.
 pub fn remove_hook() {
+    // Release all modifiers before unhooking to prevent stuck keys
+    release_all_modifiers();
+    // Clear all state
+    *GATE.lock().unwrap() = None;
+    *ACTIVE_TRIGGER.lock().unwrap() = None;
+
     let handle = HOOK_HANDLE.lock().unwrap().take();
     if let Some(SendHook(h)) = handle {
         unsafe {
             let _ = UnhookWindowsHookEx(h);
         }
     }
+}
+
+/// Release all modifier keys via SendInput. Called on shutdown to prevent
+/// stuck keyboard state.
+fn release_all_modifiers() {
+    let inputs: Vec<INPUT> = [0xA0u16, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0x5B, 0x5C]
+        .iter()
+        .map(|&vk| make_key_input(vk, true))
+        .collect();
+    send_inputs(&inputs);
 }
 
 // ── Hook callback ────────────────────────────────────────────────────────────
@@ -188,111 +272,253 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
 
     let kb = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
     let vk = kb.vkCode as VkCode;
-
-    // Skip injected events (LLKHF_INJECTED = 0x10) to prevent recursion
-    if kb.flags.0 & 0x10 != 0 {
-        return CallNextHookEx(None, code, wparam, lparam);
-    }
-
     let msg = wparam.0 as u32;
     let is_down = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
     let is_up = msg == WM_KEYUP || msg == WM_SYSKEYUP;
     let debug = DEBUG_LOG.load(std::sync::atomic::Ordering::Relaxed);
+    let injected = kb.flags.0 & 0x10 != 0;
 
-    if debug && is_down {
-        let ext = if kb.flags.0 & 0x01 != 0 { "EXT " } else { "" };
-        eprintln!("  KEY {ext}vk=0x{vk:04X} scan=0x{:04X}", kb.scanCode);
+    // Log ALL events (including injected) before any processing
+    if debug && (is_down || is_up) {
+        let dir = if is_down { "DN" } else { "UP" };
+        let inj = if injected { " INJ" } else { "" };
+        dbg_log(&format!("{dir} vk=0x{vk:04X} scan=0x{:04X}{inj}", kb.scanCode));
     }
 
-    // --- Pending-modifier state machine ---
-    // On keydown: check if this VK is a held_vk in the pending-modifier table.
-    // If so, suppress it and enter pending state.
-    if is_down {
-        let table = PENDING_MOD_TABLE.lock().unwrap();
-        let found = table.iter().find(|r| r.held_vk == vk).cloned();
-        drop(table);
-        if let Some(pmr) = found {
-            *PENDING_STATE.lock().unwrap() = Some(PendingState {
-                held_vk: pmr.held_vk,
-                trigger_vk: pmr.trigger_vk,
-                output_mods: pmr.output_mods,
-                output_key: pmr.output_key,
-                timestamp: std::time::Instant::now(),
-            });
-            if debug {
-                eprintln!("    holding 0x{:04X}, expecting 0x{:04X}", pmr.held_vk, pmr.trigger_vk);
+    // Skip injected events (LLKHF_INJECTED = 0x10) to prevent recursion
+    if injected {
+        return CallNextHookEx(None, code, wparam, lparam);
+    }
+
+    // ── Active trigger: suppress key-ups for gate mod, prefix mods, and trigger ──
+    //
+    // Two-phase release:
+    //   1. Trigger↑ arrives → send combo_up, set output_released=true (keep active)
+    //   2. Gate mod↑ arrives → suppress it, clear active trigger entirely
+    // This ensures the orphan gate mod↑ (e.g., Win↑) is always suppressed.
+    // Either key-up can arrive first (Lock key: trigger↑ before gate↑;
+    // Copilot: gate↑ before trigger↑).
+    {
+        let active = ACTIVE_TRIGGER.lock().unwrap().clone();
+        if let Some(ref a) = active {
+            if is_up {
+                // Suppress prefix mod key-ups (e.g., LShift from Copilot)
+                if a.suppressed_prefix.contains(&vk) {
+                    if debug { dbg_log(&format!("  ACT: suppress prefix up 0x{vk:04X}")); }
+                    return LRESULT(1);
+                }
+                // Gate mod key-up (e.g., LWin)
+                if vk == a.gate_vk {
+                    if !a.output_released {
+                        // Gate released before trigger (firmware sends Win↑ before L↑).
+                        // Send combo_up now but KEEP active trigger alive so we can
+                        // still suppress the upcoming trigger key-up.
+                        if debug { dbg_log(&format!("  ACT: gate up 0x{vk:04X}, combo_up, keep active for trigger")); }
+                        send_combo_up(&a.output_mods, a.output_key);
+                        let mut updated = a.clone();
+                        updated.output_released = true;
+                        *ACTIVE_TRIGGER.lock().unwrap() = Some(updated);
+                    } else {
+                        // Both trigger↑ and gate↑ seen — fully clear.
+                        // Inject cleanup key-ups to force-release modifiers that
+                        // LRESULT(1) suppression didn't fully clear from Windows state.
+                        if debug { dbg_log(&format!("  ACT: gate up 0x{vk:04X}, clear + cleanup")); }
+                        cleanup_modifiers(&a);
+                        *ACTIVE_TRIGGER.lock().unwrap() = None;
+                    }
+                    return LRESULT(1);
+                }
+                // Trigger key-up
+                if vk == a.trigger_vk {
+                    if !a.output_released {
+                        // Trigger released before gate (manual Win+J: J↑ before Win↑).
+                        // Send combo_up, keep active for gate key-up suppression.
+                        if debug { dbg_log(&format!("  ACT: trigger up 0x{vk:04X}, combo_up, keep active for gate")); }
+                        send_combo_up(&a.output_mods, a.output_key);
+                        let mut updated = a.clone();
+                        updated.output_released = true;
+                        *ACTIVE_TRIGGER.lock().unwrap() = Some(updated);
+                    } else {
+                        // Both trigger↑ and gate↑ seen — fully clear.
+                        if debug { dbg_log(&format!("  ACT: trigger up 0x{vk:04X}, clear + cleanup")); }
+                        cleanup_modifiers(&a);
+                        *ACTIVE_TRIGGER.lock().unwrap() = None;
+                    }
+                    return LRESULT(1);
+                }
             }
-            return LRESULT(1); // suppress
+            // Suppress gate mod key-down repeats (firmware sends Win↓ repeatedly
+            // while Lock key is held — don't let these fall through to the gate logic)
+            if is_down && vk == a.gate_vk {
+                return LRESULT(1);
+            }
+            // Suppress prefix mod key-down repeats
+            if is_down && a.suppressed_prefix.contains(&vk) {
+                return LRESULT(1);
+            }
+            // Trigger key-down repeat while active → send output key repeat
+            if is_down && vk == a.trigger_vk && !a.output_released {
+                send_inputs(&[make_key_input(a.output_key, false)]);
+                return LRESULT(1);
+            }
+            // Suppress trigger repeats after output released (cleanup phase)
+            if is_down && vk == a.trigger_vk {
+                return LRESULT(1);
+            }
         }
     }
 
-    // Check pending state: did the expected trigger arrive?
-    let pending = PENDING_STATE.lock().unwrap().take();
-    if let Some(p) = pending {
-        let elapsed = p.timestamp.elapsed();
-        if vk == p.trigger_vk && is_down && elapsed.as_millis() < 100 {
-            // Trigger arrived — emit the output combo/key
-            if debug {
-                eprintln!("    trigger 0x{vk:04X} confirmed, emitting output");
-            }
-            send_combo_down(&p.output_mods, p.output_key);
-            // Store the remap info so we can emit key-up later
-            // Re-enter pending state with a "confirmed" marker (trigger_vk = 0 means confirmed)
-            *PENDING_STATE.lock().unwrap() = Some(PendingState {
-                held_vk: p.held_vk,
-                trigger_vk: 0, // 0 = confirmed, waiting for key-ups
-                output_mods: p.output_mods,
-                output_key: p.output_key,
-                timestamp: p.timestamp,
-            });
-            return LRESULT(1); // suppress trigger keydown
-        } else if elapsed.as_millis() >= 100 {
-            // Timeout — replay the held modifier
-            if debug {
-                eprintln!("    pending timeout, replaying 0x{:04X}", p.held_vk);
-            }
-            let inputs = [make_key_input(p.held_vk, false)];
-            send_inputs(&inputs);
-            // Fall through to process current key normally
-        } else {
-            // Different key arrived before trigger — replay held modifier
-            if debug {
-                eprintln!("    wrong key 0x{vk:04X}, replaying 0x{:04X}", p.held_vk);
-            }
-            let inputs = [make_key_input(p.held_vk, false)];
-            send_inputs(&inputs);
-            // Fall through to process current key normally
-        }
-    }
+    // ── Gate: resolve pending gated modifier ─────────────────────────────────
+    //
+    // If the gate is active, the NEXT keypress decides:
+    //   - Trigger key → fire remap
+    //   - Prefix mod (e.g., LShift before Copilot's LWin) → suppress, keep waiting
+    //   - Gate mod key-up → user just tapped Win, replay tap for Start menu
+    //   - Any other key → replay gate mod, pass key through (Win+E etc.)
+    {
+        let gate = GATE.lock().unwrap().take();
+        if let Some(g) = gate {
+            // Check if this is a trigger key
+            if is_down {
+                let table = TRIGGER_TABLE.lock().unwrap();
+                let matched = table.iter()
+                    .find(|r| r.gate_mod_vk == g.gate_vk && r.trigger_vk == vk)
+                    .cloned();
+                drop(table);
 
-    // Check for confirmed pending state (trigger_vk == 0): handle key-ups
-    let confirmed = {
-        let state = PENDING_STATE.lock().unwrap();
-        state.as_ref().and_then(|p| {
-            if p.trigger_vk == 0 {
-                Some((p.held_vk, p.output_mods.clone(), p.output_key))
+                if let Some(remap) = matched {
+                    // TRIGGER MATCHED — fire the remap
+                    if debug {
+                        dbg_log(&format!("  ACT: gate trigger 0x{vk:04X} -> emit {:?}+0x{:04X}",
+                            remap.output_mods, remap.output_key));
+                    }
+
+                    // Cancel any prefix mods that leaked through before the gate.
+                    // Copilot sends LShift↓ before LWin↓ — LShift passed through
+                    // because we can't suppress it before knowing a gate will follow.
+                    // Inject key-ups now and mark them for key-up suppression later.
+                    let mut all_prefix = g.suppressed_prefix.clone();
+                    for &pm in &remap.prefix_mods {
+                        if !all_prefix.contains(&pm) {
+                            // This prefix leaked through (arrived before gate)
+                            send_inputs(&[make_key_input(pm, true)]); // cancel it
+                            all_prefix.push(pm);
+                        }
+                    }
+
+                    send_combo_down(&remap.output_mods, remap.output_key);
+                    *ACTIVE_TRIGGER.lock().unwrap() = Some(ActiveTrigger {
+                        trigger_vk: vk,
+                        gate_vk: g.gate_vk,
+                        suppressed_prefix: all_prefix,
+                        output_mods: remap.output_mods.clone(),
+                        output_key: remap.output_key,
+                        output_released: false,
+                    });
+                    return LRESULT(1); // suppress trigger key-down
+                }
+
+                // Check if this is a known prefix modifier (e.g., LShift before Copilot)
+                let table = TRIGGER_TABLE.lock().unwrap();
+                let is_prefix = table.iter()
+                    .any(|r| r.gate_mod_vk == g.gate_vk && r.prefix_mods.contains(&vk));
+                drop(table);
+
+                if is_prefix {
+                    // Prefix mod — suppress and keep waiting
+                    if debug { dbg_log(&format!("  ACT: prefix mod 0x{vk:04X}, keep gating")); }
+                    let mut new_g = g;
+                    new_g.suppressed_prefix.push(vk);
+                    *GATE.lock().unwrap() = Some(new_g);
+                    return LRESULT(1);
+                }
+
+                // NON-TRIGGER KEY — replay gated modifier and pass key through
+                if debug {
+                    dbg_log(&format!("  ACT: gate broken by 0x{vk:04X}, replay mod 0x{:04X}", g.gate_vk));
+                }
+                // Replay any suppressed prefix mods first, then the gate mod
+                let mut replay: Vec<INPUT> = Vec::new();
+                for &prefix in &g.suppressed_prefix {
+                    replay.push(make_key_input(prefix, false));
+                }
+                replay.push(make_key_input(g.gate_vk, false));
+                send_inputs(&replay);
+                // Fall through — let this key be processed normally
+            } else if is_up && vk == g.gate_vk {
+                // GATE MOD KEY-UP — user just tapped Win. Replay full tap.
+                if debug { dbg_log("  ACT: gate mod released, replay tap"); }
+                let mut replay: Vec<INPUT> = Vec::new();
+                for &prefix in &g.suppressed_prefix {
+                    replay.push(make_key_input(prefix, false));
+                    replay.push(make_key_input(prefix, true));
+                }
+                replay.push(make_key_input(g.gate_vk, false));
+                replay.push(make_key_input(g.gate_vk, true));
+                send_inputs(&replay);
+                return LRESULT(1); // suppress the real key-up (we replayed it)
+            } else if is_up && g.suppressed_prefix.contains(&vk) {
+                // Prefix mod released before gate mod — unusual but handle it.
+                // Replay everything.
+                if debug { dbg_log("  ACT: prefix released before trigger, replay"); }
+                let mut replay: Vec<INPUT> = Vec::new();
+                for &prefix in &g.suppressed_prefix {
+                    replay.push(make_key_input(prefix, false));
+                }
+                replay.push(make_key_input(g.gate_vk, false));
+                send_inputs(&replay);
+                // Don't suppress this key-up — let it through after replay
+                return CallNextHookEx(None, code, wparam, lparam);
             } else {
-                None
+                // Some other key-up while gated — put gate back
+                *GATE.lock().unwrap() = Some(g);
             }
-        })
-    };
-    if let Some((held_vk, output_mods, output_key)) = confirmed {
-        // Suppress key-ups for the held modifier and trigger key
-        if is_up && (vk == held_vk || vk == get_confirmed_trigger(held_vk)) {
-            // When the trigger key goes up, release the output combo
-            if vk != held_vk {
-                // Trigger key-up: release output
-                send_combo_up(&output_mods, output_key);
-            }
-            // When held modifier goes up, clear the confirmed state
-            if vk == held_vk {
-                *PENDING_STATE.lock().unwrap() = None;
-            }
-            return LRESULT(1); // suppress
         }
     }
 
-    // --- Standard single-key remap lookup ---
+    // ── Check if this key-down should activate the gate ──────────────────────
+    if is_down {
+        let table = TRIGGER_TABLE.lock().unwrap();
+        let should_gate = table.iter().any(|r| r.gate_mod_vk == vk);
+        drop(table);
+
+        if should_gate {
+            // Only gate on initial press, not auto-repeat
+            let gate = GATE.lock().unwrap();
+            if gate.is_none() {
+                drop(gate);
+                if debug { dbg_log(&format!("  ACT: gating 0x{vk:04X}")); }
+                *GATE.lock().unwrap() = Some(GateState {
+                    gate_vk: vk,
+                    suppressed_prefix: vec![],
+                });
+                return LRESULT(1); // suppress the modifier
+            }
+        }
+    }
+
+    // ── Check if this is a prefix mod arriving BEFORE the gate mod ───────────
+    // Copilot sends LShift↓ before LWin↓. We need to suppress LShift so it
+    // doesn't leak through. We only do this if a trigger remap has this VK
+    // as a prefix_mod.
+    if is_down {
+        let table = TRIGGER_TABLE.lock().unwrap();
+        let is_prefix = table.iter().any(|r| r.prefix_mods.contains(&vk));
+        drop(table);
+
+        if is_prefix {
+            // Only suppress if no gate is active yet (prefix arrives before gate mod)
+            let gate = GATE.lock().unwrap();
+            if gate.is_none() {
+                drop(gate);
+                // Don't suppress yet — we don't know if the gate mod will follow.
+                // If we suppress LShift and the user is just typing Shift+A, bad.
+                // Instead, we let it through. The gate will handle cleanup if needed.
+            }
+        }
+    }
+
+    // ── Standard single-key remap lookup ─────────────────────────────────────
     let table = REMAP_TABLE.lock().unwrap();
     let found = table.iter().find(|r| r.from_vk == vk).cloned();
     drop(table);
@@ -300,7 +526,7 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
     if let Some(remap) = found {
         if is_down {
             if debug {
-                eprintln!("    -> remap: mods={:?} key=0x{:04X}", remap.modifier_vks, remap.key_vk);
+                dbg_log(&format!("  ACT: remap mods={:?} key=0x{:04X}", remap.modifier_vks, remap.key_vk));
             }
             send_combo_down(&remap.modifier_vks, remap.key_vk);
             return LRESULT(1);
@@ -315,31 +541,30 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
 
 // ── SendInput helpers ────────────────────────────────────────────────────────
 
-/// Look up the trigger VK associated with a held modifier from the pending-mod table.
-fn get_confirmed_trigger(held_vk: VkCode) -> VkCode {
-    let table = PENDING_MOD_TABLE.lock().unwrap();
-    table.iter()
-        .find(|r| r.held_vk == held_vk)
-        .map(|r| r.trigger_vk)
-        .unwrap_or(0)
+/// After a trigger remap completes, inject key-up events for the gated modifier
+/// (and any prefix mods). LRESULT(1) suppression in WH_KEYBOARD_LL doesn't fully
+/// clear Windows' internal key state — this ensures modifiers are actually released.
+fn cleanup_modifiers(a: &ActiveTrigger) {
+    let mut inputs: Vec<INPUT> = Vec::new();
+    for &prefix in &a.suppressed_prefix {
+        inputs.push(make_key_input(prefix, true));
+    }
+    inputs.push(make_key_input(a.gate_vk, true));
+    send_inputs(&inputs);
 }
 
 fn send_combo_down(modifier_vks: &[VkCode], key_vk: VkCode) {
     let mut inputs: Vec<INPUT> = Vec::new();
-    // Press each modifier
     for &m in modifier_vks {
         inputs.push(make_key_input(m, false));
     }
-    // Press the key
     inputs.push(make_key_input(key_vk, false));
     send_inputs(&inputs);
 }
 
 fn send_combo_up(modifier_vks: &[VkCode], key_vk: VkCode) {
     let mut inputs: Vec<INPUT> = Vec::new();
-    // Release the key first
     inputs.push(make_key_input(key_vk, true));
-    // Release modifiers in reverse order
     for &m in modifier_vks.iter().rev() {
         inputs.push(make_key_input(m, true));
     }
@@ -362,7 +587,7 @@ fn is_extended_key(vk: VkCode) -> bool {
 
 fn make_key_input(vk: VkCode, key_up: bool) -> INPUT {
     let scan = unsafe {
-        MapVirtualKeyW(vk as u32, MAP_VIRTUAL_KEY_TYPE(0)) as u16 // MAPVK_VK_TO_VSC = 0
+        MapVirtualKeyW(vk as u32, MAP_VIRTUAL_KEY_TYPE(0)) as u16
     };
     let mut flags = KEYBD_EVENT_FLAGS(0);
     if is_extended_key(vk) {
@@ -412,13 +637,14 @@ mod tests {
                 matrix_index: None,
             },
         ];
-        let (combos, pending) = build_remap_tables(&remaps);
+        let (combos, triggers) = build_remap_tables(&remaps);
         assert!(combos.is_empty());
-        assert_eq!(pending.len(), 1);
-        assert_eq!(pending[0].held_vk, 0x5B); // LWin
-        assert_eq!(pending[0].trigger_vk, 0x4C); // L
-        assert_eq!(pending[0].output_mods, Vec::<VkCode>::new());
-        assert_eq!(pending[0].output_key, 0x2E); // Delete
+        assert_eq!(triggers.len(), 1);
+        assert_eq!(triggers[0].gate_mod_vk, 0x5B); // LWin
+        assert_eq!(triggers[0].trigger_vk, 0x4C); // L
+        assert_eq!(triggers[0].prefix_mods, Vec::<VkCode>::new());
+        assert_eq!(triggers[0].output_mods, Vec::<VkCode>::new());
+        assert_eq!(triggers[0].output_key, 0x2E); // Delete
     }
 
     #[test]
@@ -431,12 +657,12 @@ mod tests {
                 matrix_index: Some(30),
             },
         ];
-        let (combos, pending) = build_remap_tables(&remaps);
+        let (combos, triggers) = build_remap_tables(&remaps);
         assert_eq!(combos.len(), 1);
         assert_eq!(combos[0].from_vk, 0x14); // CapsLock
         assert_eq!(combos[0].modifier_vks, vec![0xA2]); // LCtrl
         assert_eq!(combos[0].key_vk, 0x7B); // F12
-        assert!(pending.is_empty());
+        assert!(triggers.is_empty());
     }
 
     #[test]
@@ -449,13 +675,14 @@ mod tests {
                 matrix_index: None,
             },
         ];
-        let (combos, pending) = build_remap_tables(&remaps);
+        let (combos, triggers) = build_remap_tables(&remaps);
         assert!(combos.is_empty());
-        assert_eq!(pending.len(), 1);
-        assert_eq!(pending[0].held_vk, 0x5B); // LWin
-        assert_eq!(pending[0].trigger_vk, 0x86); // Copilot
-        assert_eq!(pending[0].output_mods, vec![0xA2]); // LCtrl
-        assert_eq!(pending[0].output_key, 0x7B); // F12
+        assert_eq!(triggers.len(), 1);
+        assert_eq!(triggers[0].gate_mod_vk, 0x5B); // LWin
+        assert_eq!(triggers[0].trigger_vk, 0x86); // Copilot
+        assert_eq!(triggers[0].prefix_mods, vec![0xA0]); // LShift
+        assert_eq!(triggers[0].output_mods, vec![0xA2]); // LCtrl
+        assert_eq!(triggers[0].output_key, 0x7B); // F12
     }
 
     #[test]
@@ -468,8 +695,20 @@ mod tests {
                 matrix_index: Some(1),
             },
         ];
-        let (combos, pending) = build_remap_tables(&remaps);
+        let (combos, triggers) = build_remap_tables(&remaps);
         assert!(combos.is_empty());
-        assert!(pending.is_empty());
+        assert!(triggers.is_empty());
+    }
+
+    #[test]
+    fn test_prefix_mods_copilot() {
+        let prefix = determine_prefix_mods(0x5B, 0x86);
+        assert_eq!(prefix, vec![0xA0]); // LShift
+    }
+
+    #[test]
+    fn test_prefix_mods_lock() {
+        let prefix = determine_prefix_mods(0x5B, 0x4C);
+        assert!(prefix.is_empty());
     }
 }
