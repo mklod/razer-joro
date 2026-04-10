@@ -47,7 +47,7 @@ Lightweight Windows background process to replace Razer Synapse for the Razer Jo
 - [ ] ~~Capture Synapse key remap traffic~~ Not needed — direct command testing works
 - [ ] ~~Capture Synapse idle/power config~~ Not needed — commands discovered via scan
 
-### Stage 3: Rust Core (Transport + Config) — `COMPLETE`
+### Stage 3: Rust Core (Transport + Config) — `IN PROGRESS`
 - [x] Implement `RazerPacket` builder with CRC (Rust)
 - [x] Implement USB transport via `rusb` (control transfers, interface claiming)
 - [x] Config loader (TOML) with `%APPDATA%\razer-joro\config.toml`
@@ -55,6 +55,9 @@ Lightweight Windows background process to replace Razer Synapse for the Razer Jo
 - [x] Systray icon + menu (tray-icon + winit)
 - [x] Device lifecycle (auto-reconnect, config reload)
 - [x] Hardware verified: lighting, firmware query, CapsLock->Ctrl+F12 combo
+- [x] **Lock key → Delete** (combo-source remap via DisableLockWorkstation + modifier gate)
+- [x] **Copilot key → Ctrl+F12** (modifier gate + prefix mod cancellation)
+- [ ] Test 2.4GHz dongle (PID 0x02CE)
 
 ### Stage 4: BLE + Dongle Transports — `TODO`
 - [ ] BLE transport via btleplug

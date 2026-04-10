@@ -1,5 +1,5 @@
 // src/main.rs — Joro daemon main event loop
-// Last modified: 2026-04-09--2350
+// Last modified: 2026-04-10--0045
 
 mod config;
 mod keys;
@@ -147,9 +147,9 @@ impl App {
         }
 
         // Rebuild remap tables
-        let (combo_table, pending_table) = remap::build_remap_tables(&self.config.remap);
+        let (combo_table, trigger_table) = remap::build_remap_tables(&self.config.remap);
         remap::update_remap_table(combo_table);
-        remap::update_pending_mod_table(pending_table);
+        remap::update_trigger_table(trigger_table);
 
         // Reapply to device
         if let Some(ref dev) = self.device {
@@ -201,9 +201,17 @@ impl ApplicationHandler for App {
         }
 
         // Build initial remap tables
-        let (combo_table, pending_table) = remap::build_remap_tables(&self.config.remap);
+        let (combo_table, trigger_table) = remap::build_remap_tables(&self.config.remap);
+        eprintln!("joro-daemon: {} combo remaps, {} trigger remaps", combo_table.len(), trigger_table.len());
+        for t in &trigger_table {
+            eprintln!("  trigger: gate=0x{:04X} trigger=0x{:04X} prefix={:?} -> mods={:?} key=0x{:04X}",
+                t.gate_mod_vk, t.trigger_vk, t.prefix_mods, t.output_mods, t.output_key);
+        }
         remap::update_remap_table(combo_table);
-        remap::update_pending_mod_table(pending_table);
+        remap::update_trigger_table(trigger_table);
+        // Debug logging disabled — enable for targeted debugging only.
+        // Logs to %LOCALAPPDATA%\razer-joro-target\hook_debug.log
+        // remap::set_debug_log(true);
 
         // Try initial device connection
         self.try_connect();
