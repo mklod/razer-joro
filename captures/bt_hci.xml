@@ -1,0 +1,5003 @@
+<Events>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Guid="{9e814aad-3204-11d2-9a82-006008a86939}" />
+		<EventID>0</EventID>
+		<Version>2</Version>
+		<Level>0</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x0</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:41:51.523427900-07:00" />
+		<Correlation ActivityID="{00000000-0000-0000-0000-000000000000}" />
+		<Execution ProcessID="6864" ThreadID="10468" ProcessorID="0" KernelTime="15" UserTime="0" />
+		<Channel />
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="BufferSize"> 1048576</Data>
+		<Data Name="Version">83951626</Data>
+		<Data Name="ProviderVersion">   19045</Data>
+		<Data Name="NumberOfProcessors">       8</Data>
+		<Data Name="EndTime">134203345729622956</Data>
+		<Data Name="TimerResolution">  156250</Data>
+		<Data Name="MaxFileSize">    4096</Data>
+		<Data Name="LogFileMode">0x2</Data>
+		<Data Name="BuffersWritten">       6</Data>
+		<Data Name="StartBuffers">       1</Data>
+		<Data Name="PointerSize">       8</Data>
+		<Data Name="EventsLost">       0</Data>
+		<Data Name="CPUSpeed">    3593</Data>
+		<Data Name="LoggerName">0x9</Data>
+		<Data Name="LogFileName">0x6</Data>
+		<Data Name="BootTime">134202869395000000</Data>
+		<Data Name="PerfFreq">10000000</Data>
+		<Data Name="StartTime">134203345115234279</Data>
+		<Data Name="ReservedFlags">0x1</Data>
+		<Data Name="BuffersLost">       0</Data>
+		<Data Name="SessionNameString">BT_HCI_Capture</Data>
+		<Data Name="LogFileNameString">L:\PROJECTS\razer-joro\captures\bt_hci.etl</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Opcode>Header</Opcode>
+		<Provider>MSNT_SystemTrace</Provider>
+		<EventName xmlns="http://schemas.microsoft.com/win/2004/08/events/trace">EventTrace</EventName>
+	</RenderingInfo>
+	<ExtendedTracingInfo xmlns="http://schemas.microsoft.com/win/2004/08/events/trace">
+		<EventGuid>{68fdd900-4a3e-11d1-84f4-0000f80464e3}</EventGuid>
+	</ExtendedTracingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Guid="{9e814aad-3204-11d2-9a82-006008a86939}" />
+		<EventID>0</EventID>
+		<Version>2</Version>
+		<Level>0</Level>
+		<Task>0</Task>
+		<Opcode>80</Opcode>
+		<Keywords>0x0</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:41:51.523427900-07:00" />
+		<Correlation ActivityID="{00000000-0000-0000-0000-000000000000}" />
+		<Execution ProcessID="6864" ThreadID="10468" ProcessorID="0" KernelTime="15" UserTime="0" />
+		<Channel />
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>15005</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Opcode>PartitionInfoExtensionV2</Opcode>
+		<Provider>MSNT_SystemTrace</Provider>
+		<EventName xmlns="http://schemas.microsoft.com/win/2004/08/events/trace">EventTrace</EventName>
+	</RenderingInfo>
+	<ExtendedTracingInfo xmlns="http://schemas.microsoft.com/win/2004/08/events/trace">
+		<EventGuid>{68fdd900-4a3e-11d1-84f4-0000f80464e3}</EventGuid>
+	</ExtendedTracingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:41:53.080587200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-cfd1-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43376820" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      45</Data>
+		<Data Name="BIP_Data">0x3E2B020103018AF3E563EA3C1F1EFF0600010F2022AA46ABEF899943FC8A86E488F527611F25B0232EC01D3CD6</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:41:53.082507100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-d0d1-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43376820" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      22</Data>
+		<Data Name="BIP_Data">0x3E1402010301130525B286E10807FF4C0012020000CF</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:41:53.084509800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-d1d1-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43376820" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      23</Data>
+		<Data Name="BIP_Data">0x3E15020100017D2E1C6C0DCF0902010605094A6F726FF3</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:41:53.087531400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-d2d1-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43376820" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      45</Data>
+		<Data Name="BIP_Data">0x3E2B02010000ECF0409EE81C1F0201041BFF7500420C83455D30414A545245300001011CE89E40F0EC0A0204DB</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:41:53.089537000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-d3d1-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43376835" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      30</Data>
+		<Data Name="BIP_Data">0x3E1C020100012CA0C1D253C910020AF60C162CFE003000000011E41464C9</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:00.912815300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-94d2-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43382985" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      45</Data>
+		<Data Name="BIP_Data">0x3E2B0201000135C4FDE8D0F71F1E16B2FC01002A73F6FCE751D0640E8EA9A4303BC9F15710568E5AA1840171C6</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:00.915815000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-95d2-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43382985" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      45</Data>
+		<Data Name="BIP_Data">0x3E2B02010000ECF0409EE81C1F0201041BFF7500420C83455D30414A545245300001011CE89E40F0EC0A0204CB</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:00.918803100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-96d2-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43383000" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      33</Data>
+		<Data Name="BIP_Data">0x3E1E020100016DB2EF2CBD541202011A020A0C0BFF4C0010060B19955E3228DA00</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:08.679155200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-636a-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40110555" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      38</Data>
+		<Data Name="BIP_Data">0x3E24020100007E13650B65F4180201061107B4DF5A1C3F6BF4BFEA4A820304901A02020A03CA</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:08.686098200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-646a-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40110555" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      30</Data>
+		<Data Name="BIP_Data">0x3E1C020100012CA0C1D253C910020AF60C162CFE003000000011E41464CE</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:16.501378600-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-196b-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40115220" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      28</Data>
+		<Data Name="BIP_Data">0x3E1A02010001FB2B18EA5BF60E0201060302AFFE06094E5832524AE3</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:16.507385100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-1a6b-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40115220" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      42</Data>
+		<Data Name="BIP_Data">0x3E28020103002DD087139DE01C1BFF75004204018066E09D1387D02DE29D1387D02C012B0000000000C6</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:24.279667500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-a5d6-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43398870" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      45</Data>
+		<Data Name="BIP_Data">0x3E2B02010000ECF0409EE81C1F0201041BFF7500420C83455D30414A545245300001011CE89E40F0EC0A0204DB</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.790195200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="4" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000B000B0000001245001500000001A0000000000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.790230600-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="4" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.790250400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="4" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001500000001A00000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.790506300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="12588" ProcessorID="1" KernelTime="3495" UserTime="2535" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001500000001A00000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.897593600-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-f36c-5b76ccc8dc01}" />
+		<Execution ProcessID="5464" ThreadID="13496" ProcessorID="0" KernelTime="75" UserTime="105" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.911607500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-f46c-5b76ccc8dc01}" />
+		<Execution ProcessID="6328" ThreadID="5520" ProcessorID="0" KernelTime="945" UserTime="615" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.911611500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-f46c-5b76ccc8dc01}" />
+		<Execution ProcessID="6328" ThreadID="5520" ProcessorID="0" KernelTime="945" UserTime="615" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.912189300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-f56c-5b76ccc8dc01}" />
+		<Execution ProcessID="13620" ThreadID="13588" ProcessorID="0" KernelTime="75" UserTime="285" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47001501000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.912194500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-f56c-5b76ccc8dc01}" />
+		<Execution ProcessID="13620" ThreadID="13588" ProcessorID="0" KernelTime="75" UserTime="285" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47001501000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.934191700-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-fa6c-5b76ccc8dc01}" />
+		<Execution ProcessID="13916" ThreadID="13756" ProcessorID="0" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47000201000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.934195600-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-fa6c-5b76ccc8dc01}" />
+		<Execution ProcessID="13916" ThreadID="13756" ProcessorID="0" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47000201000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.939842400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="7" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000B000B0000001245001600000001A0000000000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.939900000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="7" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.939918600-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="7" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001600000001A00000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.940181900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="11856" ThreadID="11448" ProcessorID="0" KernelTime="45" UserTime="390" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001600000001A00000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.949597300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-fb6c-5b76ccc8dc01}" />
+		<Execution ProcessID="648" ThreadID="7428" ProcessorID="0" KernelTime="1500" UserTime="6225" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.964181400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-fc6c-5b76ccc8dc01}" />
+		<Execution ProcessID="13620" ThreadID="13588" ProcessorID="0" KernelTime="75" UserTime="315" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.964185000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-fc6c-5b76ccc8dc01}" />
+		<Execution ProcessID="13620" ThreadID="13588" ProcessorID="0" KernelTime="75" UserTime="315" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.964614900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-fd6c-5b76ccc8dc01}" />
+		<Execution ProcessID="13620" ThreadID="13588" ProcessorID="0" KernelTime="75" UserTime="315" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47001601000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.964619100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-fd6c-5b76ccc8dc01}" />
+		<Execution ProcessID="13620" ThreadID="13588" ProcessorID="0" KernelTime="75" UserTime="315" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47001601000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.994204900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-fe6c-5b76ccc8dc01}" />
+		<Execution ProcessID="6328" ThreadID="5520" ProcessorID="0" KernelTime="945" UserTime="615" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47000201000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:29.994209000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-fe6c-5b76ccc8dc01}" />
+		<Execution ProcessID="6328" ThreadID="5520" ProcessorID="0" KernelTime="945" UserTime="615" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47000201000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.050980500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="1" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000B000B000000124500170000000587000100000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.051007100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="1" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.051023300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="1" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001700000005870001</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.051196300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="13620" ThreadID="13588" ProcessorID="1" KernelTime="75" UserTime="390" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001700000005870001</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.159626400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-b7d7-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43402515" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.174217200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-076d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40122975" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.174222200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-076d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40122975" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.174647200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-086d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40122975" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47001701000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.174652300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-086d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40122975" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47001701000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.204237000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-0b6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40122990" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47000101000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.204240700-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-0b6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40122990" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47000101000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.206978900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="1" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000B000B000000124500180000000584000000000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.207005000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="1" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.207019600-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="1" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001800000005840000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.207225900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="13880" ProcessorID="0" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001800000005840000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.211642300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-0c6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40122990" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.226662500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-0d6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40123005" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.226667300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-0d6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40123005" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.227249000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-0e6d-5b76ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="13880" ProcessorID="0" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47001802000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.227254200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-0e6d-5b76ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="13880" ProcessorID="0" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47001802000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.256679400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-116d-5b76ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="12588" ProcessorID="0" KernelTime="3510" UserTime="2580" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47008403000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.256683200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-116d-5b76ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="12588" ProcessorID="0" KernelTime="3510" UserTime="2580" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47008403000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.286698100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="6" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000B000B000000124500190000000587000100000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.286745000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="6" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.286765200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="6" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001900000005870001</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.287242000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="13620" ThreadID="13588" ProcessorID="0" KernelTime="105" UserTime="555" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001900000005870001</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.437682800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-176d-5b76ccc8dc01}" />
+		<Execution ProcessID="6184" ThreadID="10512" ProcessorID="0" KernelTime="103830" UserTime="20400" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.451688800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-186d-5b76ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="12588" ProcessorID="0" KernelTime="3585" UserTime="2685" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.451692400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-186d-5b76ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="12588" ProcessorID="0" KernelTime="3585" UserTime="2685" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.452278700-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-196d-5b76ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="12904" ProcessorID="0" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47001901000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.452282900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-196d-5b76ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="12904" ProcessorID="0" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47001901000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.481711200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-1f6d-5b76ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="12588" ProcessorID="0" KernelTime="3600" UserTime="2700" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47000101000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.481716100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-1f6d-5b76ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="12588" ProcessorID="0" KernelTime="3600" UserTime="2700" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47000101000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.485053000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="4" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000B000B0000001245001A0000000584000000000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.485083900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="4" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.485100800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="4" KernelTime="0" UserTime="30" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001A00000005840000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.485267100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="12588" ProcessorID="0" KernelTime="3600" UserTime="2700" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001A00000005840000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.496689200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-206d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40123020" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.511703100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-216d-5b76ccc8dc01}" />
+		<Execution ProcessID="976" ThreadID="992" ProcessorID="0" KernelTime="96480" UserTime="18405" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.511706500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-216d-5b76ccc8dc01}" />
+		<Execution ProcessID="976" ThreadID="992" ProcessorID="0" KernelTime="96480" UserTime="18405" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.512289300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-226d-5b76ccc8dc01}" />
+		<Execution ProcessID="11856" ThreadID="14052" ProcessorID="0" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47001A02000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.512295000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-226d-5b76ccc8dc01}" />
+		<Execution ProcessID="11856" ThreadID="14052" ProcessorID="0" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47001A02000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.541723400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-236d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40123035" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47008403000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.541727800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-236d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40123035" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47008403000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.544053000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="7" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000B000B0000001245001B0100000507000100000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.544077700-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="7" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.544090800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="7" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001B01000005070001</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.544277500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40123035" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001B01000005070001</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.556693900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-266d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40123050" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.571710400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-276d-5b76ccc8dc01}" />
+		<Execution ProcessID="5540" ThreadID="13748" ProcessorID="0" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.571714000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-276d-5b76ccc8dc01}" />
+		<Execution ProcessID="5540" ThreadID="13748" ProcessorID="0" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.573263500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="0" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000400040000001245000000000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.573286700-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="0" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.573301100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="0" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">8</Data>
+		<Data Name="PDU_Length">4</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">12</Data>
+		<Data Name="Data">0x410008000400040012450000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.573625200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="13620" ThreadID="13588" ProcessorID="0" KernelTime="105" UserTime="690" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">8</Data>
+		<Data Name="PDU_Length">4</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">12</Data>
+		<Data Name="Data">0x410008000400040012450000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.586697500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-286d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40123065" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.601716300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-296d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40123065" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.601720500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-296d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40123065" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.602305800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-2a6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40123065" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47001B00000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:30.602311400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-2a6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40123065" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47001B00000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:32.048940900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-3f6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40124085" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      41</Data>
+		<Data Name="BIP_Data">0x3E27020103019B6A6A0DCE561B02011A17FF4C0009081302C0A8011A1B581608006B4FEDA635E5DFDB</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.244472800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="0" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000B000B0000001245001C0100001005010000000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.244505900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="0" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.244525800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="0" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001C01000010050100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.244892000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="6328" ThreadID="5520" ProcessorID="0" KernelTime="1020" UserTime="690" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001C01000010050100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.337313300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-796d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40125525" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.343898800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-7a6d-5b76ccc8dc01}" />
+		<Execution ProcessID="13620" ThreadID="13588" ProcessorID="0" KernelTime="150" UserTime="1065" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.343902400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-7a6d-5b76ccc8dc01}" />
+		<Execution ProcessID="13620" ThreadID="13588" ProcessorID="0" KernelTime="150" UserTime="1065" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.345891800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="1" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000400040000001245000000000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.345919400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="1" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.345936300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="1" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">8</Data>
+		<Data Name="PDU_Length">4</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">12</Data>
+		<Data Name="Data">0x410008000400040012450000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.346247200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="4" ThreadID="868" ProcessorID="0" KernelTime="10740" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">8</Data>
+		<Data Name="PDU_Length">4</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">12</Data>
+		<Data Name="Data">0x410008000400040012450000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.359315200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-7c6d-5b76ccc8dc01}" />
+		<Execution ProcessID="14008" ThreadID="14020" ProcessorID="0" KernelTime="90" UserTime="90" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.373907300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-7d6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40125555" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.373910600-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-7d6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40125555" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.374916500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-7e6d-5b76ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="2356" ProcessorID="0" KernelTime="30" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47001C00000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:34.374919300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-7e6d-5b76ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="2356" ProcessorID="0" KernelTime="30" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47001C00000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.015760800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="7" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000B000B0000001245001D0100001005010000000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.015792200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="7" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.015808100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="7" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001D01000010050100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.016198500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="4" ThreadID="868" ProcessorID="0" KernelTime="10740" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001D01000010050100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.024588100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-8b6d-5b76ccc8dc01}" />
+		<Execution ProcessID="14056" ThreadID="13404" ProcessorID="0" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.039184400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-8c6d-5b76ccc8dc01}" />
+		<Execution ProcessID="14056" ThreadID="7740" ProcessorID="0" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.039188100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-8c6d-5b76ccc8dc01}" />
+		<Execution ProcessID="14056" ThreadID="7740" ProcessorID="0" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.040688100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="7" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000400040000001245006600000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.040717000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="7" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.040733200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="7" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">8</Data>
+		<Data Name="PDU_Length">4</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">12</Data>
+		<Data Name="Data">0x410008000400040012450066</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.041177100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40126950" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">8</Data>
+		<Data Name="PDU_Length">4</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">12</Data>
+		<Data Name="Data">0x410008000400040012450066</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.054623600-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-8d6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40126950" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.069185900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-8e6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40126965" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.069188800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-8e6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40126965" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.069622200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-8f6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40126965" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47001D00000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:36.069624400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-8f6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40126965" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47001D00000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:39.834223300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-dd6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40129515" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      43</Data>
+		<Data Name="BIP_Data">0x3E2902010000D191CBBDD61C1D050962756C6208FF1115000101FFFF020106020A0A0000000000000000C8</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:39.983146600-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="7" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000B000B0000001245001E0000000186000000000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:39.983173000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="7" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:39.983188300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="7" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001E00000001860000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:39.983406900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="6628" ProcessorID="0" KernelTime="1725" UserTime="6090" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245001E00000001860000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.000247500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-e56d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40129650" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.013834400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-e66d-5b76ccc8dc01}" />
+		<Execution ProcessID="6328" ThreadID="7604" ProcessorID="0" KernelTime="600" UserTime="1380" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.013837600-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-e66d-5b76ccc8dc01}" />
+		<Execution ProcessID="6328" ThreadID="7604" ProcessorID="0" KernelTime="600" UserTime="1380" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.014851700-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-e76d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40129650" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47001E03000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.014855200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-e76d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40129650" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47001E03000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.044360700-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-ea6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40129665" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47001402000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.044364400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-ea6d-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40129665" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47001402000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.116322600-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="6" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000B000B000000124500070700001003010000000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.116348100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="6" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.116362900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="1864" ProcessorID="6" KernelTime="0" UserTime="45" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245000707000010030100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.116856200-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="5688" ThreadID="12328" ProcessorID="1" KernelTime="30" UserTime="75" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">15</Data>
+		<Data Name="PDU_Length">11</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">19</Data>
+		<Data Name="Data">0x41000F000B0004001245000707000010030100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.217284100-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-c4d8-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43410435" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.223870800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-c5d8-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43410435" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.223874000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-c5d8-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43410435" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>267</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x2000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.225307300-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="0" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+		<Computer />
+	</System>
+	<ProcessingErrorData>
+		<ErrorCode>111</ErrorCode>
+		<DataItemName />
+		<EventPayload>000000000000000000000000000000000090000000010007810000000000000000000400000000000000000000000000000000000000000000000000000000000000001088F1AF0AA7FFFF0000000000000000000000000000000000000000000000000206000000000000000051CEB20AA7FFFF9F2F5D77E2C80000080000000A000A0000001245000100000100008000000000</EventPayload>
+	</ProcessingErrorData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>BRB_L2CA_SEND_FIXED_CHANNEL_DATA </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/L2CAP</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>262</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.225359900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="0" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="Num_HCI_Packets">       1</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Segmenting L2CAP packet into HCI Packets </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.225372400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="1112" ThreadID="10600" ProcessorID="0" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">0</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">14</Data>
+		<Data Name="PDU_Length">10</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">18</Data>
+		<Data Name="Data">0x41000E000A00040012450001000001000080</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>263</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.225868900-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-cbf0-4876ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43410435" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x0</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">14</Data>
+		<Data Name="PDU_Length">10</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">18</Data>
+		<Data Name="Data">0x41000E000A00040012450001000001000080</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Write HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.232284500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-c6d8-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43410450" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">       7</Data>
+		<Data Name="BIP_Data">0x13050141000100</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.238878800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-c7d8-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43410450" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">       9</Data>
+		<Data Name="BIP_Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.238882800-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-c7d8-5176ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="1" KernelTime="43410450" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">5</Data>
+		<Data Name="PDU_Length">1</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">9</Data>
+		<Data Name="Data">0x412005000100040013</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.239894700-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-c8d8-5176ccc8dc01}" />
+		<Execution ProcessID="13528" ThreadID="10144" ProcessorID="1" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">3</Data>
+		<Data Name="BIP_DataLen">      31</Data>
+		<Data Name="BIP_Data">0x41201B00170004001B47000700000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>264</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x4000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:40.239900000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0001-c8d8-5176ccc8dc01}" />
+		<Execution ProcessID="13528" ThreadID="10144" ProcessorID="1" KernelTime="0" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="SentStatus">1</Data>
+		<Data Name="Connection_Handle">0x41</Data>
+		<Data Name="Packet_Boundary_Flag">0x2</Data>
+		<Data Name="Broadcast_Flag">0x0</Data>
+		<Data Name="Buffer_Length">27</Data>
+		<Data Name="PDU_Length">23</Data>
+		<Data Name="Channel_ID">0x4</Data>
+		<Data Name="Code">0x0</Data>
+		<Data Name="Identifier">0x0</Data>
+		<Data Name="Signal_Length">0</Data>
+		<Data Name="Data_Length">31</Data>
+		<Data Name="Data">0x41201B00170004001B47000700000000000002000000000000000000000000</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Message>Read HCI Packet </Message>
+		<Channel>Microsoft-Windows-BTH-BTHPORT/HCI</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:47.616502500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-d26e-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40134915" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      42</Data>
+		<Data Name="BIP_Data">0x3E2802010300B972D009B4B81C1BFF75004204018066B8B409D072B9BAB409D072B801000000000000C0</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:47.619493400-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-d36e-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40134915" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      45</Data>
+		<Data Name="BIP_Data">0x3E2B02010000ECF0409EE81C1F0201041BFF7500420C83455D30414A545245300001011CE89E40F0EC0A0204D7</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:47.622493000-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-d46e-5b76ccc8dc01}" />
+		<Execution ProcessID="0" ThreadID="0" ProcessorID="0" KernelTime="40134915" UserTime="0" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      33</Data>
+		<Data Name="BIP_Data">0x3E1E0201000106DCBE216C451202011A020A0C0BFF4C001006451DEB3C9708C700</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+	<System>
+		<Provider Name="Microsoft-Windows-BTH-BTHPORT" Guid="{8a1f9517-3a8c-4a9e-a018-4f17a200f277}" />
+		<EventID>402</EventID>
+		<Version>0</Version>
+		<Level>4</Level>
+		<Task>0</Task>
+		<Opcode>0</Opcode>
+		<Keywords>0x8000000000000000</Keywords>
+		<TimeCreated SystemTime="2026-04-10T15:42:47.624495500-07:00" />
+		<Correlation ActivityID="{7648f050-c8cc-0000-d56e-5b76ccc8dc01}" />
+		<Execution ProcessID="13948" ThreadID="5464" ProcessorID="0" KernelTime="0" UserTime="15" />
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+		<Computer />
+	</System>
+	<EventData>
+		<Data Name="CommandPacketsAllowed">1</Data>
+		<Data Name="AclWriteCredits">9</Data>
+		<Data Name="BIP_Type">2</Data>
+		<Data Name="BIP_DataLen">      30</Data>
+		<Data Name="BIP_Data">0x3E1C020100012CA0C1D253C910020AF60C162CFE003000000011E41464CB</Data>
+	</EventData>
+	<RenderingInfo Culture="en-US">
+		<Level>Information </Level>
+		<Opcode>Info </Opcode>
+		<Channel>Microsoft-Windows-BTH-HCI/HCIRAW</Channel>
+	</RenderingInfo>
+</Event>
+</Events>

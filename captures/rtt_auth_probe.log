@@ -1,0 +1,35 @@
+[00:00:35.771,331] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:00:37.771,514] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:00:39.771,697] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:00:41.771,881] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:00:43.772,064] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:00:45.772,247] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:00:47.772,430] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:00:49.772,613] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:00:51.772,796] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:00:53.772,979] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:00:55.773,162] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:00:57.171,844] [0m<inf> mitm_main: *** connected_cb: addr=00:A7:44:25:09:D6 (public) err=0x00[0m
+[00:00:57.171,905] [0m<inf> mitm_main: <<< DOWNSTREAM connected: 00:A7:44:25:09:D6 (public) (Synapse connected to us)[0m
+[00:00:57.490,844] [0m<inf> mitm_main: <<< DOWNSTREAM disconnected: 00:A7:44:25:09:D6 (public) (reason 0x13)[0m
+[00:00:57.491,363] [0m<inf> peripheral: Advertising as 'Joro'[0m
+[00:00:57.704,132] [0m<inf> mitm_main: *** connected_cb: addr=00:A7:44:25:09:D6 (public) err=0x00[0m
+[00:00:57.704,162] [0m<inf> mitm_main: <<< DOWNSTREAM connected: 00:A7:44:25:09:D6 (public) (Synapse connected to us)[0m
+[00:00:57.773,345] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=conne
+[00:00:57.910,858] [0m<inf> mitm_main: <<< DOWNSTREAM disconnected: 00:A7:44:25:09:D6 (public) (reason 0x13)[0m
+[00:00:57.911,376] [0m<inf> peripheral: Advertising as 'Joro'[0m
+[00:00:59.773,498] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:01:01.773,681] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:01:03.773,864] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:01:05.774,047] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:01:07.774,230] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:01:09.774,414] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:01:11.774,597] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:01:13.774,780] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:01:15.774,963] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:01:17.775,146] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:01:19.775,329] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:01:21.775,512] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:01:23.775,695] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=9, KB->PC 1526=0, upstream=connected, downstream=none
+[00:01:26.646,697] [0m<inf> central: 1525 subscription ended[0m
+[00:05:22.390,380] [0m<inf> relay: Stats: PC->KB writes=0, KB->PC 1525=97, KB->PC 1526=0, upstream=connected, downstream=none

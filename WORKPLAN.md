@@ -42,8 +42,8 @@ Lightweight Windows background process to replace Razer Synapse for the Razer Jo
 - [x] Test modifier combo remaps — firmware only supports 1:1 swaps, combos need host software
 - [ ] Map remaining keyboard matrix indices (only 1-8 + 30 known)
 - [ ] Decode and test sleep/idle config (class 0x06)
-- [x] BLE GATT exploration — services enumerated, custom Razer service found, auth required
-- [ ] BLE auth handshake reverse engineering (needs Synapse BLE traffic capture)
+- [x] BLE GATT exploration — services enumerated, custom Razer service found
+- [x] BLE Protocol30 reverse engineering — split write protocol cracked, SET brightness/color WORKING
 - [ ] ~~Capture Synapse key remap traffic~~ Not needed — direct command testing works
 - [ ] ~~Capture Synapse idle/power config~~ Not needed — commands discovered via scan
 
@@ -61,8 +61,14 @@ Lightweight Windows background process to replace Razer Synapse for the Razer Jo
 - [x] Persistent remap storage — investigated, not available (keymaps volatile, lighting auto-persists)
 - [ ] Test 2.4GHz dongle (PID 0x02CE)
 
-### Stage 4: BLE + Dongle Transports — `TODO`
-- [ ] BLE transport via btleplug
+### Stage 4: BLE + Dongle Transports — `IN PROGRESS`
+- [x] BLE Protocol30 reverse engineering — split write protocol, all 3 bugs found and fixed
+- [x] MITM proxy firmware (Zephyr on nRF52840) — full command relay + test harness
+- [x] BLE SET brightness verified on hardware (0x10/0x05 split write)
+- [x] BLE SET static color verified on hardware (0x10/0x03 split write, RGB cycling)
+- [x] BT HCI capture infrastructure (ETW + tracerpt XML parsing)
+- [ ] BLE transport via btleplug (split write support needed)
+- [ ] Map animated effects (wave, breathing, spectrum — different data format needed)
 - [ ] Dongle transport (PID TBD from enumeration)
 - [ ] Transport auto-detection and switching
 - [ ] BLE sleep fix applied on connect

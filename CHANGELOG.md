@@ -2,11 +2,57 @@
 
 ## TODO
 > [!tip] Queued for next build
+> - BLE: Python bleak control script (direct to keyboard, no proxy needed)
+> - BLE: Map animated effects (wave, breathing, spectrum — may need different data format or command)
+> - BLE: Integrate into Rust daemon via btleplug (split write support)
 > - Test 2.4GHz dongle (PID 0x02CE)
 > - Map remaining keyboard indices (only 1-8 + 30 known)
 > - Release build + single exe packaging
 > - Config polish (more key names, validation)
 > - Investigate Fn-lock toggle command (Fn row defaults to multimedia keys)
+
+## Build 2026-04-10--1630 — BLE SET Commands Working
+
+**Changes**
+- **BLE SET brightness** — WORKING over BLE via Protocol30 split writes
+- **BLE SET static color (RGB)** — WORKING, visually confirmed with R→G→B cycling x3
+- **BLE Protocol30 fully reverse-engineered** — three bugs found and fixed:
+  1. 20-byte padding bug in MITM proxy (keyboard requires exact byte lengths)
+  2. Single-write SETs → must use split writes (header + data as separate ATT Write Requests)
+  3. Wrong sub-parameter (sub1 must be 0x01, not 0x00)
+- **MITM proxy firmware** — 8 iterations: padding fix, Write Request, SMP pairing, split writes
+- **BT HCI capture infrastructure** — ETW trace + tracerpt XML parsing to decode Razer driver traffic
+- **Effect type sweep** — static (0x01) works; initial sweep failed because dlen was fixed at 7
+- **Driver init sequence captured** — 0x01/0xA0 (x2), 0x05/0x87, 0x05/0x84, 0x05/0x07
+- **Effect data format decoded** from Chroma Studio HCI capture:
+  - Variable-length: `[effect, param, 0, num_colors, R1,G1,B1, R2,G2,B2, ...]`
+  - dlen = 4 + (num_colors × 3): static=7B, breathing-1=7B, breathing-2=10B, spectrum=4B
+  - Static (0x01): `01 00 00 01 R G B`
+  - Breathing 1-color (0x02): `02 01 00 01 R G B`
+  - Breathing 2-color (0x02): `02 02 00 02 R1 G1 B1 R2 G2 B2`
+  - Spectrum cycling (0x03): `03 00 00 00`
+  - Wave/reactive/starlight: not yet captured
+
+**Key Protocol Details**
+```
+GET: single ATT Write Request, 8 bytes [txn, 0, 0, 0, class, cmd, sub1, sub2]
+SET: split ATT Write Requests:
+  Write 1: [txn, dlen, 0, 0, class, cmd, sub1, sub2]  (8 bytes)
+  Write 2: [data...]                                    (dlen bytes)
+
+SET brightness: class=0x10, cmd=0x05, sub1=0x01, data=[0x00-0xFF]
+SET color:      class=0x10, cmd=0x03, sub1=0x01, data=[enabled,0,0,effect,R,G,B]
+```
+
+> [!warning] Testing Checklist
+> - [x] SET brightness over BLE — SUCCESS responses confirmed in serial log
+>   - Notes: All 4 brightness levels (MAX/LOW/OFF/MAX) returned status 0x02. GET readback showed 0xFF after SET.
+> - [x] SET static color over BLE — RGB cycling visually confirmed on hardware
+>   - Notes: 3 full R→G→B cycles, user confirmed visual color change. GET state showed `01 00 00 01 ff ff ff` after white restore.
+> - [x] Animated effects format decoded — variable-length data, captured from Chroma Studio HCI trace
+>   - Notes: Static=7B, breathing-1=7B, breathing-2=10B, spectrum=4B. Wave/reactive/starlight still TBD.
+> - [ ] Brightness visual confirmation — user did not observe brightness changes (may have been on wrong slot)
+>   - Notes: Protocol responses were all SUCCESS and GET readback confirmed value changed.
 
 ## Build 2026-04-10--0230
 **Changes**
