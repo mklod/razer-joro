@@ -67,6 +67,10 @@ static KEY_TABLE: &[(&str, VkCode, HidUsage)] = &[
     ("RShift",  0xA1, 0xE5),
     ("RAlt",    0xA5, 0xE6),
     ("RGui",    0x5C, 0xE7),
+    // Aliases
+    ("LWin",    0x5B, 0xE3),
+    ("RWin",    0x5C, 0xE7),
+    ("Copilot", 0x86, 0x00),  // Razer Joro "Copilot" key = VK 0x86 (sent with LWin)
     // App key
     ("App", 0x5D, 0x65),
 ];
