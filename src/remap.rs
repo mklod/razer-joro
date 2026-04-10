@@ -1,5 +1,5 @@
 // src/remap.rs — Host-side keyboard hook remap engine
-// Last modified: 2026-04-09--2355
+// Last modified: 2026-04-09--2358
 
 use crate::keys::{self, VkCode};
 use std::sync::Mutex;
@@ -66,43 +66,94 @@ pub fn set_debug_log(enabled: bool) {
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
-/// Build a remap table from config entries.
-/// Only entries whose `to` field resolves to a combo (has modifiers) are added;
-/// single-key remaps are handled by firmware and are skipped here.
-pub fn build_remap_table(remaps: &[crate::config::RemapConfig]) -> Vec<ComboRemap> {
-    let mut table = Vec::new();
+/// Build both remap tables from config entries.
+///
+/// Returns `(combo_remaps, pending_modifier_remaps)`:
+/// - combo_remaps: single key → combo (e.g., CapsLock → Ctrl+F12)
+/// - pending_modifier_remaps: combo → key/combo (e.g., Win+L → Delete)
+///
+/// Classification:
+/// - `from` has `+` → combo-source → PendingModifierRemap
+/// - `from` single key, `to` has `+` → combo-output → ComboRemap
+/// - `from` single key, `to` single key → firmware remap (skipped)
+pub fn build_remap_tables(
+    remaps: &[crate::config::RemapConfig],
+) -> (Vec<ComboRemap>, Vec<PendingModifierRemap>) {
+    let mut combo_table = Vec::new();
+    let mut pending_table = Vec::new();
+
     for entry in remaps {
-        // Parse the `from` key
-        let from_vk = match keys::key_name_to_vk(&entry.from) {
-            Some(vk) => vk,
-            None => {
-                eprintln!("remap: unknown 'from' key '{}', skipping", entry.from);
+        if entry.from.contains('+') {
+            // Combo-source remap: parse from as modifier+trigger
+            let (from_mods, from_key) = match keys::parse_key_combo(&entry.from) {
+                Some(pair) => pair,
+                None => {
+                    eprintln!("remap: cannot parse 'from' combo '{}', skipping", entry.from);
+                    continue;
+                }
+            };
+            if from_mods.len() != 1 {
+                eprintln!(
+                    "remap: combo-source '{}' must have exactly one modifier, skipping",
+                    entry.from
+                );
                 continue;
             }
-        };
 
-        // Parse the `to` combo
-        let (mods, key_vk) = match keys::parse_key_combo(&entry.to) {
-            Some(pair) => pair,
-            None => {
-                eprintln!("remap: cannot parse 'to' combo '{}', skipping", entry.to);
+            // Parse `to` as key or combo
+            let (to_mods, to_key) = match keys::parse_key_combo(&entry.to) {
+                Some(pair) => pair,
+                None => {
+                    eprintln!("remap: cannot parse 'to' '{}', skipping", entry.to);
+                    continue;
+                }
+            };
+
+            pending_table.push(PendingModifierRemap {
+                held_vk: from_mods[0],
+                trigger_vk: from_key,
+                output_mods: to_mods,
+                output_key: to_key,
+            });
+        } else {
+            // Single-key source
+            let from_vk = match keys::key_name_to_vk(&entry.from) {
+                Some(vk) => vk,
+                None => {
+                    eprintln!("remap: unknown 'from' key '{}', skipping", entry.from);
+                    continue;
+                }
+            };
+
+            let (mods, key_vk) = match keys::parse_key_combo(&entry.to) {
+                Some(pair) => pair,
+                None => {
+                    eprintln!("remap: cannot parse 'to' combo '{}', skipping", entry.to);
+                    continue;
+                }
+            };
+
+            if mods.is_empty() {
+                // Single-key → single-key: firmware remap, skip
                 continue;
             }
-        };
 
-        // Only host-side if there are modifiers
-        if mods.is_empty() {
-            // Single-key remap — firmware handles this, skip
-            continue;
+            combo_table.push(ComboRemap {
+                from_vk,
+                modifier_vks: mods,
+                key_vk,
+            });
         }
-
-        table.push(ComboRemap {
-            from_vk,
-            modifier_vks: mods,
-            key_vk,
-        });
     }
-    table
+
+    (combo_table, pending_table)
+}
+
+/// Compatibility shim: delegates to `build_remap_tables`, returns only the combo table.
+/// Deprecated — callers should migrate to `build_remap_tables`.
+#[allow(dead_code)]
+pub fn build_remap_table(remaps: &[crate::config::RemapConfig]) -> Vec<ComboRemap> {
+    build_remap_tables(remaps).0
 }
 
 /// Replace the active remap table.
@@ -348,5 +399,84 @@ fn send_inputs(inputs: &[INPUT]) {
     let cb = std::mem::size_of::<INPUT>() as i32;
     unsafe {
         SendInput(inputs, cb);
+    }
+}
+
+// ── Tests ────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::RemapConfig;
+
+    #[test]
+    fn test_build_tables_combo_source() {
+        let remaps = vec![
+            RemapConfig {
+                name: "Lock to Delete".into(),
+                from: "Win+L".into(),
+                to: "Delete".into(),
+                matrix_index: None,
+            },
+        ];
+        let (combos, pending) = build_remap_tables(&remaps);
+        assert!(combos.is_empty());
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].held_vk, 0x5B); // LWin
+        assert_eq!(pending[0].trigger_vk, 0x4C); // L
+        assert_eq!(pending[0].output_mods, Vec::<VkCode>::new());
+        assert_eq!(pending[0].output_key, 0x2E); // Delete
+    }
+
+    #[test]
+    fn test_build_tables_combo_output() {
+        let remaps = vec![
+            RemapConfig {
+                name: "CapsLock to Ctrl+F12".into(),
+                from: "CapsLock".into(),
+                to: "Ctrl+F12".into(),
+                matrix_index: Some(30),
+            },
+        ];
+        let (combos, pending) = build_remap_tables(&remaps);
+        assert_eq!(combos.len(), 1);
+        assert_eq!(combos[0].from_vk, 0x14); // CapsLock
+        assert_eq!(combos[0].modifier_vks, vec![0xA2]); // LCtrl
+        assert_eq!(combos[0].key_vk, 0x7B); // F12
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn test_build_tables_copilot_combo_source() {
+        let remaps = vec![
+            RemapConfig {
+                name: "Copilot to Ctrl+F12".into(),
+                from: "Win+Copilot".into(),
+                to: "Ctrl+F12".into(),
+                matrix_index: None,
+            },
+        ];
+        let (combos, pending) = build_remap_tables(&remaps);
+        assert!(combos.is_empty());
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].held_vk, 0x5B); // LWin
+        assert_eq!(pending[0].trigger_vk, 0x86); // Copilot
+        assert_eq!(pending[0].output_mods, vec![0xA2]); // LCtrl
+        assert_eq!(pending[0].output_key, 0x7B); // F12
+    }
+
+    #[test]
+    fn test_build_tables_firmware_remap_skipped() {
+        let remaps = vec![
+            RemapConfig {
+                name: "Escape to Grave".into(),
+                from: "Escape".into(),
+                to: "Grave".into(),
+                matrix_index: Some(1),
+            },
+        ];
+        let (combos, pending) = build_remap_tables(&remaps);
+        assert!(combos.is_empty());
+        assert!(pending.is_empty());
     }
 }
