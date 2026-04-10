@@ -38,19 +38,23 @@ Lightweight Windows background process to replace Razer Synapse for the Razer Jo
 - [x] Lighting commands verified on hardware (static color + brightness)
 - [x] Brute-force command scan — all supported commands discovered
 - [x] Key remap SET/GET confirmed working (backtick->A verified)
-- [ ] Map full keyboard matrix indices (CapsLock index search in progress)
-- [ ] Test modifier combo remaps
+- [x] Map CapsLock matrix index (confirmed: idx 30)
+- [x] Test modifier combo remaps — firmware only supports 1:1 swaps, combos need host software
+- [ ] Map remaining keyboard matrix indices (only 1-8 + 30 known)
 - [ ] Decode and test sleep/idle config (class 0x06)
-- [ ] BLE GATT exploration with bleak
+- [x] BLE GATT exploration — services enumerated, custom Razer service found, auth required
+- [ ] BLE auth handshake reverse engineering (needs Synapse BLE traffic capture)
 - [ ] ~~Capture Synapse key remap traffic~~ Not needed — direct command testing works
 - [ ] ~~Capture Synapse idle/power config~~ Not needed — commands discovered via scan
 
-### Stage 3: Rust Core (Transport + Config) — `TODO`
-- [ ] Implement `RazerPacket` builder with CRC (Rust)
-- [ ] Implement USB transport via `rusb` (NOT hidapi-rs — control transfers required)
-- [ ] Config loader (TOML)
-- [ ] CLI test harness
-- [ ] **Note:** Plan needs update — must use `rusb` crate instead of `hidapi-rs`
+### Stage 3: Rust Core (Transport + Config) — `COMPLETE`
+- [x] Implement `RazerPacket` builder with CRC (Rust)
+- [x] Implement USB transport via `rusb` (control transfers, interface claiming)
+- [x] Config loader (TOML) with `%APPDATA%\razer-joro\config.toml`
+- [x] **Host-side combo remap engine** (WH_KEYBOARD_LL + SendInput)
+- [x] Systray icon + menu (tray-icon + winit)
+- [x] Device lifecycle (auto-reconnect, config reload)
+- [x] Hardware verified: lighting, firmware query, CapsLock->Ctrl+F12 combo
 
 ### Stage 4: BLE + Dongle Transports — `TODO`
 - [ ] BLE transport via btleplug
