@@ -174,6 +174,8 @@ impl App {
                     let _ = std::process::Command::new("cmd")
                         .args(["/C", "start", "", &path])
                         .spawn();
+                } else if id == &tray.menu_autostart_id {
+                    tray.toggle_autostart();
                 }
             }
         }
