@@ -1,5 +1,5 @@
 // src/config.rs — TOML config schema and loader
-// Last modified: 2026-04-09--2200
+// Last modified: 2026-04-09--2350
 
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -33,7 +33,21 @@ mode = "static"
 color = "#FFFFFF"
 brightness = 128
 
-# Uncomment and edit to add remaps:
+# Key remaps
+# from = single key name for firmware/host remap
+# from = "Modifier+Key" for combo-source intercept (e.g., keyboard sends Win+L)
+# to = single key for simple output, "Modifier+Key" for combo output
+
+[[remap]]
+name = "Lock key to Delete"
+from = "Win+L"
+to = "Delete"
+
+[[remap]]
+name = "Copilot key to Ctrl+F12"
+from = "Win+Copilot"
+to = "Ctrl+F12"
+
 # [[remap]]
 # name = "CapsLock to Ctrl+F12"
 # from = "CapsLock"
@@ -156,5 +170,10 @@ matrix_index = 1
         let config: Config = toml::from_str(DEFAULT_CONFIG).unwrap();
         assert_eq!(config.lighting.color, "#FFFFFF");
         assert_eq!(config.lighting.brightness, 128);
+        assert_eq!(config.remap.len(), 2);
+        assert_eq!(config.remap[0].from, "Win+L");
+        assert_eq!(config.remap[0].to, "Delete");
+        assert_eq!(config.remap[1].from, "Win+Copilot");
+        assert_eq!(config.remap[1].to, "Ctrl+F12");
     }
 }

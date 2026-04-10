@@ -1,5 +1,5 @@
 // src/remap.rs — Host-side keyboard hook remap engine
-// Last modified: 2026-04-09--2358
+// Last modified: 2026-04-09--2350
 
 use crate::keys::{self, VkCode};
 use std::sync::Mutex;
@@ -147,13 +147,6 @@ pub fn build_remap_tables(
     }
 
     (combo_table, pending_table)
-}
-
-/// Compatibility shim: delegates to `build_remap_tables`, returns only the combo table.
-/// Deprecated — callers should migrate to `build_remap_tables`.
-#[allow(dead_code)]
-pub fn build_remap_table(remaps: &[crate::config::RemapConfig]) -> Vec<ComboRemap> {
-    build_remap_tables(remaps).0
 }
 
 /// Replace the active remap table.

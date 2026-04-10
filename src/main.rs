@@ -1,5 +1,5 @@
 // src/main.rs — Joro daemon main event loop
-// Last modified: 2026-04-09--2300
+// Last modified: 2026-04-09--2350
 
 mod config;
 mod keys;
@@ -146,9 +146,10 @@ impl App {
             }
         }
 
-        // Rebuild remap table
-        let table = remap::build_remap_table(&self.config.remap);
-        remap::update_remap_table(table);
+        // Rebuild remap tables
+        let (combo_table, pending_table) = remap::build_remap_tables(&self.config.remap);
+        remap::update_remap_table(combo_table);
+        remap::update_pending_mod_table(pending_table);
 
         // Reapply to device
         if let Some(ref dev) = self.device {
@@ -199,9 +200,10 @@ impl ApplicationHandler for App {
             eprintln!("Warning: failed to install keyboard hook: {e}");
         }
 
-        // Build initial remap table
-        let table = remap::build_remap_table(&self.config.remap);
-        remap::update_remap_table(table);
+        // Build initial remap tables
+        let (combo_table, pending_table) = remap::build_remap_tables(&self.config.remap);
+        remap::update_remap_table(combo_table);
+        remap::update_pending_mod_table(pending_table);
 
         // Try initial device connection
         self.try_connect();
