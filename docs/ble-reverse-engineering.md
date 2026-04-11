@@ -210,6 +210,16 @@ Commands observed during Chroma Studio effect changes:
 
 **Notable:** Class 0x06 SET works with sub2=0x08 (previously failed with sub=00,00 returning TARGET_NS). The sub-params encode the target ID.
 
+### Key Remaps over BLE — Host-Side Only
+
+**Confirmed 2026-04-10:** Synapse sends NO key remap commands (class 0x02) over BLE. HCI capture of Synapse setting CapsLock→"a" showed zero class 0x02 traffic — only lighting, brightness, and config commands. Killing all Razer processes immediately broke the remap, confirming it runs purely host-side.
+
+**Implications:**
+- BLE Protocol30 class 0x02 (keymap) is NOT_SUPPORTED — no firmware remaps over BLE
+- Synapse uses host-level input interception (likely WH_KEYBOARD_LL or similar) for all BLE remaps
+- Our daemon's WH_KEYBOARD_LL + SendInput approach is the correct 1:1 replacement
+- No additional BLE protocol work needed for key remaps
+
 ### Class Support over BLE
 
 | Class (byte 4) | Working Cmds | Status | Notes |

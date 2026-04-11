@@ -58,6 +58,7 @@ Color:      class=0x10, GET=0x83, SET=0x03, sub1=0x01
 - sub1=0x01 appears to be a "profile" or "target" identifier, not VARSTORE
 - BLE uses class 0x10 (BLE-native) instead of USB class 0x0F — cmd IDs mirror USB (GET=0x80+, SET=0x00+)
 - Effect data is variable-length: dlen = 4 + (num_colors * 3). Static/breathing-1=7B, breathing-2=10B, spectrum=4B
+- **BLE key remaps confirmed host-side only** — HCI capture showed zero class 0x02 commands from Synapse; killing Synapse broke the remap instantly. Our WH_KEYBOARD_LL approach is the correct replacement.
 
 ## Previous session (2026-04-10 0330–1456) — BLE MITM Proxy + Protocol30 Discovery + FW Update
 
