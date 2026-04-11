@@ -67,11 +67,14 @@ Lightweight Windows background process to replace Razer Synapse for the Razer Jo
 - [x] BLE SET brightness verified on hardware (0x10/0x05 split write)
 - [x] BLE SET static color verified on hardware (0x10/0x03 split write, RGB cycling)
 - [x] BT HCI capture infrastructure (ETW + tracerpt XML parsing)
-- [ ] BLE transport via btleplug (split write support needed)
-- [ ] Map animated effects (wave, breathing, spectrum — different data format needed)
-- [ ] Dongle transport (PID TBD from enumeration)
-- [ ] Transport auto-detection and switching
-- [ ] BLE sleep fix applied on connect
+- [x] BLE effects decoded (static, breathing 1+2 color, spectrum) — variable-length data format
+- [x] Key remaps confirmed host-side only over BLE — no Protocol30 needed, WH_KEYBOARD_LL is correct
+- [ ] Python bleak direct control script (validate split writes without proxy)
+- [ ] **Rust BLE transport via btleplug** — scan, connect, GATT discovery, split write, auto-reconnect
+- [ ] Transport abstraction — refactor USB + BLE behind `JoroDevice` trait (Option A — deferred, using separate fields for now)
+- [ ] Map remaining effects (wave, reactive, starlight — need HCI capture)
+- [ ] Dongle transport (PID 0x02CE — may use USB HID or hybrid)
+- [ ] BLE idle/sleep config (SET 0x06/0x02 sub=00,08)
 
 ### Stage 5: Systray + WebView UI — `TODO`
 - [ ] Systray via tao, webview via wry

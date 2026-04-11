@@ -1,6 +1,7 @@
 // src/main.rs — Joro daemon main event loop
-// Last modified: 2026-04-10--0045
+// Last modified: 2026-04-10--1730
 
+mod ble;
 mod config;
 mod keys;
 mod remap;
@@ -18,6 +19,7 @@ use winit::window::WindowId;
 struct App {
     tray: Option<tray::JoroTray>,
     device: Option<usb::RazerDevice>,
+    ble_device: Option<ble::BleDevice>,
     config: config::Config,
     config_path: std::path::PathBuf,
     config_modified: Option<std::time::SystemTime>,
@@ -52,6 +54,7 @@ impl App {
         App {
             tray: None,
             device: None,
+            ble_device: None,
             config: cfg,
             config_path,
             config_modified,
@@ -62,23 +65,38 @@ impl App {
     }
 
     /// Try to open the device; on success, apply config and update tray.
+    /// Tries USB first, then falls back to BLE.
     fn try_connect(&mut self) {
-        if self.device.is_some() {
+        if self.device.is_some() || self.ble_device.is_some() {
             return;
         }
+
+        // Try USB first
         if let Some(dev) = usb::RazerDevice::open() {
-            eprintln!("joro-daemon: device connected");
-            self.apply_config(&dev);
+            eprintln!("joro-daemon: USB device connected");
+            self.apply_config_usb(&dev);
             let fw = dev.get_firmware().ok();
             if let Some(ref mut tray) = self.tray {
                 tray.set_connected(true, fw.as_deref());
             }
             self.device = Some(dev);
+            return;
+        }
+
+        // Fall back to BLE
+        if let Some(mut dev) = ble::BleDevice::open() {
+            eprintln!("joro-daemon: BLE device connected");
+            self.apply_config_ble(&mut dev);
+            let fw = dev.get_firmware().ok();
+            if let Some(ref mut tray) = self.tray {
+                tray.set_connected(true, fw.as_deref());
+            }
+            self.ble_device = Some(dev);
         }
     }
 
-    /// Apply the current config to a device.
-    fn apply_config(&self, dev: &usb::RazerDevice) {
+    /// Apply the current config to a USB device.
+    fn apply_config_usb(&self, dev: &usb::RazerDevice) {
         // Set color
         if let Ok((r, g, b)) = self.config.lighting.parse_color() {
             if let Err(e) = dev.set_static_color(r, g, b) {
@@ -107,19 +125,52 @@ impl App {
         }
     }
 
+    /// Apply the current config to a BLE device.
+    fn apply_config_ble(&self, dev: &mut ble::BleDevice) {
+        // Set color
+        if let Ok((r, g, b)) = self.config.lighting.parse_color() {
+            if let Err(e) = dev.set_static_color(r, g, b) {
+                eprintln!("Warning: BLE set_static_color failed: {e}");
+            }
+        }
+
+        // Set brightness
+        if let Err(e) = dev.set_brightness(self.config.lighting.brightness) {
+            eprintln!("Warning: BLE set_brightness failed: {e}");
+        }
+
+        // Note: firmware keymaps not available over BLE (class 0x02 NOT_SUPPORTED)
+        // All remaps are host-side via WH_KEYBOARD_LL — already handled
+    }
+
     /// Poll the device connection state. Reconnect if lost; disconnect if gone.
     fn check_device(&mut self) {
+        // Check USB device
         if let Some(ref dev) = self.device {
             if !dev.is_connected() {
-                eprintln!("joro-daemon: device disconnected");
+                eprintln!("joro-daemon: USB device disconnected");
                 self.device = None;
                 if let Some(ref mut tray) = self.tray {
                     tray.set_connected(false, None);
                 }
             }
-        } else {
-            self.try_connect();
+            return;
         }
+
+        // Check BLE device
+        if let Some(ref dev) = self.ble_device {
+            if !dev.is_connected() {
+                eprintln!("joro-daemon: BLE device disconnected");
+                self.ble_device = None;
+                if let Some(ref mut tray) = self.tray {
+                    tray.set_connected(false, None);
+                }
+            }
+            return;
+        }
+
+        // Neither connected — try to connect
+        self.try_connect();
     }
 
     /// Check if the config file has been modified; reload if so.
@@ -153,7 +204,17 @@ impl App {
 
         // Reapply to device
         if let Some(ref dev) = self.device {
-            self.apply_config(dev);
+            let cfg = &self.config;
+            if let Ok((r, g, b)) = cfg.lighting.parse_color() {
+                let _ = dev.set_static_color(r, g, b);
+            }
+            let _ = dev.set_brightness(cfg.lighting.brightness);
+        } else if let Some(ref mut dev) = self.ble_device {
+            let cfg = &self.config;
+            if let Ok((r, g, b)) = cfg.lighting.parse_color() {
+                let _ = dev.set_static_color(r, g, b);
+            }
+            let _ = dev.set_brightness(cfg.lighting.brightness);
         }
     }
 

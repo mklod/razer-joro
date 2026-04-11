@@ -3,7 +3,7 @@
 ## Current milestone
 Stage 4: BLE Control — SET brightness and SET color WORKING over BLE via MITM proxy. No Synapse required.
 
-## Last session (2026-04-10 1500–1700) — BLE SET Commands Cracked + Effects Mapped
+## Last session (2026-04-10 1500–1730) — BLE SET Commands Cracked + Effects Mapped + Rust BLE Module
 
 ### Completed
 - **SET brightness over BLE — WORKING** — `0x10/0x05 sub1=0x01 data=[brightness]`
@@ -43,10 +43,10 @@ Color:      class=0x10, GET=0x83, SET=0x03, sub1=0x01
 
 ## Next immediate task
 - Build Python BLE control script using bleak — direct keyboard control without proxy
-- Build Python bleak control script — direct BLE to keyboard (no proxy), verify split writes work from bleak
-- Test all decoded effects via MITM proxy (static, breathing 1/2 color, spectrum)
+- **Debug btleplug connection on Windows** — scan doesn't find already-paired devices; first run found+failed to connect, second run didn't find at all. Need to handle Windows paired-device enumeration.
+- Test BLE daemon end-to-end (color change via config.toml over BLE)
 - Capture wave/reactive/starlight effects from Chroma Studio
-- Integrate BLE control into Rust daemon via btleplug
+- Python bleak direct control script (alternative to btleplug debugging)
 
 ## Blockers
 - Wave (0x04), reactive (0x05), starlight (0x06) data formats not yet captured
