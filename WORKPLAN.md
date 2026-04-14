@@ -3,6 +3,15 @@
 ## Project Summary
 Lightweight Windows background process to replace Razer Synapse for the Razer Joro keyboard (VID/PID `1532:02CD`). Covers backlight control, key remapping, and BLE sleep fix. Python prototype phase for RE, then Rust production service with systray + webview UI.
 
+**Synapse parity target** (user-defined 2026-04-13): full feature parity MINUS gaming features (keyswitch optimization, scroll wheel, macros). In-scope: fn/mm primary toggle, full Hypershift per-key remap UI, per-key MM override UI, lighting, settings persistence.
+
+**Known hard BLE limits** (verified 2026-04-13, not fixable host-side):
+- **F1/F2/F3 = BLE slot selectors**. Firmware-locked. Synapse itself cannot override them in BLE mode (tested with Function Keys Primary on).
+- In **wired** mode, F1/F2/F3 *do* reach the hook and can be remapped host-side. Synapse's fn-primary uses this same mechanism.
+
+**UNRESOLVED regression (2026-04-13, top priority for next session):**
+- **Copilot → Ctrl+F12 broken over BLE** even though it previously worked. The trigger loads into the daemon correctly, but the physical Copilot key over BLE produces zero events visible to WH_KEYBOARD_LL today. Root cause not yet identified — suspects include `src/consumer_hook.rs` (new this session) draining HID reports Windows needs, or other uncommitted working-tree changes. See `_status.md` task #10 for the investigation plan. **This was briefly misdocumented as a "hard BLE limit" — that was wrong.**
+
 ## Tech Stack
 - **Prototype:** Python 3, pyusb, libusb, bleak
 - **Production:** Rust, rusb (not hidapi-rs), btleplug, tao+wry
@@ -40,7 +49,7 @@ Lightweight Windows background process to replace Razer Synapse for the Razer Jo
 - [x] Key remap SET/GET confirmed working (backtick->A verified)
 - [x] Map CapsLock matrix index (confirmed: idx 30)
 - [x] Test modifier combo remaps — firmware only supports 1:1 swaps, combos need host software
-- [ ] Map remaining keyboard matrix indices (only 1-8 + 30 known)
+- [x] Map remaining keyboard matrix indices — **~60 keys mapped** via 5-batch `scan` subcommand on 2026-04-13. Full number/tab/caps/shift/nav rows + F1..F12 confirmed. Remaining gaps: 0x3F, 0x41..0x45, 0x52, 0x57, 0x58, >0x7B
 - [ ] Decode and test sleep/idle config (class 0x06)
 - [x] BLE GATT exploration — services enumerated, custom Razer service found
 - [x] BLE Protocol30 reverse engineering — split write protocol cracked, SET brightness/color WORKING
@@ -61,7 +70,7 @@ Lightweight Windows background process to replace Razer Synapse for the Razer Jo
 - [x] Persistent remap storage — investigated, not available (keymaps volatile, lighting auto-persists)
 - [ ] Test 2.4GHz dongle (PID 0x02CE)
 
-### Stage 4: BLE + Dongle Transports — `IN PROGRESS`
+### Stage 4: BLE + Dongle Transports — `MOSTLY COMPLETE`
 - [x] BLE Protocol30 reverse engineering — split write protocol, all 3 bugs found and fixed
 - [x] MITM proxy firmware (Zephyr on nRF52840) — full command relay + test harness
 - [x] BLE SET brightness verified on hardware (0x10/0x05 split write)
@@ -69,21 +78,42 @@ Lightweight Windows background process to replace Razer Synapse for the Razer Jo
 - [x] BT HCI capture infrastructure (ETW + tracerpt XML parsing)
 - [x] BLE effects decoded (static, breathing 1+2 color, spectrum) — variable-length data format
 - [x] Key remaps confirmed host-side only over BLE — no Protocol30 needed, WH_KEYBOARD_LL is correct
-- [ ] Python bleak direct control script (validate split writes without proxy)
-- [ ] **Rust BLE transport via btleplug** — scan, connect, GATT discovery, split write, auto-reconnect
-- [ ] Transport abstraction — refactor USB + BLE behind `JoroDevice` trait (Option A — deferred, using separate fields for now)
+- [x] Python bleak direct control script (`scripts/ble_direct_control.py`)
+- [x] **Rust BLE transport via direct WinRT** — replaced btleplug with direct `windows` crate calls; handles MaintainConnection, paired-device enumeration, clean Drop
+- [x] Transport abstraction — `JoroDevice` trait (`src/device.rs`); USB + BLE behind a single `Box<dyn JoroDevice>` field in `App`
+- [x] Battery reading on both USB and BLE
+- [x] **Fn-layer firmware keymap programming** — reverse-engineered from Synapse capture, working
 - [ ] Map remaining effects (wave, reactive, starlight — need HCI capture)
 - [ ] Dongle transport (PID 0x02CE — may use USB HID or hybrid)
 - [ ] BLE idle/sleep config (SET 0x06/0x02 sub=00,08)
 
-### Stage 5: Systray + WebView UI — `TODO`
-- [ ] Systray via tao, webview via wry
-- [ ] HTML/CSS/JS settings panel
-- [ ] Live color/brightness preview
-- [ ] Remap editor, connection status
+### Stage 5: Systray + WebView UI — `IN PROGRESS`
+- [x] Systray via tray-icon + winit (left click → settings, right click → menu)
+- [x] Tray icon: pixel-drawn keyboard outline (white when connected, grey + red LED when disconnected)
+- [x] Tray menu submenus: Color (8 presets), Brightness (4 levels), Effect (3 modes) with checkmarks
+- [x] Tray connect status / firmware / transport indicator
+- [x] Webview settings window via wry — fixed size, persisted position
+- [x] Visual 75% Joro keyboard with inline SVG icons (BT, screens, speaker, sun, backlight, lock, copilot, windows, globe, media, arrows)
+- [x] Per-key alignment variants (top-center default, top-left for Tab/Caps/LShift, top-right for Enter/Backspace, center-center for F-row + arrows)
+- [x] Click-to-remap popover with editable From/To, single-key + combo support, exact-match remap engine
+- [x] Lighting controls in settings window (color picker + brightness slider + effect dropdown, single row)
+- [x] Battery indicator (icon + percent) in window header, updates every 30s
+- [x] Auto-save (no Save button)
+- [ ] **Hypershift (Fn-layer) view** in settings window — toggle between Default and Hypershift, click a key in Hypershift mode to assign Fn+X → Y at the firmware level (next up)
+- [ ] Visual keyboard polish iteration
 
 ### Stage 6: Polish & Packaging — `TODO`
-- [ ] Autostart registration
-- [ ] First-run config creation
-- [ ] Error handling
-- [ ] Single `.exe` release build
+- [x] Autostart registration (registry Run key, toggle in tray menu)
+- [x] First-run config creation (default config written to `%APPDATA%\razer-joro\config.toml`)
+- [x] Ctrl+C handler for clean shutdown (releases BLE, runs Drop, exits cleanly)
+- [x] Joro matrix index discovery — `scan <batch>` CLI subcommand; ~60 of ~85 keys mapped (2026-04-13)
+- [x] Firmware protocol corrected — `set_fn_layer_remap` → `set_layer_remap`; `args[0]=0x01` is constant, not a layer selector (Synapse capture 2026-04-13)
+- [x] BLE slot selector architecture discovered — firmware-internal handler bypasses matrix; matrix remaps are safe to use
+- [x] **F4 = rename shipped** — discovered F4 is a firmware keyboard macro emitting Win+Tab, intercepted via existing combo-source trigger (`[[remap]] Win+Tab → F2`). User's primary goal complete
+- [x] Consumer HID interception layer built (`src/consumer_hook.rs`) — hidapi reads confirmed non-consuming on Windows, layer used for discovery/logging
+- [x] Synapse mm↔fn primary setting confirmed to be a Synapse host-side feature, not firmware (clean capture showed zero class=0x02 traffic during toggle)
+- [x] `set_fn_key_toggle` experiment removed as dead code after above finding
+- [ ] Icons redraw — current PIL-generated ICO looks pixelated
+- [ ] Error handling polish
+- [ ] Strip debug `eprintln!` from `ble.rs`, remove `fn_detect.rs` (served its purpose)
+- [ ] Single `.exe` release build via `cargo build --release` (LTO + strip already configured)

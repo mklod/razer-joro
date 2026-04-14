@@ -1,6 +1,6 @@
-// Last modified: 2026-04-10--1650
+// Last modified: 2026-04-10--1710
 // BLE MITM Proxy — main entry point
-// SET test with SMP pairing (auth callbacks + encryption)
+// Effect test: static, breathing 1+2 color, spectrum cycling
 
 #include <zephyr/kernel.h>
 #include <zephyr/bluetooth/bluetooth.h>
@@ -255,132 +255,65 @@ int main(void)
 			}
 			k_sleep(K_SECONDS(1));
 
-			/* --- PHASE 4: Effect type sweep ---
-			 * Data format: [byte0, byte1, byte2, effect, param1, param2, param3]
-			 * Known: static = [01, 00, 00, 01, R, G, B]
-			 * USB effects: 0=off, 1=static, 2=breathing, 3=spectrum, 4=wave, 5=reactive, 6=starlight
-			 */
-			LOG_INF("--- P4: EFFECT SWEEP ---");
+			/* --- PHASE 4: EFFECTS with correct variable-length data --- */
+			LOG_INF("--- P4: EFFECT TEST (correct formats from HCI capture) ---");
 			LOG_INF(">>> WATCH THE KEYBOARD <<<");
 
-			/* Static RED — baseline */
+			/* 1. Static RED (dlen=7) */
 			{
 				uint8_t hdr[] = {++txn, 0x07,0,0, 0x10,0x03, 0x01,0x00};
 				uint8_t dat[] = {0x01, 0x00, 0x00, 0x01, 0xFF, 0x00, 0x00};
 				central_write_split(hdr, 8, dat, 7);
-				LOG_INF("[%02x] STATIC RED [01,00,00,01,FF,00,00]", txn);
+				LOG_INF("[%02x] STATIC RED", txn);
+			}
+			k_sleep(K_SECONDS(4));
+
+			/* 2. Breathing BLUE — 1 color (dlen=7) */
+			{
+				uint8_t hdr[] = {++txn, 0x07,0,0, 0x10,0x03, 0x01,0x00};
+				uint8_t dat[] = {0x02, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF};
+				central_write_split(hdr, 8, dat, 7);
+				LOG_INF("[%02x] BREATHING BLUE (1 color)", txn);
+			}
+			k_sleep(K_SECONDS(8));
+
+			/* 3. Breathing RED+GREEN — 2 colors (dlen=10) */
+			{
+				uint8_t hdr[] = {++txn, 0x0A,0,0, 0x10,0x03, 0x01,0x00};
+				uint8_t dat[] = {0x02, 0x02, 0x00, 0x02,
+					0xFF, 0x00, 0x00,   /* color 1: red */
+					0x00, 0xFF, 0x00};   /* color 2: green */
+				central_write_split(hdr, 8, dat, 10);
+				LOG_INF("[%02x] BREATHING RED+GREEN (2 color)", txn);
+			}
+			k_sleep(K_SECONDS(8));
+
+			/* 4. Spectrum cycling (dlen=4) */
+			{
+				uint8_t hdr[] = {++txn, 0x04,0,0, 0x10,0x03, 0x01,0x00};
+				uint8_t dat[] = {0x03, 0x00, 0x00, 0x00};
+				central_write_split(hdr, 8, dat, 4);
+				LOG_INF("[%02x] SPECTRUM CYCLING", txn);
+			}
+			k_sleep(K_SECONDS(8));
+
+			/* 5. Static GREEN (back to simple) */
+			{
+				uint8_t hdr[] = {++txn, 0x07,0,0, 0x10,0x03, 0x01,0x00};
+				uint8_t dat[] = {0x01, 0x00, 0x00, 0x01, 0x00, 0xFF, 0x00};
+				central_write_split(hdr, 8, dat, 7);
+				LOG_INF("[%02x] STATIC GREEN", txn);
 			}
 			k_sleep(K_SECONDS(3));
 
-			/* Read state to see format */
-			{
-				uint8_t g[] = {++txn, 0,0,0, 0x10,0x83, 0,0};
-				central_write_to_keyboard(g, 8);
-				LOG_INF("[%02x] GET state after static", txn);
-			}
-			k_sleep(K_MSEC(800));
-
-			/* Effect 0x02 — Breathing? With red color */
+			/* 6. Static PURPLE (final) */
 			{
 				uint8_t hdr[] = {++txn, 0x07,0,0, 0x10,0x03, 0x01,0x00};
-				uint8_t dat[] = {0x01, 0x00, 0x00, 0x02, 0xFF, 0x00, 0x00};
+				uint8_t dat[] = {0x01, 0x00, 0x00, 0x01, 0x80, 0x00, 0xFF};
 				central_write_split(hdr, 8, dat, 7);
-				LOG_INF("[%02x] EFFECT 02 (breathing?) [01,00,00,02,FF,00,00]", txn);
-			}
-			k_sleep(K_SECONDS(5));
-
-			{
-				uint8_t g[] = {++txn, 0,0,0, 0x10,0x83, 0,0};
-				central_write_to_keyboard(g, 8);
-				LOG_INF("[%02x] GET state after effect 02", txn);
-			}
-			k_sleep(K_MSEC(800));
-
-			/* Effect 0x03 — Spectrum cycling? No color needed? */
-			{
-				uint8_t hdr[] = {++txn, 0x07,0,0, 0x10,0x03, 0x01,0x00};
-				uint8_t dat[] = {0x01, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00};
-				central_write_split(hdr, 8, dat, 7);
-				LOG_INF("[%02x] EFFECT 03 (spectrum?) [01,00,00,03,00,00,00]", txn);
-			}
-			k_sleep(K_SECONDS(5));
-
-			{
-				uint8_t g[] = {++txn, 0,0,0, 0x10,0x83, 0,0};
-				central_write_to_keyboard(g, 8);
-				LOG_INF("[%02x] GET state after effect 03", txn);
-			}
-			k_sleep(K_MSEC(800));
-
-			/* Effect 0x04 — Wave? Try with direction in params */
-			{
-				uint8_t hdr[] = {++txn, 0x07,0,0, 0x10,0x03, 0x01,0x00};
-				uint8_t dat[] = {0x01, 0x00, 0x00, 0x04, 0x01, 0x00, 0x00};
-				central_write_split(hdr, 8, dat, 7);
-				LOG_INF("[%02x] EFFECT 04 (wave?) dir=01 [01,00,00,04,01,00,00]", txn);
-			}
-			k_sleep(K_SECONDS(5));
-
-			{
-				uint8_t g[] = {++txn, 0,0,0, 0x10,0x83, 0,0};
-				central_write_to_keyboard(g, 8);
-				LOG_INF("[%02x] GET state after effect 04", txn);
-			}
-			k_sleep(K_MSEC(800));
-
-			/* Wave opposite direction */
-			{
-				uint8_t hdr[] = {++txn, 0x07,0,0, 0x10,0x03, 0x01,0x00};
-				uint8_t dat[] = {0x01, 0x00, 0x00, 0x04, 0x02, 0x00, 0x00};
-				central_write_split(hdr, 8, dat, 7);
-				LOG_INF("[%02x] EFFECT 04 dir=02 [01,00,00,04,02,00,00]", txn);
-			}
-			k_sleep(K_SECONDS(5));
-
-			/* Effect 0x05 — Reactive? */
-			{
-				uint8_t hdr[] = {++txn, 0x07,0,0, 0x10,0x03, 0x01,0x00};
-				uint8_t dat[] = {0x01, 0x00, 0x00, 0x05, 0xFF, 0x00, 0xFF};
-				central_write_split(hdr, 8, dat, 7);
-				LOG_INF("[%02x] EFFECT 05 (reactive?) [01,00,00,05,FF,00,FF]", txn);
-			}
-			k_sleep(K_SECONDS(5));
-
-			/* Effect 0x06 — Starlight? */
-			{
-				uint8_t hdr[] = {++txn, 0x07,0,0, 0x10,0x03, 0x01,0x00};
-				uint8_t dat[] = {0x01, 0x00, 0x00, 0x06, 0xFF, 0xFF, 0x00};
-				central_write_split(hdr, 8, dat, 7);
-				LOG_INF("[%02x] EFFECT 06 (starlight?) [01,00,00,06,FF,FF,00]", txn);
-			}
-			k_sleep(K_SECONDS(5));
-
-			/* Effect 0x00 — Off? */
-			{
-				uint8_t hdr[] = {++txn, 0x07,0,0, 0x10,0x03, 0x01,0x00};
-				uint8_t dat[] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-				central_write_split(hdr, 8, dat, 7);
-				LOG_INF("[%02x] EFFECT 00 (off?) [01,00,00,00,00,00,00]", txn);
+				LOG_INF("[%02x] STATIC PURPLE", txn);
 			}
 			k_sleep(K_SECONDS(3));
-
-			/* Try byte0=0x00 (disable?) */
-			{
-				uint8_t hdr[] = {++txn, 0x07,0,0, 0x10,0x03, 0x01,0x00};
-				uint8_t dat[] = {0x00, 0x00, 0x00, 0x01, 0xFF, 0x00, 0x00};
-				central_write_split(hdr, 8, dat, 7);
-				LOG_INF("[%02x] byte0=00 (disable?) [00,00,00,01,FF,00,00]", txn);
-			}
-			k_sleep(K_SECONDS(3));
-
-			/* Restore static white */
-			{
-				uint8_t hdr[] = {++txn, 0x07,0,0, 0x10,0x03, 0x01,0x00};
-				uint8_t dat[] = {0x01, 0x00, 0x00, 0x01, 0xFF, 0xFF, 0xFF};
-				central_write_split(hdr, 8, dat, 7);
-				LOG_INF("[%02x] STATIC WHITE (restore)", txn);
-			}
-			k_sleep(K_MSEC(600));
 
 			/* Read final state */
 			uint8_t g_light2[] = {++txn, 0,0,0, 0x10,0x83, 0,0};

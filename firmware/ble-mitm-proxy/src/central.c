@@ -225,10 +225,14 @@ int central_write_to_keyboard(const uint8_t *data, uint16_t len)
 	}
 
 	/* Wait for write completion (with timeout) */
-	for (int i = 0; i < 50 && !write_done; i++) {
+	for (int i = 0; i < 100 && !write_done; i++) {
 		k_sleep(K_MSEC(10));
 	}
-	return write_done ? write_err : -ETIMEDOUT;
+	if (!write_done) {
+		LOG_ERR("GATT write timeout (1s)");
+		return -ETIMEDOUT;
+	}
+	return write_err;
 }
 
 int central_write_split(const uint8_t *hdr, uint16_t hdr_len,
@@ -248,8 +252,9 @@ int central_write_split(const uint8_t *hdr, uint16_t hdr_len,
 	}
 
 	if (data_len > 0 && data != NULL) {
-		/* Small delay between writes (driver had ~100ms gap) */
-		k_sleep(K_MSEC(50));
+		/* Wait between split writes — keyboard needs time to process header
+		 * before receiving data. Driver showed ~100-200ms gap. */
+		k_sleep(K_MSEC(150));
 
 		/* Write data payload */
 		err = central_write_to_keyboard(data, data_len);
@@ -258,6 +263,9 @@ int central_write_split(const uint8_t *hdr, uint16_t hdr_len,
 			return err;
 		}
 	}
+
+	/* Wait for keyboard to process the complete command */
+	k_sleep(K_MSEC(100));
 	return 0;
 }
 

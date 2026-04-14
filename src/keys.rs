@@ -73,7 +73,43 @@ static KEY_TABLE: &[(&str, VkCode, HidUsage)] = &[
     ("Copilot", 0x86, 0x00),  // Razer Joro "Copilot" key = VK 0x86 (sent with LWin)
     // App key
     ("App", 0x5D, 0x65),
+    // ── Media / consumer VKs (Windows generates these from Consumer Control
+    //    HID usages and delivers them via WH_KEYBOARD_LL — so they ARE
+    //    interceptable host-side). HID usages listed for reference only;
+    //    the host-side remap uses the VK form.
+    //
+    //    Joro F-row in mm-primary mode fires (verified 2026-04-13):
+    //      F5  → Consumer 0x00E2 → VK_VOLUME_MUTE (0xAD)
+    //      F6  → Consumer 0x00EA → VK_VOLUME_DOWN (0xAE)
+    //      F7  → Consumer 0x00E9 → VK_VOLUME_UP   (0xAF)
+    //      F10 → Consumer ?      → VK_MEDIA_PLAY_PAUSE (0xB3)  (unverified)
+    //      F11 → Consumer ?      → VK_MEDIA_PREV_TRACK (0xB1)  (unverified)
+    //      F12 → Consumer ?      → VK_MEDIA_NEXT_TRACK (0xB0)  (unverified)
+    //    F8/F9 emit Brightness Down/Up (Consumer 0x0070/0x006F) which have
+    //    no standard Win32 VK, so they bypass WH_KEYBOARD_LL and are NOT
+    //    remappable this way. They're listed here as VK 0x00 for config
+    //    legibility, but will fail to parse.
+    ("VolumeMute",     0xAD, 0x00),
+    ("VolumeDown",     0xAE, 0x00),
+    ("VolumeUp",       0xAF, 0x00),
+    ("MediaNextTrack", 0xB0, 0x00),
+    ("MediaPrevTrack", 0xB1, 0x00),
+    ("MediaStop",      0xB2, 0x00),
+    ("MediaPlayPause", 0xB3, 0x00),
+    ("LaunchMail",     0xB4, 0x00),
+    ("LaunchMediaSelect", 0xB5, 0x00),
+    ("LaunchApp1",     0xB6, 0x00),
+    ("LaunchApp2",     0xB7, 0x00),
 ];
+
+/// Media / Consumer VK range (VK_VOLUME_MUTE .. VK_LAUNCH_APP2). Keys in
+/// this range don't participate in the firmware matrix at all — they're
+/// Windows-generated VKs that come from Consumer Control HID reports.
+/// Used by `remap.rs::build_remap_tables` to classify single→single
+/// remaps with a media-VK source as host-side ComboRemap entries.
+pub fn is_media_vk(vk: VkCode) -> bool {
+    (0xAD..=0xB7).contains(&vk)
+}
 
 /// Map: lowercase key name -> VkCode
 static VK_MAP: LazyLock<HashMap<String, VkCode>> = LazyLock::new(|| {
@@ -110,6 +146,148 @@ pub fn key_name_to_hid(name: &str) -> Option<HidUsage> {
     HID_MAP.get(&name.to_lowercase()).copied()
 }
 
+// ── Joro physical key matrix indices ─────────────────────────────────────────
+//
+// Matrix indices are Razer's internal physical-key IDs, used by the keymap
+// programming commands. `class=0x02 cmd=0x0d` writes the Hypershift (Fn)
+// layer over USB (verified 2026-04-13 — both wired and BLE read from the
+// same slot). `cmd=0x0F` (`set_keymap_entry`, 18-byte args) is untested —
+// we don't yet know whether it targets base layer or something else; a
+// Synapse base-layer USB capture is needed to confirm.
+//
+// Discovered via: openrazer brute-force scan + Synapse USBPcap captures.
+// Most indices are still UNKNOWN — extend this table as we discover more.
+
+static JORO_MATRIX_TABLE: &[(&str, u8)] = &[
+    // ── Number row (confirmed via scan 0, 2026-04-13) ────────────────────
+    ("Grave",     0x01),
+    ("1",         0x02),
+    ("2",         0x03),
+    ("3",         0x04),
+    ("4",         0x05),
+    ("5",         0x06),
+    ("6",         0x07),
+    ("7",         0x08),
+    ("8",         0x09),
+    ("9",         0x0A),
+    ("0",         0x0B),
+    ("Minus",     0x0C),
+    ("Equal",     0x0D),
+    ("Backspace", 0x0E),
+    // 0x0F appears to be a gap in the matrix (no physical key)
+    // ── Tab row (confirmed via scan 0, 2026-04-13) ───────────────────────
+    ("Tab", 0x10),
+    ("Q",   0x11),
+    ("W",   0x12),
+    ("E",   0x13),
+    ("R",   0x14),
+    ("T",   0x15),
+    ("Y",   0x16),
+    ("U",   0x17),
+    ("I",   0x18),
+    ("O",   0x19),
+    ("P",   0x1A),
+    // ── Right side of tab row (confirmed via scan 1 retest, 2026-04-13) ──
+    ("LBracket",  0x1B),
+    ("RBracket",  0x1C),
+    ("Backslash", 0x1D),
+    // ── CapsLock row (confirmed via scan 1, 2026-04-13) ──────────────────
+    ("CapsLock",  0x1E),
+    ("A",         0x1F),
+    ("S",         0x20),
+    ("D",         0x21),
+    ("F",         0x22),
+    ("G",         0x23),
+    ("H",         0x24),
+    ("J",         0x25),
+    ("K",         0x26),
+    ("L",         0x27),
+    ("Semicolon", 0x28),
+    ("Quote",     0x29),
+    // 0x2A is a gap in the matrix (no physical key between ' and Enter)
+    ("Enter",     0x2B),
+    // ── Shift row (confirmed via scan 2, 2026-04-13) ─────────────────────
+    ("Comma",     0x35),
+    ("Period",    0x36),
+    ("Slash",     0x37),
+    // 0x38 gap
+    ("RShift",    0x39),
+    // ── Bottom row (confirmed via scan 2, 2026-04-13) ────────────────────
+    ("LCtrl",     0x3A),
+    ("RAlt",      0x3B),
+    ("LWin",      0x3C),
+    ("Space",     0x3D),
+    ("Copilot",   0x3E),
+    // 0x3F — possibly LAlt (user reported "alt=win" — to be retested)
+    ("RCtrl",     0x40),
+    // 0x41..0x45 — unknown, possibly nav cluster or Fn
+    ("LShift",    0x46),
+    // 0x47 gap
+    ("Z",         0x48),
+    ("X",         0x49),
+    ("C",         0x4A),
+    ("V",         0x4B),
+    ("B",         0x4C),
+    ("N",         0x4D),
+    ("M",         0x4E),
+    // ── Arrow + nav cluster (confirmed via scan 3, 2026-04-13) ───────────
+    ("Left",     0x4F),
+    ("Home",     0x50),
+    ("End",      0x51),
+    // 0x52 gap
+    ("Up",       0x53),
+    ("Down",     0x54),
+    ("PageUp",   0x55),
+    ("PageDown", 0x56),
+    // 0x57, 0x58 gaps
+    ("Right",    0x59),
+    // ── Ins / Del (confirmed via scan 3, 2026-04-13) ─────────────────────
+    ("Insert",   0x65),
+    ("Delete",   0x66),
+    // ── F-row + Escape (confirmed via scan 4, 2026-04-13) ────────────────
+    ("Escape", 0x6E),
+    ("F1",  0x70),
+    ("F2",  0x71),
+    ("F3",  0x72),
+    ("F4",  0x73),
+    ("F5",  0x74),
+    ("F6",  0x75),
+    ("F7",  0x76),
+    ("F8",  0x77),
+    ("F9",  0x78),
+    ("F10", 0x79),
+    ("F11", 0x7A),
+    ("F12", 0x7B),
+    // TODO: PrintScreen, Pause, ScrollLock, Fn key itself,
+    //       bottom-row 0x3F / 0x41..0x45 gaps.
+    // F-row indices unknown — inverted Fn behavior means base F-key press
+    // emits a consumer-usage media key, so we need the matrix index to
+    // program a base-layer remap via cmd=0x0d args[0]=0x00.
+];
+
+static JORO_MATRIX_MAP: LazyLock<HashMap<String, u8>> = LazyLock::new(|| {
+    let mut m = HashMap::with_capacity(JORO_MATRIX_TABLE.len());
+    for (name, idx) in JORO_MATRIX_TABLE {
+        m.insert(name.to_lowercase(), *idx);
+    }
+    m
+});
+
+/// Look up a key's Joro matrix index (case-insensitive). Returns None for
+/// keys we haven't discovered yet — those can't be Fn-layer-remapped until
+/// we find their index via capture or brute force.
+pub fn key_name_to_matrix(name: &str) -> Option<u8> {
+    JORO_MATRIX_MAP.get(&name.to_lowercase()).copied()
+}
+
+/// Return the list of canonical key names we have a known Joro matrix index
+/// for. The settings webview uses this to enable/disable keys in the
+/// Hypershift (Fn-layer) view — keys not in this list can't be remapped at
+/// the firmware level until we discover their matrix index.
+pub fn known_matrix_key_names() -> Vec<&'static str> {
+    JORO_MATRIX_TABLE.iter().map(|(name, _)| *name).collect()
+}
+
 /// Parse a combo string like "Ctrl+Shift+F12" into (modifier_vks, key_vk).
 ///
 /// Splits on '+', treats leading tokens that match known modifier prefixes as
@@ -142,6 +320,7 @@ pub fn parse_key_combo(combo: &str) -> Option<(Vec<VkCode>, VkCode)> {
 
 /// Returns the HID usage for a single (non-combo) key name.
 /// Returns None if the name contains '+' (i.e. it's a combo).
+#[allow(dead_code)]
 pub fn parse_single_hid_key(name: &str) -> Option<HidUsage> {
     if name.contains('+') {
         return None;
@@ -176,6 +355,30 @@ mod tests {
     #[test]
     fn test_unknown_key_vk() {
         assert_eq!(key_name_to_vk("FooBar"), None);
+    }
+
+    #[test]
+    fn test_media_vk_names() {
+        assert_eq!(key_name_to_vk("VolumeMute"), Some(0xAD));
+        assert_eq!(key_name_to_vk("VolumeDown"), Some(0xAE));
+        assert_eq!(key_name_to_vk("VolumeUp"), Some(0xAF));
+        assert_eq!(key_name_to_vk("MediaNextTrack"), Some(0xB0));
+        assert_eq!(key_name_to_vk("MediaPrevTrack"), Some(0xB1));
+        assert_eq!(key_name_to_vk("MediaPlayPause"), Some(0xB3));
+    }
+
+    #[test]
+    fn test_parse_media_vk_combo() {
+        assert_eq!(parse_key_combo("VolumeMute"), Some((vec![], 0xAD)));
+        assert_eq!(parse_key_combo("MediaPlayPause"), Some((vec![], 0xB3)));
+    }
+
+    #[test]
+    fn test_is_media_vk_range() {
+        assert!(is_media_vk(0xAD));
+        assert!(is_media_vk(0xB7));
+        assert!(!is_media_vk(0xAC));
+        assert!(!is_media_vk(0xB8));
     }
 
     #[test]

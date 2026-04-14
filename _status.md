@@ -1,9 +1,489 @@
 # Razer Joro — Status
 
-## Current milestone
-Stage 4: BLE Control — SET brightness and SET color WORKING over BLE via MITM proxy. No Synapse required.
+## Session 2026-04-14--0142 — Hypershift UI wired for host-side remaps (BLE-only editing works end-to-end)
 
-## Last session (2026-04-10 1500–1730) — BLE SET Commands Cracked + Effects Mapped + Rust BLE Module
+Extended today's Fn-detection work into the settings webview. User can now view, add, edit, and clear Fn-layer bindings entirely over BLE with the daemon running — no USB cable ever required.
+
+**Changes landed:**
+- `push_settings_state` JSON now ships `fn_host_remaps` alongside `fn_remaps`.
+- New IPC actions `set_fn_host_remap` / `clear_fn_host_remap` in `main.rs`. Save path calls a new `update_fn_host_remap` method that persists config AND swaps in a freshly built `FN_HOST_REMAP_TABLE` atomically — the hook picks up the new binding on the next key event without any restart or reconnect.
+- `assets/settings.html` Hypershift popover:
+  - New "Current binding" badge identifying the source (host-side daemon vs firmware) when an entry exists for the clicked key.
+  - New "Apply to" dropdown: host-side daemon (default) or keyboard firmware (USB-only).
+  - Transport warning appears only when user picks Firmware while off USB.
+  - Save routes to `set_fn_remap` or `set_fn_host_remap` based on the dropdown.
+  - Clear routes to the matching clear action for whichever source currently holds the binding.
+- `findRemapForKey` in hypershift mode now checks `fnHostRemaps` first (host wins at the LL hook), then `fnRemaps`, returning a `{ name, from, to, source }` wrapper.
+- Layer-toggle hint rewritten to reflect the dual-mode reality.
+
+**Verified end-to-end over BLE:**
+- Clicked A in Hypershift tab → popover showed host-side default + existing `A → F2`.
+- Changed To to `Home`, Save → config updated in place:
+  ```toml
+  [[fn_host_remap]]
+  name = "Fn+a to Home (host-side)"
+  from = "a"
+  to = "Home"
+  ```
+- Fn+A in text editor → cursor jumped to line start. Hook picked up the new table live.
+- Daemon log confirmed the save path: `joro-daemon: host fn-layer a -> Home (applied live)`.
+
+**Known side effect:** `config::save_config()` re-serializes the whole Config struct, losing comments and overwriting all sections from in-memory state. The earlier `[[fn_remap]] F2 → F2` test entry got dropped because it wasn't in the daemon's live state at save time. Acceptable going forward since the UI is the canonical edit path, but worth noting if any user hand-edits `%APPDATA%\razer-joro\config.toml` and then saves via the UI — their comments will be lost.
+
+**Open / next session:**
+- Webview may cache the old HTML via WebView2's persistent cache. If the UI doesn't show the new badge/dropdown on first open after this build, a hard reload (close & reopen settings, or Ctrl+Shift+R in the webview) fixes it.
+- Long Fn holds briefly open Task View because Col03 emits consumer usage 0x029D when Fn is held. Suppression belongs in `consumer_hook.rs` — extend it to swallow 0x029D on BLE.
+- Firmware-side "disable Hypershift layer" BLE command still undecoded. Only matters if user wants a host-side binding to override an already-written firmware entry on BLE alone. Low priority — transport cycle workaround works.
+- Base-layer (plain non-Fn) USB writes still untested. Separate command, separate investigation.
+- Cleanup pass: strip debug `eprintln!`, remove dead `is_media_vk` warning in keys.rs:110, `cargo build --release`.
+- The `%APPDATA%\razer-joro\config.toml` live state has been rewritten by the UI save flow — `consumer_remap = []` is at the top from the re-serialization. Harmless but cosmetically messy.
+
+## Session 2026-04-14 — Host-side Fn detection WORKING over BLE (Synapse parity achieved)
+
+**Big one.** Daemon now replicates Synapse's "Hypershift over BLE" with zero USB. Implementation:
+
+1. **Discovered the Fn signal.** Joro exposes Fn state on vendor HID collection `usage=0x0001/0x0000` (Col05 on BLE). 12-byte report: `[0x05, 0x04, state, 0...]` where state=0x01 on Fn down, 0x00 on Fn up. Verified by running `fn_detect::spawn_diagnostic()` on BLE and pressing Fn+keys while Synapse was dead and our daemon was the only thing reading HID. Capture: `captures/fn_detect_ble.log`. Rule-out: plain F5 → Col03 Mute with zero Col05 event.
+2. **Proved Synapse doesn't write firmware keymap over BLE.** Phase 3 test: Synapse "programmed" Fn+A → LWin on BLE, then killed all Razer. With USB briefly plugged (daemon off), `diag-readlayers 0x1f` showed matrix 0x1F layer 1 = 0x04 ('a'), unchanged from factory. So Synapse's BLE Hypershift is host-side only — matches the 2026-04-10 commit 6b65ffe conclusion. New memory: `project_ble_keymap_is_hostside.md`.
+3. **Discovered firmware Hypershift has a runtime enable flag** separate from stored data. Synapse on BLE turns the flag OFF; transport cycle turns it back ON. Our USB-written Home/End values stayed intact in layer 1 throughout — only the flag got toggled. Memory: `project_hypershift_runtime_enable_flag.md`.
+4. **Implemented `fn_detect::start()`** — enumerates Joro HID, opens non-denied collections, spawns blocking reader threads, filters `05 04 xx` reports, updates `FN_HELD: AtomicBool`. Idempotent across device-connect events.
+5. **Extended `remap.rs` hook_proc** — new top-level branch consulting `fn_detect::fn_held()` on key-down, lookup in `FN_HOST_REMAP_TABLE`, SendInput translation, tracked in `ACTIVE_FN_REMAP` so source-key-up releases the correct output even if Fn was released first.
+6. **New config section `[[fn_host_remap]]`** — same schema as `[[fn_remap]]`. Applied at daemon startup, config reload, and UI save.
+7. **Verified working**: clean BLE-only session, daemon started with seeded `Fn+A → F2`, File Explorer Rename triggered by Fn+A. Firmware Fn+Left=Home, Fn+Right=End still work alongside (different code path).
+
+**Memory updates**:
+- NEW: `project_host_side_fn_detection.md` (this session's win)
+- NEW: `project_hypershift_runtime_enable_flag.md`
+- NEW: `project_ble_keymap_is_hostside.md`
+- NEW: `project_hypershift_commit_trigger.md`
+- Superseded: `project_joro_keymap_deadend.md` (the "dead end" was wrong — writes work, need transport cycle to commit)
+
+**Code comments cleaned up** 2026-04-13--2310:
+- `src/usb.rs::set_layer_remap` doc-comment (removed "KNOWN DEAD END" and wrong "writes base layer" walkback)
+- `src/main.rs::apply_fn_remaps` doc-comment
+- `src/keys.rs` matrix-index comment
+- `src/main.rs` line 917 comment claiming Fn key was invisible to HID — REMOVED and replaced with live `fn_detect::start()` call.
+
+**Still open (lower priority)**:
+- `[[fn_remap]]` (firmware path) still requires USB connection to write. Daemon logs a user-visible "plug in USB" notice when trying to apply over BLE. Acceptable per user.
+- Col03 fires consumer usage 0x029D on every Fn press — Windows normally ignores it but long Fn holds may briefly open Task View. Fix: extend `consumer_hook.rs` to swallow 0x029D on BLE.
+- Col06 readable but emits no reports. Unknown purpose. Ignored.
+- Base-layer writes (plain non-Fn remaps) over USB untested. Probably `cmd=0x0F` / `set_keymap_entry` or different `args[2]` value. Separate question.
+- BLE "disable Hypershift layer" command (the one Synapse sends) not decoded. Only matters if we want host-side Fn bindings to override firmware Fn bindings from BLE alone. Low priority — current flow works.
+- Cleanup pass: strip debug `eprintln!`, `cargo build --release`.
+
+## Session 2026-04-13--2257 — Hypershift commit trigger found + BLE/wired share storage
+
+**The "keymap dead end" from session 2154 was wrong.** `set_layer_remap` (cmd=0x0d) works perfectly. The missing piece was a **commit trigger: a transport mode switch** (wired↔BLE). Firmware stores writes immediately but only refreshes the runtime Hypershift table when transport changes.
+
+**Sequence that proved it this session:**
+1. Killed all Razer services (Chroma SDKs, Elevation, Stream, Game Manager) + all Razer/Synapse processes. User reset Joro via Synapse beforehand for clean baseline.
+2. Wired USB. Started daemon → `apply_fn_remaps` wrote Left→Home (matrix=0x4f, HID 0x4a) and Right→End (matrix=0x59, HID 0x4d) via cmd=0x0d. Daemon log showed OK. Tested Fn+Left on wired — still plain arrow. Looked like "dead end" reproducing.
+3. Switched to BLE (pair was broken from earlier session, couldn't test there).
+4. Switched back to wired. **Fn+Left=Home, Fn+Right=End.** Writes were live. The transport cycle committed them.
+
+**Then: BLE/wired share the same Hypershift storage slot (new finding).**
+- Nuked stale Joro BLE PnP records: removed `BTHLE\DEV_C8E2775D2FA2` and every `BTHLEDEVICE\...C8E2775D2FA2` child via `pnputil /remove-device`. Windows UI still showed Joro paired (cached). Root cause: Joro was paired via the BARROT Bluetooth 5.4 dongle (not the Intel radio), and BARROT was in `CM_PROB_FAILED_ADD` — `BluetoothRemoveDevice` WinAPI returned NOT_FOUND because it queried Intel. User physically unplugged+replugged BARROT → Windows UI cleared the stale entry.
+- User re-paired Joro cleanly. New MAC `C8E2775D2FA3` (random address rotated from `...2FA2`). All BTHLEDEVICE children Present/OK.
+- Daemon connected over BLE — no "object closed" errors, GATT stable, firmware v1.2.2.0. BLE intentionally skips firmware writes (`main.rs:176` guards `apply_fn_remaps` on USB only).
+- **User tested Fn+Left / Fn+Right on BLE: both working** (Home/End), i.e. reading the values written over USB earlier. One USB write programs both transports.
+
+**Memory updated:** `project_hypershift_commit_trigger.md` (new, authoritative) supersedes `project_joro_keymap_deadend.md`.
+
+**Open questions / follow-ups:**
+- BARROT 5.4 dongle is still in `CM_PROB_FAILED_ADD` — independent driver/firmware issue, not Joro-related. Joro is now paired via the Intel radio. Debug BARROT separately if user wants it back.
+- Find an explicit "reload keymap" packet so a transport cycle isn't required for changes to go live. Look in `captures/synapse_hypershift_u3.pcap` for any non-cmd=0x0d traffic Synapse sends after a Hypershift write. Low priority since the current flow works.
+- Update `apply_fn_remaps` doc-comment in `src/main.rs:253` — it still has the outdated "writes to base layer" misinformation.
+
+## Session 2026-04-13--2154 — Keymap reverse engineering hit a dead end
+
+Tried to restore Fn+Left=Home / Fn+Right=End without Synapse. Found that our `set_layer_remap` (`class=0x02 cmd=0x0d`) packet is byte-for-byte identical to Synapse's Hypershift-tab write, firmware accepts it with `status=0x02 OK`, and `cmd=0x8d` readback confirms the value persists in a "layer 1" storage slot — but the live keymap is unaffected. Plain Left still moves the cursor; Fn+Left still moves the cursor. Synapse's identical packets DO take effect live. Something else Synapse sends commits/reloads the runtime keymap and we haven't identified it.
+
+**Full findings and next-session leads** saved to memory: `project_joro_keymap_deadend.md`. Key points:
+- Firmware has ≥4 layer slots accessed via `args[2]` in cmd=0x0d/0x8d. Layer 0 appears to be factory default (HID 0x50 for Left); our writes went to layers 1+ and were stored but inert.
+- Ruled out: trans_id (tried rotating), cmd=0xa4 "unlock", 20× 0x81 magic writes, cmd=0x0f `set_keymap_entry` alt path, write retry.
+- Leads: openrazer source for commit semantics, hidapi vs rusb, DeviceIoControl direct to `RzDev_02cd`, full Razer uninstall to see if filter driver gates commits.
+
+Left `cargo run -- diag-readlayers [0xMM]` in main.rs for future debugging. Removed all other temporary CLI subcommands.
+
+## Session 2026-04-13--2041 — Copilot BLE regression RESOLVED
+
+**Root cause: Razer Elevation Service was stopped.** Earlier in today's session we killed all 6 Razer services. The Chroma services were later restarted but `Razer Elevation Service` (Manual start type) was not. That service is the one that translates Joro's Copilot-key HID report into Win+Shift+F23 — without it, pressing Copilot produces zero events at WH_KEYBOARD_LL. Restarting it via `Start-Service 'Razer Elevation Service'` immediately restored the Win+Copilot → Ctrl+F12 remap.
+
+Not a code regression. `src/consumer_hook.rs` (suspect #1) was a red herring — `ConsumerHook::start()` returns `None` when the config's `consumer_remap` list is empty, so no HID opens happen. The `single→single` reclassification in `src/remap.rs` only affects non-combo remaps. Unconditional debug log at `remap.rs:285` confirms the hook was alive; the key was simply not reaching Windows VK input at all.
+
+Memory saved: `project_copilot_needs_razer_elevation.md`.
+
+## Current milestone
+Stage 5+++ (session ending 2026-04-13 evening): **BLE F1/F2/F3 firmware-locked confirmed by testing Synapse itself.** Copilot regression resolved (Razer Elevation Service was stopped — see above). Next: tasks 6–9 from the TODO list.
+
+**Working tree has uncommitted edits across ~14 files since last commit.** Session ended mid-task-7 with keys.rs changes for media VKs written but not built/tested. See TODO for full list.
+
+## Session 2026-04-13 (end of day) — Copilot regression + per-key MM UI planning
+
+### Copilot → Ctrl+F12 broken over BLE (REGRESSION — NOT A HARD LIMIT)
+User reports this remap worked over BLE in an earlier session. Today in BLE mode:
+- Daemon loads the trigger correctly: `gate=0x5B trigger=0x86 prefix=[0xA0] -> mods=[0xA2] key=0x7B` (visible in daemon startup log).
+- Pressing the Copilot key produces ZERO events visible to WH_KEYBOARD_LL — no `0x86`, no Win+Shift+F23 pattern, nothing.
+- Hook debug log is full of ordinary typing events so the hook itself is alive and receiving events — it's specifically the Copilot key that's not reaching it.
+
+**This was incorrectly documented as a "hard BLE limit" in mid-session.** That was a wrong conclusion reached by guessing. The truth is: **we don't know what broke it**. User is right — needs actual diagnosis. Marked as task #10 / TOP-PRIORITY for next session.
+
+### Suspect list for the Copilot regression (next session)
+1. **`src/consumer_hook.rs` (NEW this session)** — opens Joro's Consumer Control (0x0C/0x01) AND System Control (0x01/0x80) HID collections. On Windows, reading a HID collection via `ReadFile` drains reports from that collection, so if Copilot's report goes through either of those collections, our thread could be stealing it before Windows' Copilot handler sees it. BIGGEST SUSPECT. First thing to try: disable the System Control open (it was added later, specifically for F4 which turned out to be a keyboard macro anyway — unused). Rebuild, retest Copilot.
+2. **`src/remap.rs` single→single reclassification** — previously skipped, now pushes to combo_table. Shouldn't affect combo-source triggers like Win+Copilot but verify.
+3. **Razer services being killed** — today we stopped all 6 Razer services (Chroma SDK Diagnostic/Server/Service, Chroma Stream Server, Elevation Service, Game Manager Service 3) and restarted them only once for the Synapse test. Current state: not running. Unknown whether BLE Copilot handling depends on them.
+4. **Joro firmware state** — we ran many scans earlier today that wrote to base-layer keymap at matrix indices 0x01..0x82. Profile was reset once but we've written more since. Possible firmware state corruption around certain keys.
+
+### Other definitively established facts this session (keep these)
+- **BLE F1/F2/F3 = firmware-locked as slot selectors.** VERIFIED by running Synapse in BLE mode with Function Keys Primary enabled — slot switching still wins. Not circumventable.
+- **In wired mode F1/F2/F3 CAN be translated to function keys** via host-side SendInput (Synapse does this).
+- **F4 is a firmware keyboard macro emitting Win+Tab.** Interceptable via WH_KEYBOARD_LL combo-source trigger (already working, shipped). Currently removed from config per user request (user will pick a different key for rename).
+- **F5 through F9 emit standard Consumer Control usages**: F5=0x00E2 Mute, F6=0x00EA VolDown, F7=0x00E9 VolUp, F8=0x0070 BrightnessDown, F9=0x006F BrightnessUp. F10-F12 TBD.
+- **Synapse mm↔fn primary setting is a Synapse host-side feature**, not a firmware command. Clean USBPcap capture showed zero class=0x02 traffic during the toggle.
+- **openrazer `class=0x02 cmd=0x06 fn_key_toggle` does NOT apply to Joro** (sysfs attr not registered for Joro's PID in razerkbd_driver.c:5307).
+
+### Working tree state at session end
+- `src/keys.rs` — media VK names added (VolumeMute..LaunchApp2). Compiles? **Unverified** — the last `cargo build` was interrupted. Next session: verify build.
+- `src/remap.rs` — single→single reclassification, `make_key_input`/`send_inputs` exposed as `pub(crate)`, test updated. Compiles.
+- `src/consumer_hook.rs` — new module. Compiles. Lifecycle wired to main.rs. `consumer_remap = []` in user config so it's inactive (no thread spawned).
+- `src/main.rs` — consumer_hook lifecycle, `run_matrix_scan` CLI subcommand, `set_fn_key_toggle` removed.
+- `src/device.rs`, `src/usb.rs`, `src/config.rs` — various small additions/removals.
+- `assets/settings.html` — F-row `fwEmits`/`fwMedia`/`fwNote` metadata, popover prefill + hint.
+- `%APPDATA%\razer-joro\config.toml` — F4 Win+Tab remap removed; F2 matrix remap still present.
+- All three project docs (`_status.md`, `CHANGELOG.md`, `WORKPLAN.md`) updated.
+
+### TODO / tasks for next session (in priority order)
+
+1. **[TASK #10 — TOP PRIORITY] Diagnose Copilot BLE regression.** See task description — start by commenting out System Control HID open in `src/consumer_hook.rs::open_input_interfaces()`, rebuild, retest. If that doesn't fix it, `git stash` the working tree, rebuild from commit `dbb4511`, and test Copilot over BLE. If it works there, bisect.
+2. **[TASK #6] Extend keys.rs with media VK names** — code already written in the working tree but not built. Verify build, verify `parse_key_combo("VolumeMute")` returns `Some((vec![], 0xAD))`.
+3. **[TASK #7] Verify single→single media-VK remap path** — add `[[remap]] from="VolumeMute" to="F5"` to config, daemon restart, press F5 in mm-primary mode, confirm it emits VK_F5 (not mute). Don't trust earlier "this is already done" claim until actually tested.
+4. **[TASK #8] UI: per-key MM override for F5–F12** — update `findRemapForKey` to also match against `fwMedia`; update popover prefill so clicking F5 defaults `From = VolumeMute`; add an orange warning for F8/F9 (brightness VKs bypass LL hook). Only after task 10 is resolved.
+5. **[TASK #9] UI: "Function Keys Primary" preset button** — one-click that writes/clears 6 `[[remap]]` entries for the canonical media-VK → F-key mapping.
+6. **Icon redraw** (flagged earlier) — current PIL-generated ICO looks pixelated. Low priority.
+7. **Strip debug `eprintln!`, remove `fn_detect` module, `cargo build --release`** — cleanup pass.
+
+## Session 2026-04-13 (late) — Definitive BLE slot finding
+
+### The test
+User launched Razer Synapse, put Joro in **BLE mode**, enabled **Function Keys Primary** in Synapse, and pressed F1/F2/F3 in Notepad and Explorer. Result: **slot switching fired on all three, regardless of Synapse's fn/mm primary toggle**. In wired mode, Synapse's fn-primary toggle DID make F1/F2/F3 emit function-key VKs.
+
+### Hard limits now established
+- **BLE mode**: F1/F2/F3 are firmware-locked to BLE slot switching. No command (Synapse has none, openrazer has none, we have none) overrides this.
+- **Wired mode**: F1/F2/F3 emit nothing by default, but can be host-side translated to VK_F1/F2/F3 via SendInput when fn-primary is on. Synapse confirms this pattern.
+- Therefore: user's personal target **"BLE connection + plain F2 = rename"** is **impossible** without a firmware patch. The only no-loss alternatives are:
+  - (A) Stay on BLE; use `Fn+F2 = rename` (already working via matrix remap 0x71 → 0x3B).
+  - (B) Switch to wired; add host-side `F2 → F2` via VK-level intercept once we build the per-key MM remap UI.
+  - (C) Use a different physical key for rename (e.g. Copilot, Fn+some letter).
+
+### Implications for the project
+- **Scope narrowed** per user instruction: target is Synapse parity for **fn/mm primary toggle + full Hypershift remapping only**. NOT gaming features (keyswitch optimization, scroll wheel, macros).
+- fn/mm primary = host-side VK interception layer (no firmware mechanism exists on Joro).
+- Hypershift = firmware matrix remap via `cmd=0x0d` with `args[0]=0x01` — already working, documented.
+- F4 = rename (via Win+Tab intercept) stays as the currently shipped mechanism until user decides the long-term layout. May be reverted when per-key UI lands.
+
+## Session 2026-04-13 (F4 = rename discovery + ship) Discovered via WH_KEYBOARD_LL hook debug logging after HID consumer/system interface reads came up empty for F4. Fix: add `[[remap]] from="Win+Tab" to="F2"` to config — the existing combo-source trigger path intercepts and emits F2. Trade-off: physical Win+Tab (Task View) is sacrificed. All other mm keys, BLE slot selection, Fn+F2=rename, lighting, and host combo remaps (Win+L, Copilot) remain intact. Consumer HID interception layer built but found to be non-consuming on Windows (hidapi reads shadow the reports but don't remove them from the stack) — kept in place for discovery logging but no active remaps.
+
+## Session 2026-04-13 (F4 = rename discovery + ship)
+
+### F4 investigation path
+- Consumer HID discovery script (`proto/consumer_discover.py`) captured F5=Mute=0x00E2, F6=VolDown=0x00EA, F7=VolUp=0x00E9, F8=BrightnessDown=0x0070, F9=BrightnessUp=0x006F. F4/F10/F11/F12 produced no consumer reports.
+- Built Rust consumer_hook (`src/consumer_hook.rs`) that opens both Consumer Control (0x000C/0x0001) and System Control (0x0001/0x0080) HID interfaces via hidapi, but F4 never appeared on either.
+- Killing all 6 Razer services (`Razer Chroma SDK *`, `Razer Elevation Service`, `Razer Game Manager Service 3`) did not stop F4 from arranging windows — so no user-mode Razer component was handling it.
+- Enabled WH_KEYBOARD_LL hook debug logging (already scaffolded in `src/remap.rs::dbg_log`) and captured a clean F4 press. Result: `DN vk=0x5B (LWin) scan=0x5B` immediately followed by `DN vk=0x09 (Tab) scan=0x0F`. **F4 is a firmware keyboard macro emitting Win+Tab.** That's why:
+  - F4 never appeared on consumer/system HID interfaces — it's main-keyboard-interface keystrokes.
+  - VK_F4 never appeared in any earlier hook debug dump.
+  - Killing Razer services doesn't help — it's all in Joro firmware.
+- Fix was then a single config entry: the existing `[[remap]] Win+L → Delete` combo-source trigger infrastructure can intercept any `<mod>+<trigger>` pair. Added `[[remap]] from="Win+Tab" to="F2"` and verified: pressing F4 in Explorer with a file selected puts the filename into rename mode. Task View is no longer triggered by F4 (or by physical Win+Tab — the sacrifice we accepted).
+
+### Consumer HID layer status
+- New module `src/consumer_hook.rs`: background thread opens Joro's Consumer + System HID interfaces, reads reports, matches against `[[consumer_remap]]` config entries, emits replacement keys via `SendInput`. Logs unknown usages so users can discover codes organically.
+- `src/remap.rs`: `make_key_input` and `send_inputs` exposed as `pub(crate)` so `consumer_hook` can reuse them.
+- `src/config.rs`: new `ConsumerRemapConfig` struct + `consumer_remap: Vec<_>` field.
+- `src/main.rs`: `App::consumer_hook: Option<ConsumerHook>` lifecycled in `try_connect` / `check_device`.
+- **Important caveat**: hidapi reads on Windows are **non-consuming** — we see consumer usages but Windows still routes them to its media-key handler. So intercepting Mute/Vol/Brightness via this layer DOES NOT swallow the original behavior (e.g. Mute still toggles even if we SendInput F12 as a replacement). The layer remains useful for discovery logging and for remapping usages that Windows ignores by default; for true intercept of mm keys, WH_KEYBOARD_LL at the VK level is needed (VK_VOLUME_*, VK_MEDIA_*).
+
+### Code cleanup this session
+- Removed the short-lived `set_fn_key_toggle` experiment (openrazer's `class=0x02 cmd=0x06` fn_key_toggle doesn't apply to Joro — `dev_attr_fn_toggle` is not registered for Joro's product ID in openrazer's `razerkbd_driver.c:5307`). The earlier transaction_id=0xFF retry also produced no effect. The Synapse "Multimedia Keys Primary" toggle is a Synapse host-side feature, not a firmware command — confirmed by a clean USBPcap capture of the mode-toggle UI action showing zero class=0x02 writes.
+- `fn-primary <state>` CLI subcommand removed alongside.
+
+### Current user config (active 2026-04-13)
+- `[[remap]] Win+L → Delete` (host-side, WH_KEYBOARD_LL)
+- `[[remap]] Win+Copilot → Ctrl+F12` (host-side)
+- `[[remap]] Win+Tab → F2` (host-side — intercepts F4 firmware macro)
+- `[[fn_remap]] F2 → F2` (firmware base-layer — enables Fn+F2 = rename as fallback)
+- `[[consumer_remap]]` section empty (discovery mode only)
+- Lighting: static, `#eee8e8`, brightness 81
+
+### Next steps
+- **Icons** still flagged from earlier session as "look like shit" — redraw needed.
+- Optional: extend `remap.rs` to intercept VK_VOLUME_MUTE/UP/DOWN + VK_MEDIA_* so the consumer_hook layer can become truly consuming on those specific keys (user hasn't requested, deferred).
+- Clean-up pass: strip noisy debug `eprintln!`, remove `fn_detect` module, release build.
+- BLE mode testing for F4's Win+Tab behavior (does it still fire over BLE? should behave the same — firmware macro should be transport-agnostic — but not verified).
+- Tray menu item for toggling the consumer_hook on/off during discovery sessions.
+
+## Session 2026-04-13--1625 — Matrix discovery, protocol correction, BLE slot architecture
+
+### Major findings
+- **Joro matrix table ~75% mapped** via 5 sequential `scan <batch>` runs (0..4 covering matrix indices 0x01..0x82). See `src/keys.rs::JORO_MATRIX_TABLE`. Known keys now include full number row, Tab row, CapsLock row, shift row, bottom row (partial), arrow/nav cluster, F-row (F1..F12 = 0x70..0x7B), and Escape (0x6E). Remaining gaps: 0x3F, 0x41..0x45 (likely LAlt / PrintScreen / Pause / ScrollLock / Fn key), 0x52, 0x57, 0x58, plus anything past 0x7B.
+- **Protocol understanding corrected.** Captured Synapse remapping Right Ctrl → F2 on the Standard (base) layer. Packet bytes:
+  ```
+  class=0x02 cmd=0x0d dsize=10 args = 01 40 01 02 02 00 3b 00 00 00
+  ```
+  The `args[0]=0x01` is a **constant**, not a layer selector. Our `set_fn_layer_remap` was always writing to the base layer — the "Fn-layer" name was a misconception. Renamed to `set_layer_remap`. Earlier apparent successes ("Fn+Left → Home works") were because:
+  - In mm-primary mode, Fn key toggles F-row from media pipeline → matrix pipeline.
+  - For non-F-row keys, Fn is a no-op, so the base remap was active regardless of Fn.
+- **Deleted** `set_base_layer_remap` (it was writing `args[0]=0x00` which was wrong) and `apply_base_remaps`. Removed `[[base_remap]]` config section.
+- **BLE slot selector architecture discovered.** In mm-primary mode + BLE transport, F1/F2/F3 tap emits a firmware-internal "switch BLE device N" action that runs BEFORE matrix lookup. We verified this via a controlled test: programmed F2 matrix (0x71) → HID F2 (0x3B), then tested in BLE mode. Result: **F1/F3 still switch slots** (untouched by matrix write), **F2 still switches slot 2** (base path bypasses matrix), **Fn+F2 = actual F2 key** (Fn-held path goes through matrix, our remap takes effect). Implications:
+  - Matrix remaps are safe — they do not break BLE slot selection.
+  - F-row base taps in mm-primary mode cannot be remapped via matrix at all.
+  - To intercept F-row base taps in mm-primary mode (e.g. F4 "arrange windows"), must use host-side HID interception on the Consumer Control interface.
+- **F2 → rename goal:** current compromise is `Fn+F2 = rename` (works via matrix remap at 0x71 → 0x3B, already in config). To get plain F2 = rename while preserving all mm defaults + BLE slots, a firmware-level per-key mode override would need to be discovered; unknown if Joro firmware exposes one.
+
+### Code cleanup this session
+- `src/usb.rs` — renamed `set_fn_layer_remap` → `set_layer_remap`; deleted `set_base_layer_remap`; updated docstring to reflect capture findings.
+- `src/device.rs` — trait method renamed; `set_base_layer_remap` removed.
+- `src/main.rs` — all callers updated; `apply_base_remaps` deleted.
+- `src/config.rs` — `base_remap` field removed from `Config` struct and `DEFAULT_CONFIG`.
+- `src/keys.rs` — `JORO_MATRIX_TABLE` extended from 4 entries to ~60 entries.
+- `src/main.rs` — new `run_matrix_scan(batch)` CLI subcommand (`cargo run -- scan <n>`), programs 26 matrix indices to letters a..z for interactive discovery.
+
+### Verified config state (persisted in user firmware this session)
+- `[[fn_remap]] F2 → F2` (matrix 0x71 → HID 0x3B) — programmed on every USB connect. Enables Fn+F2 = rename in mm-primary mode.
+- `[[fn_remap]] Left → Home` and `Right → End` — legacy from earlier session.
+- Everything else (BLE slots, mm defaults, F4 arrange) remains factory.
+
+### Next steps
+- **Deeper firmware reversal for per-key mode override.** Goal: find a firmware command that moves F2 (specifically) from the mm/BLE-slot pipeline to the matrix pipeline while leaving F1/F3/F4/etc untouched. Approaches:
+  - Capture Synapse with Joro in mm-primary but with F2 remapped to something — does Synapse send a different packet for F-row specifically?
+  - Dump firmware memory via undocumented Razer debug commands (class=0x00 cmd=0x8X probes).
+  - Brute-force unknown `class` / `cmd` bytes, watching for behavior changes.
+- **Clean isolated captures still needed** for: (a) MM↔Fn primary mode toggle command (our earlier 2x `cmd=0xa4` capture was ambiguous — both writes had args=0), (b) Consumer-usage output encoding (how Synapse encodes media-key outputs in cmd=0x0d — needed for programming F-row mm overrides).
+- **Matrix table remaining gaps:** 0x3F, 0x41..0x45, 0x52, 0x57, 0x58, >0x7B. Low priority since discovered keys cover all common needs.
+- **F4 base tap interception** — if user wants F4 alone = rename, needs host-side Consumer HID reader thread in daemon. Deferred pending firmware reversal attempt.
+- **Icons** — flagged as "look like shit" earlier in session. Need to redraw at better quality (64x64 source instead of 256x256 downscale, or replace the PIL generator with a proper vector asset).
+
+## Last session continued (2026-04-13 03:09 PDT) — Config-driven Fn remaps + battery fix
+
+### Completed this round
+- **Fn-layer remap is now config-driven** via new `[[fn_remap]]` section in `config.toml`. Daemon iterates entries and calls `set_fn_layer_remap()` for each on USB connect. Removed hardcoded Left/Right calls from `try_connect`.
+- **`keys::key_name_to_matrix(name)`** lookup table for Joro physical-key matrix indices. Currently knows: `Escape=0x01`, `CapsLock=0x1E`, `Left=0x4F`, `Right=0x59` (~4 of ~85 keys — discovery is Phase 3).
+- **`parse_hid_combo()`** in `main.rs` — converts strings like `"Home"`, `"Ctrl+F12"`, `"Shift+End"` into the `(modifier_byte, hid_usage)` pair that `set_fn_layer_remap` expects. Supports HID modifier bits for LCtrl/LShift/LAlt/LGui/RCtrl/RShift/RAlt/RGui.
+- **Battery fix**: was reading `arg[0]` (first byte of response data) but openrazer driver source confirms battery level is in `arg[1]`. Updated both BLE (`src/ble.rs::get_battery_percent`) and USB (new `src/usb.rs::get_battery_percent` + trait override). USB shows real battery now.
+
+### Files changed this round
+- `src/keys.rs` — `JORO_MATRIX_TABLE` + `JORO_MATRIX_MAP` + `key_name_to_matrix()`
+- `src/config.rs` — `FnRemapConfig` struct, `Config::fn_remap` field, default config seeds Fn+Left/Fn+Right entries
+- `src/main.rs` — `apply_fn_remaps()` static method, `parse_hid_combo()` helper, `try_connect` now calls `apply_fn_remaps` instead of hardcoded calls
+- `src/ble.rs` — battery now reads `data.get(1)` per openrazer
+- `src/usb.rs` — new `get_battery_percent()` method + trait override
+
+## Previous round (2026-04-13 02:48 PDT) — Fn-layer remap protocol REVERSE-ENGINEERED + WORKING
+
+### Big win: Fn-layer firmware keymap programming
+- **Reverse-engineered Razer Synapse's Fn-layer remap command via USB capture** (USBPcap on USBPcap3 + Synapse remap session in Wireshark, parsed with custom Python pcap parser).
+- **Protocol**: `class=0x02 cmd=0x0d` with 10-byte data payload:
+  ```
+  args[0]  = 0x01           // layer selector (1 = Fn layer)
+  args[1]  = src_matrix     // Razer matrix index of source key
+  args[2]  = 0x01           // var-store / profile (constant from capture)
+  args[3]  = 0x02           // output type (HID keyboard)
+  args[4]  = 0x02           // output payload size
+  args[5]  = modifier       // HID modifier byte (0 for plain key)
+  args[6]  = dst_usage      // HID keyboard usage code
+  args[7..10] = 0x00        // padding
+  ```
+- **No setup or commit command needed** — Synapse just sends the raw remap and firmware persists it. Confirmed by inspecting the timeline of all SET_REPORT control transfers in the capture (1532 lighting frames + 3 remap frames + 2 routine queries; nothing else).
+- **Joro matrix indices identified so far**:
+  - Left arrow: `0x4F`
+  - Right arrow: `0x59`
+  - (full table TBD via additional captures or brute force)
+- **HID usage codes used in test**:
+  - Home: `0x4A`
+  - End: `0x4D`
+- **Implementation**: `RazerDevice::set_fn_layer_remap(src_matrix, modifier, dst_usage)` in `src/usb.rs`, exposed via `JoroDevice::set_fn_layer_remap` trait method (default impl returns Err for non-USB transports).
+- **Verified working**: Fn+Left → Home, Fn+Right → End both confirmed in Notepad immediately after the daemon applied the remaps. **Persists in firmware** — works on BLE / 2.4GHz / other PCs without re-applying.
+
+### How to use right now
+Hardcoded in `try_connect()`: applies Fn+Left → Home and Fn+Right → End on every USB connect. The keyboard firmware persists them, so once-applied is enough — but re-applying is idempotent and safe.
+
+### Files changed
+- `src/usb.rs` — new `set_fn_layer_remap()` method on `RazerDevice` and trait override
+- `src/device.rs` — new `set_fn_layer_remap()` trait method (default Err)
+- `src/main.rs` — applies hardcoded Fn+Left/Right remaps on USB connect
+
+### Capture/parse infrastructure (kept for future captures)
+- `C:\Users\mklod\AppData\Local\Temp\synapse_capture.ps1` — launches USBPcap on all 3 root hubs in parallel via PowerShell Start-Process (the only invocation pattern that works headless)
+- `C:\Users\mklod\AppData\Local\Temp\parse_synapse2.py` — pcap parser that decodes Razer Protocol30 SET_REPORT control transfers and groups by (class, cmd) for easy command discovery
+- `C:\Users\mklod\AppData\Local\Temp\synapse_capture.pcap` — the raw capture (441KB), retained for re-analysis if needed
+
+### Next steps for Fn remaps
+- **Generalize**: move the hardcoded Fn+Left/Right remap calls into config-driven entries (e.g., `[[fn_remap]] from = "Left", to = "Home"` in `config.toml`)
+- **Matrix index discovery**: do additional Synapse captures to map every Joro key's matrix index, save to a lookup table in `keys.rs`
+- **UI exposure**: add a "Fn Layer" toggle to the visual keyboard in the settings window so user can click any key and assign a Fn-layer combo via firmware programming
+- **Combo outputs**: test that `modifier` byte works (e.g., Fn+L → Ctrl+F12 by setting modifier=0x01 (LCtrl), dst_usage=0x45)
+- **Base layer experimentation**: try `args[0] = 0x00` to see if it programs the base layer (effectively replacing `set_keymap_entry` cmd 0x0F with cmd 0x0D)
+
+## Last session (2026-04-13 01:59 PDT) — Webview settings window, Fn detection (blocked, now resolved)
+
+### Completed
+- **wry webview settings window** (`src/settings_window.rs`) — 1100×640 fixed-size non-resizable window, position persisted to `%APPDATA%\razer-joro\window_state.json`, opened via left-click on tray OR tray "Settings…" menu, right-click still shows context menu.
+- **Visual 75% Joro keyboard** (`assets/settings.html`) — flex-based layout with:
+  - Inline SVG icons for F-row (bluetooth, screens, speaker mute/low/high, sun small/large, backlight down/up, padlock)
+  - Copilot (real icons8 Microsoft Copilot path), Windows 4-pane logo, globe (fn), chevron arrow keys
+  - Media control icons (prev/next/play/mute) on pg up / pg dn / home / end
+  - Subtle green glow outline for mapped keys (dark background preserved), solid green fill when popover is active
+  - BT LED dots on F1/F2/F3, CapsLock LED dot, sharp white outer border
+  - Per-key alignment variants: `align-left` (Tab, CapsLock, LShift), `align-right` (Enter, Backspace), `align-center` (F-row, arrow cluster), default top-center (everything else)
+  - F-row 34px shorter than 60px main rows; 6px gap between top/bot labels
+- **Exact-match remap engine** — each keyboard key has an `emits` field; `findRemapForKey()` does case-insensitive exact match on the remap's `from` field. Lock key emits `Win+L`, Copilot key emits `Win+Copilot`, so those combos highlight the correct physical key (not the letter L, not the Win key).
+- **Popover remap editor** — click any key → small popover with editable From/To fields, defaults the From to the key's `emits` value. Save/Clear/Cancel, auto-save on confirm. Modifier combos like `Ctrl+F5`, `Win+L` work directly.
+- **Single-key → single-key host remap fixed** — `remap.rs` previously silently dropped `a → b` style remaps (intended for firmware path but never wired). Removed the skip; now host-side hook handles them.
+- **Lighting controls in settings window** — single-row layout (Color picker → Brightness slider → Effect dropdown) with auto-save IPC. New `set_lighting` action in `handle_settings_ipc` updates config + file + device live.
+- **Battery indicator** — new `get_battery_percent()` on `JoroDevice` trait, BLE impl reads Protocol30 `0x07/0x80` and maps raw byte to 0-100%. Shown as SVG battery icon + percentage in top-right of window header.
+- **Auto-connect to paired Joro** (major reconnect fix) — on startup, `find_paired_joro()` enumerates paired BLE devices via `DeviceInformation::FindAllAsyncAqsFilter(BluetoothLEDevice::GetDeviceSelectorFromPairingState(true))` and opens the Joro by device ID WITHOUT waiting for advertisements. The previous advertisement-watcher path didn't work for already-paired+connected devices. Now the daemon reconnects in <1s on startup with no re-pair dance.
+- **Clean shutdown via Ctrl+C** — `ctrlc` crate + `shutdown_and_exit()` method: explicitly drops the BleDevice (which runs `Close()` on WinRT and releases the keyboard), then `std::process::exit(0)` because winit's `run_app` sometimes won't return after `event_loop.exit()` when wry windows are alive.
+- **Unified UI tray** — Color/Brightness/Effect submenus still in tray; "Settings…" opens the webview window; reconnect backoff 10s when disconnected (was 2s — was blocking the tray during scans).
+
+### Fn-arrow investigation (blocked)
+Goal: `Fn+Left → Home` and `Fn+Right → End` as host-side intercepted combos (Synapse supports this via firmware programming).
+
+- **Confirmed:** Joro's Fn key produces NO VK via `WH_KEYBOARD_LL`. Pressing Fn alone → zero events. Pressing Fn+Left → plain `VK_LEFT (0x25) scan=0x4B`, indistinguishable from Left alone. Fn+F5 DOES produce "AC Refresh" (0x29D) on the Consumer Control HID interface because the firmware translates it internally.
+- **Built `src/fn_detect.rs`** — hidapi-based diagnostic that enumerates all HID devices matching VID 0x1532 OR product name "Joro" OR path containing "razer", opens each readable interface, timestamps every input report for visual correlation with keypresses.
+- **BLE Joro exposes 6 HID collections** (vid 0x068e pid 0x02ce when on BLE — assigned Bluetooth VID, not USB 0x1532):
+  - `[0]` Keyboard (Col01, usage 0x0001/0x0006) — **access denied**, Windows owns it
+  - `[1]` Mouse (Col02, 0x0001/0x0002) — **access denied**
+  - `[2]` Consumer Control (Col03, 0x000C/0x0001) — readable; reports `03 9d 02 00` on Fn+F5 = AC Refresh
+  - `[3]` System Control (Col04, 0x0001/0x0080) — readable, no reports seen during test
+  - `[4]` Vendor/Generic (Col05, 0x0001/0x0000) — readable; reports `05 04 01 00` on Fn+F5 (paired with [2])
+  - `[5]` Vendor/Generic (Col06, 0x0001/0x0000) — readable, no reports seen
+- **Fn alone, Fn+Left, plain letters** all produced **zero reports** on the readable interfaces. So no byte in any readable HID collection carries Fn-held state.
+- **Synapse must be doing firmware-level Fn-layer keymap programming** (writing to class 0x02 sub-command for Fn-layer entries). We haven't reverse-engineered that protocol. Alternatives would be: install a kernel-level filter driver (like Interception) to get exclusive keyboard access, or capture Synapse's USB writes when it remaps Fn+Left in a VM with Synapse installed.
+
+### Key discoveries this session
+1. **wry + winit Drop order** — the webview field must be declared BEFORE the window field in `SettingsWindow` struct so drops run in the right order. Window drop before webview causes WebView2 to panic cleaning up against a destroyed HWND.
+2. **`event_loop.exit()` doesn't always return from `run_app`** when a tray icon / webview is registered. Ctrl+C handler must explicitly drop state and call `std::process::exit(0)` as a fallback.
+3. **Paired-device enumeration >> advertisement watching** — for any BLE device that's already paired to Windows, `DeviceInformation::FindAllAsyncAqsFilter(GetDeviceSelectorFromPairingState(true))` resolves in milliseconds without needing the device to advertise. Our advertisement-watcher-first approach was fundamentally wrong for reconnect scenarios.
+4. **Joro Fn key is completely invisible to user-space** — no WH_KEYBOARD_LL events, no readable HID vendor reports (at least not on the interfaces Windows doesn't own). Synapse must use kernel filter drivers or firmware keymap programming.
+
+### Files changed / added
+- `assets/settings.html` — entire webview UI (keyboard visual, popover, lighting, tabs removed, battery indicator)
+- `src/settings_window.rs` (new) — wry window lifecycle, position persistence
+- `src/window_state.rs` (new) — tiny JSON read/write for settings window position
+- `src/fn_detect.rs` (new) — hidapi diagnostic for Joro HID report inspection
+- `src/main.rs` — `UserEvent::CtrlC/SettingsIpc`, `apply_lighting_change`, `shutdown_and_exit`, tray left-click handler, reconnect backoff, paired-device auto-connect wiring
+- `src/ble.rs` — `find_paired_joro` + `connect_from_device` + `connect_from_address`, `get_battery_percent`
+- `src/tray.rs` — `with_menu_on_left_click(false)`, `poll_tray_event`, "Settings…" menu item, `menu_settings_id`
+- `src/device.rs` — `get_battery_percent` default trait method
+- `src/remap.rs` — removed silent skip for single-key single-key remaps
+- `src/config.rs` — `save_remaps` helper for webview save action
+- `Cargo.toml` — added `wry`, `serde_json`, `ctrlc`, `hidapi`; windows crate features expanded (`Devices_Bluetooth_Advertisement`, `Devices_Enumeration`, `Foundation`, `Foundation_Collections`, `Storage_Streams`)
+
+## Next immediate task
+- **Fn+arrow remap investigation**: two real paths forward —
+  1. **Firmware keymap reverse-engineering**: install Synapse in a VM, USB-capture its traffic while remapping Fn+Left → Home, identify the class/command/sub-command that writes Fn-layer entries, implement the same over our USB path (class 0x02 extension).
+  2. **Accept constraint**: tell user Fn+arrows cannot be host-side intercepted, offer Right Alt / Right Ctrl / CapsLock as alternative hyper-modifiers that DO emit VKs and work with the existing trigger remap engine.
+- Visual keyboard polish: user will iterate further on outlines, font, alignment, backlight icons based on feedback
+- Test USB↔BLE mid-session transport switch (still unverified after BLE rewrite)
+
+## Previous session (2026-04-12) — Interactive systray UI, config hot-reload, effect modes
+
+### Completed
+- **Tray submenus: Color / Brightness / Effect** using `CheckMenuItem` for active-selection checkmarks
+  - 8 color presets (red/orange/yellow/green/cyan/blue/purple/white)
+  - 4 brightness presets (25/50/75/100%)
+  - 3 effect modes (Static / Breathing / Spectrum)
+  - Clicking a preset: updates in-memory config → writes targeted TOML line (preserves comments) → applies to device → syncs checkmarks → bumps mtime watermark so config-poll doesn't double-fire
+- **`apply_config()` branches on `lighting.mode`** — static / breathing / spectrum all wired through the `JoroDevice` trait
+- **`JoroDevice` trait** gained `set_effect_breathing` and `set_effect_spectrum` with default implementations (USB falls back to static color, BLE calls the real effect methods)
+- **`config::save_lighting_field()`** — targeted in-place TOML line editor that preserves comments and other sections, used by tray preset handlers
+- **Status line** now shows transport: `Razer Joro — Connected (BLE)` or `(USB)`
+- **Hot reload over BLE verified** — edit config.toml color mid-run, daemon's 5s config poll picks up the mtime change, reload_config() reapplies, tray checkmarks sync
+- **Dead-code warnings all cleaned** — per-item `#[allow(dead_code)]` on forward-compat items (dongle detection, keymap helpers, etc.)
+
+### Key discovery
+- **Joro BLE pairing state matters.** If Windows has a stale/half-paired record of the keyboard (previous address, incomplete pair), the daemon's WinRT GATT session behaves erratically — initial connect + firmware read succeed, but subsequent GATT writes fail with `HRESULT(0x80000013) "The object has been closed."` and ConnectionStatus flaps. Fix: remove the device from Windows Bluetooth settings, put the keyboard back in BLE pairing mode, complete Windows' Add Device flow. After a clean pair, tray preset writes work reliably.
+- **MaintainConnection=true genuinely holds** the session when pairing is clean. The earlier "btleplug doesn't honor MC" theory was a combination of btleplug's missing flag AND the unclean pairing state confusing WinRT.
+
+### Files changed
+- `src/tray.rs` — submenu infrastructure, preset tables, `CheckMenuItem` arrays, `match_color/brightness/effect`, `sync_check_state`, transport-aware status line
+- `src/config.rs` — `save_lighting_field()` helper; removed `#[allow(dead_code)]` on `mode`
+- `src/device.rs` — trait methods `set_effect_breathing`, `set_effect_spectrum` with default fallbacks
+- `src/ble.rs` — BLE impl overrides the default effect trait methods; unlocked breathing/spectrum dead-code
+- `src/main.rs` — `Preset` enum, `apply_preset()` handler, `handle_menu_events` routes through `match_*`, mtime watermark bump after tray writes, `apply_config` branches on mode
+- `Cargo.toml` — unchanged (tray-icon was already present)
+
+## Next immediate task
+- Test USB↔BLE mid-session transport switch (flip mode toggle on keyboard while daemon is running)
+- Optional: strip remaining debug `eprintln!` from ble.rs once behavior confirmed stable
+- Stage 5 continued (optional): webview settings window via wry for custom color picker, smooth sliders, visual keymap editor
+
+## Previous session (2026-04-12 earlier) — Replaced btleplug with direct WinRT, BLE is stable
+
+### Completed
+- **Replaced btleplug with direct WinRT** — `src/ble.rs` now uses the `windows` crate directly:
+  - `BluetoothLEAdvertisementWatcher` for discovery (filter on LocalName == "Joro")
+  - `BluetoothLEDevice::FromBluetoothAddressAsync` for device acquisition
+  - `GattSession::FromDeviceIdAsync` + `SetMaintainConnection(true)` — the setting we held throughout the connection lifetime (instead of btleplug's default-false session)
+  - `GattDeviceService::GetCharacteristicsForUuidAsync` for char_tx/char_rx discovery
+  - `WriteClientCharacteristicConfigurationDescriptorAsync(Notify)` + `ValueChanged` handler for notifications
+  - All GATT writes via `WriteValueWithResultAndOptionAsync(WriteWithResponse)`
+  - `BluetoothLEDevice::Close()` on Drop so the keyboard resumes advertising after disconnect
+- **`JoroDevice` trait refactor** — USB + BLE behind a single `Box<dyn JoroDevice>` field in `main.rs`. `try_connect`, `apply_config`, `check_device`, `reload_config` all backend-agnostic.
+- **`is_connected` tolerance** — reads `BluetoothLEDevice.ConnectionStatus` (cheap property, not GATT). Windows flaps between Connected/Disconnected momentarily; we require 3 consecutive false readings before declaring disconnected. Absorbs the ~10s of post-connect flap cleanly.
+- **Removed dependencies** — btleplug, tokio, futures, uuid all gone. Cargo.toml is significantly slimmer.
+- **Visual verification** — green→red→blue config changes all applied and visually confirmed on hardware over BLE
+- **Sleep/wake cycle verified** — daemon holds connection until keyboard's firmware sleep timeout fires, then cleanly Drops, scans, and reconnects immediately when user presses a key
+
+### Key discoveries (WinRT BLE)
+1. **btleplug 0.12 has no `MaintainConnection=true`** on its GattSession → connections die within 1-2 seconds. Fixable only by owning WinRT directly.
+2. **Acquiring a side GattSession to set MaintainConnection doesn't work** — WinRT GattSession ties to the calling process's device handle; a side session held in our code doesn't affect btleplug's internal session.
+3. **Windows `ConnectionStatus` property flaps** for ~5-10s after connect even on stable hardware. Treat any single `Disconnected` reading as transient; only act on a run of them.
+4. **Windows BLE advertisement cache** includes stale addresses from previously-paired devices — the old MITM proxy kept showing up as "Joro" until physically unplugged. Filter by LocalName in the advertisement watcher.
+5. **Keyboard's firmware inactivity timeout overrides Windows MaintainConnection** — Windows pings the device, but the keyboard's own power management will still disconnect after some idle period. Expected behavior; handled by reconnect loop.
+6. **`BluetoothLEDevice::Close()` on Drop is essential** — without it, Windows holds the link and the keyboard can stay invisible to scans for minutes after a daemon disconnect.
+
+### Files changed
+- `src/ble.rs` — complete rewrite using `windows` crate, no btleplug/tokio
+- `src/device.rs` (new) — `JoroDevice` trait
+- `src/usb.rs` — methods bumped to `&mut self`, `JoroDevice` impl
+- `src/main.rs` — single `Box<dyn JoroDevice>` field, collapsed duplicated apply/check paths
+- `Cargo.toml` — removed btleplug, tokio, futures, uuid; added `windows` features `Devices_Bluetooth_Advertisement`, `Devices_Enumeration`, `Foundation`, `Foundation_Collections`, `Storage_Streams`
+
+## Next immediate task
+- Test USB↔BLE mode switch on the keyboard while daemon is running (switch from BLE to USB mid-session, verify daemon picks up the new transport)
+- Test config.toml hot-reload over BLE (edit color, verify daemon reapplies without reconnect cycle)
+- Clean up dead code warnings in `ble.rs` (unused effects like get_brightness, set_breathing_*, etc.)
+- Strip debug eprintln! from ble.rs once behavior is confirmed stable over a few sessions
+
+## Previous session (2026-04-12) — Rust btleplug BLE End-to-End Working (superseded)
+
+### Completed
+- **Python bleak direct control script** — `scripts/ble_direct_control.py`, validates full protocol without MITM proxy (brightness GET/SET, RGB static, spectrum cycling all verified)
+- **btleplug stale candidate fix** — scan returns cached+live addresses; now iterates all "Joro" candidates and tries each until connect succeeds
+- **btleplug MaintainConnection fix** — btleplug 0.12 does NOT set `GattSession.MaintainConnection`, so WinRT drops the GATT session ~seconds after connect. Fixed by directly creating a `windows::Devices::Bluetooth::GenericAttributeProfile::GattSession` from the Bluetooth address and calling `SetMaintainConnection(true)` after btleplug connects. Session stays alive indefinitely.
+- **is_connected() fallback** — WinRT cached connection status can lag; added GATT read fallback
+- **End-to-end verified** — daemon reads firmware (v1.2.2.0), applies config.toml (green #00CC44 @ brightness 200) over BLE, connection held for full poll cycles
+
+### Key discoveries
+1. **btleplug 0.12 WinRT bug**: No `MaintainConnection=true` on GattSession means connection drops when idle. Workaround: directly invoke WinRT `GattSession::FromDeviceIdAsync` + `SetMaintainConnection(true)` after btleplug's connect.
+2. **BLE random addresses rotate**: Keyboard advertises with different resolvable random addresses across sessions (seen `2F9F`, `2FA1`, `2FA2`). Scan-based discovery is required — hardcoded address won't work.
+3. **Stale paired devices pollute scan**: Windows WinRT returns cached paired-device addresses in scan results even if they're not advertising. Must iterate candidates and try connect on each.
+4. **Aggressive BLE sleep**: Keyboard drops BLE advertising within ~30s of idle. Daemon must handle "device not found" as normal and keep polling.
+5. **MITM proxy nRF52840 is no longer needed** for control — direct BLE from Windows via btleplug works.
+
+### Files changed
+- `src/ble.rs` — MaintainConnection setup, multi-candidate connect, GATT read fallback
+- `Cargo.toml` — added `Devices_Bluetooth` + `Devices_Bluetooth_GenericAttributeProfile` windows crate features
+- `scripts/ble_direct_control.py` — new bleak validation script
+
+## Next immediate task
+- Test: verify lighting changed to green #00CC44 visually
+- Test: config.toml reload triggers BLE reapply without reconnect
+- Test: disconnect/reconnect when keyboard sleeps and wakes
+- Refactor USB + BLE behind a common `JoroDevice` trait to reduce `apply_config_*` duplication
+- Unpair keyboard from Windows Bluetooth when done testing (it's currently paired)
+
+## Previous session (2026-04-10 1500–1730) — BLE SET Commands Cracked + Effects Mapped + Rust BLE Module
 
 ### Completed
 - **SET brightness over BLE — WORKING** — `0x10/0x05 sub1=0x01 data=[brightness]`
