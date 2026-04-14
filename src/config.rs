@@ -1,29 +1,73 @@
 // src/config.rs — TOML config schema and loader
 // Last modified: 2026-04-09--2350
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
     pub lighting: LightingConfig,
     #[serde(default)]
     pub remap: Vec<RemapConfig>,
+    /// Fn-layer (Razer "Hypershift") remaps. Programmed into keyboard firmware
+    /// via class=0x02 cmd=0x0d (USB only — class 0x02 not supported over BLE).
+    /// Persists in firmware across reboots and works on any transport.
+    #[serde(default)]
+    pub fn_remap: Vec<FnRemapConfig>,
+    /// Host-side Fn-layer remaps. Applied by the daemon's WH_KEYBOARD_LL
+    /// hook using live Fn-held state from `fn_detect` (vendor HID report
+    /// 0x05 0x04 state). Unlike `fn_remap` these don't require USB and
+    /// don't touch firmware — they work on any transport as long as the
+    /// daemon is running. Same (from, to) schema as `fn_remap`.
+    #[serde(default)]
+    pub fn_host_remap: Vec<FnRemapConfig>,
+    /// Host-side Consumer HID interceptions. Joro's F-row emits consumer
+    /// usages in mm-primary mode (F5=Mute, F8=BrightnessDown, etc.). These
+    /// entries let the daemon swallow a specific consumer usage and emit a
+    /// replacement keyboard VK via SendInput — used to give e.g. F4 a
+    /// keyboard-level meaning even though the firmware routes it through
+    /// the consumer pipeline.
+    #[serde(default)]
+    pub consumer_remap: Vec<ConsumerRemapConfig>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct LightingConfig {
     pub mode: String,
     pub color: String,
     pub brightness: u8,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct RemapConfig {
     pub name: String,
     pub from: String,
     pub to: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub matrix_index: Option<u8>,
+}
+
+/// Fn-layer remap entry. `from` is the source key name (e.g. "Left", "Right").
+/// `to` is the output, either a single key ("Home") or a combo ("Ctrl+F12").
+/// The remap is programmed into firmware via `set_fn_layer_remap()`.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct FnRemapConfig {
+    #[serde(default)]
+    pub name: String,
+    pub from: String,
+    pub to: String,
+}
+
+/// Host-side Consumer HID interception entry. `from` is a Joro consumer
+/// usage name (e.g. "Mute" = 0x00E2) or a raw hex code like "0x00e2". `to`
+/// is a single key name or combo that the daemon emits via SendInput when
+/// it sees the source usage in a Consumer Control report.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct ConsumerRemapConfig {
+    #[serde(default)]
+    pub name: String,
+    pub from: String,
+    pub to: String,
 }
 
 const DEFAULT_CONFIG: &str = r##"# Razer Joro Daemon Config
@@ -52,6 +96,22 @@ to = "Ctrl+F12"
 # name = "CapsLock to Ctrl+F12"
 # from = "CapsLock"
 # to = "Ctrl+F12"
+
+# Fn-layer remaps (Razer "Hypershift")
+# These are programmed into the keyboard firmware via class=0x02 cmd=0x0d.
+# USB only — class 0x02 is not available over BLE. Once written, the remap
+# persists across reboots and works on any transport (USB/BLE/dongle).
+# Only keys whose Joro matrix index we know can be Fn-remapped.
+
+[[fn_remap]]
+name = "Fn+Left to Home"
+from = "Left"
+to = "Home"
+
+[[fn_remap]]
+name = "Fn+Right to End"
+from = "Right"
+to = "End"
 # matrix_index = 30
 "##;
 
@@ -62,6 +122,114 @@ impl Config {
         toml::from_str(&contents)
             .map_err(|e| format!("Failed to parse config file {}: {}", path.display(), e))
     }
+}
+
+/// Update a single field within the `[lighting]` section of the TOML file in-place.
+/// Preserves all comments and other sections. `new_value` is the raw TOML value
+/// (e.g. `"\"#FF0000\""` for a string, `"200"` for an integer).
+pub fn save_lighting_field(path: &Path, key: &str, new_value: &str) -> Result<(), String> {
+    let contents = std::fs::read_to_string(path)
+        .map_err(|e| format!("read {}: {}", path.display(), e))?;
+
+    let mut out = String::with_capacity(contents.len());
+    let mut in_lighting = false;
+    let mut updated = false;
+    for line in contents.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with('[') {
+            // New section — leave the lighting scope if we're entering a different one
+            in_lighting = trimmed.starts_with("[lighting]");
+        } else if in_lighting && !updated {
+            // Match `<key> = ...` (ignoring leading whitespace)
+            if let Some(eq_idx) = trimmed.find('=') {
+                let lhs = trimmed[..eq_idx].trim();
+                if lhs == key {
+                    // Preserve original indentation
+                    let indent_len = line.len() - trimmed.len();
+                    let indent = &line[..indent_len];
+                    out.push_str(&format!("{}{} = {}", indent, key, new_value));
+                    out.push('\n');
+                    updated = true;
+                    continue;
+                }
+            }
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+
+    if !updated {
+        return Err(format!("lighting.{} not found in config", key));
+    }
+
+    // Preserve trailing newline status of original
+    if !contents.ends_with('\n') && out.ends_with('\n') {
+        out.pop();
+    }
+
+    std::fs::write(path, out)
+        .map_err(|e| format!("write {}: {}", path.display(), e))
+}
+
+/// Re-serialize the entire Config struct to TOML and write it to disk.
+/// Loses comments, but reliably produces a parseable file with all sections.
+/// Use targeted helpers (`save_lighting_field`, `save_remaps`) when you want
+/// to preserve user comments. Use this for whole-config writes from the UI.
+pub fn save_config(path: &Path, cfg: &Config) -> Result<(), String> {
+    let toml_str = toml::to_string_pretty(cfg)
+        .map_err(|e| format!("serialize config: {e}"))?;
+    std::fs::write(path, toml_str)
+        .map_err(|e| format!("write {}: {}", path.display(), e))
+}
+
+/// Rewrite the `[[remap]]` section of the TOML file in place. Everything
+/// before the first `[[remap]]` line is preserved verbatim (keeps the header
+/// comments and the `[lighting]` section). The remap section is regenerated
+/// from the given Vec.
+pub fn save_remaps(path: &Path, remaps: &[RemapConfig]) -> Result<(), String> {
+    let contents = std::fs::read_to_string(path)
+        .map_err(|e| format!("read {}: {}", path.display(), e))?;
+
+    // Find the first `[[remap]]` line (preserving everything before it)
+    let mut header = String::new();
+    let mut found_remap_start = false;
+    for line in contents.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("[[remap]]") {
+            found_remap_start = true;
+            break;
+        }
+        header.push_str(line);
+        header.push('\n');
+    }
+
+    // If no [[remap]] in the file, keep the entire original contents as header
+    // (minus trailing newline, which we'll re-add).
+    if !found_remap_start {
+        header = contents.clone();
+        if !header.ends_with('\n') {
+            header.push('\n');
+        }
+    }
+
+    // Build the new remap section via toml::to_string on a wrapper struct
+    #[derive(Serialize)]
+    struct RemapWrapper<'a> {
+        remap: &'a [RemapConfig],
+    }
+    let wrapper = RemapWrapper { remap: remaps };
+    let remap_toml = toml::to_string(&wrapper)
+        .map_err(|e| format!("serialize remaps: {e}"))?;
+
+    // Ensure a blank line between header and remaps if the header doesn't end with one
+    let mut out = header;
+    if !out.ends_with("\n\n") && !out.is_empty() {
+        out.push('\n');
+    }
+    out.push_str(&remap_toml);
+
+    std::fs::write(path, out)
+        .map_err(|e| format!("write {}: {}", path.display(), e))
 }
 
 impl LightingConfig {

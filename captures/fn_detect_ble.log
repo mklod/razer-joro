@@ -1,0 +1,45 @@
+fn-detect: starting HID report discovery. Press Ctrl+C to stop.
+fn-detect: press Fn, Fn+A, Fn+Left, plain A, plain Left — watch the output.
+fn-detect: enumerating all HID devices...
+fn-detect: total 14 HID devices
+fn-detect:   MATCH vid=0x068E pid=0x02CE iface=-1 usage=0001/0006 product='Joro' mfr='Razer'
+fn-detect:     path=\\?\HID#{00001812-0000-1000-8000-00805f9b34fb}_Dev_VID&02068e_PID&02ce_REV&0001_c8e2775d2fa3&Col01#a&1ce7511e&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}\KBD
+fn-detect:   MATCH vid=0x068E pid=0x02CE iface=-1 usage=0001/0002 product='Joro' mfr='Razer'
+fn-detect:     path=\\?\HID#{00001812-0000-1000-8000-00805f9b34fb}_Dev_VID&02068e_PID&02ce_REV&0001_c8e2775d2fa3&Col02#a&1ce7511e&0&0001#{4d1e55b2-f16f-11cf-88cb-001111000030}
+fn-detect:   MATCH vid=0x068E pid=0x02CE iface=-1 usage=000C/0001 product='Joro' mfr='Razer'
+fn-detect:     path=\\?\HID#{00001812-0000-1000-8000-00805f9b34fb}_Dev_VID&02068e_PID&02ce_REV&0001_c8e2775d2fa3&Col03#a&1ce7511e&0&0002#{4d1e55b2-f16f-11cf-88cb-001111000030}
+fn-detect:   MATCH vid=0x068E pid=0x02CE iface=-1 usage=0001/0080 product='Joro' mfr='Razer'
+fn-detect:     path=\\?\HID#{00001812-0000-1000-8000-00805f9b34fb}_Dev_VID&02068e_PID&02ce_REV&0001_c8e2775d2fa3&Col04#a&1ce7511e&0&0003#{4d1e55b2-f16f-11cf-88cb-001111000030}
+fn-detect:   MATCH vid=0x068E pid=0x02CE iface=-1 usage=0001/0000 product='Joro' mfr='Razer'
+fn-detect:     path=\\?\HID#{00001812-0000-1000-8000-00805f9b34fb}_Dev_VID&02068e_PID&02ce_REV&0001_c8e2775d2fa3&Col05#a&1ce7511e&0&0004#{4d1e55b2-f16f-11cf-88cb-001111000030}
+fn-detect:   MATCH vid=0x068E pid=0x02CE iface=-1 usage=0001/0000 product='Joro' mfr='Razer'
+fn-detect:     path=\\?\HID#{00001812-0000-1000-8000-00805f9b34fb}_Dev_VID&02068e_PID&02ce_REV&0001_c8e2775d2fa3&Col06#a&1ce7511e&0&0005#{4d1e55b2-f16f-11cf-88cb-001111000030}
+fn-detect: opening 6 candidate interface(s)...
+fn-detect: [0] usage=0x0001/0x0006 SKIPPED (access denied)
+fn-detect: [1] usage=0x0001/0x0002 SKIPPED (access denied)
+fn-detect: [4] usage=0x0001/0x0000 READY
+fn-detect: [5] usage=0x0001/0x0000 READY
+fn-detect: [3] usage=0x0001/0x0080 READY
+fn-detect: [2] usage=0x000C/0x0001 READY
+fn-detect: [19752ms] [2] (12B): 03 9d 02 00 00 00 00 00 00 00 00 00
+fn-detect: [19753ms] [4] (12B): 05 04 01 00 00 00 00 00 00 00 00 00
+fn-detect: [20645ms] [2] (12B): 03 00 00 00 00 00 00 00 00 00 00 00
+fn-detect: [20645ms] [4] (12B): 05 04 00 00 00 00 00 00 00 00 00 00
+fn-detect: [25842ms] [2] (12B): 03 9d 02 00 00 00 00 00 00 00 00 00
+fn-detect: [25843ms] [4] (12B): 05 04 01 00 00 00 00 00 00 00 00 00
+fn-detect: [26457ms] [2] (12B): 03 00 00 00 00 00 00 00 00 00 00 00
+fn-detect: [26458ms] [4] (12B): 05 04 00 00 00 00 00 00 00 00 00 00
+fn-detect: [31677ms] [2] (12B): 03 9d 02 00 00 00 00 00 00 00 00 00
+fn-detect: [31678ms] [4] (12B): 05 04 01 00 00 00 00 00 00 00 00 00
+fn-detect: [32352ms] [2] (12B): 03 00 00 00 00 00 00 00 00 00 00 00
+fn-detect: [32353ms] [4] (12B): 05 04 00 00 00 00 00 00 00 00 00 00
+fn-detect: [37242ms] [2] (12B): 03 e2 00 00 00 00 00 00 00 00 00 00
+fn-detect: [37362ms] [2] (12B): 03 00 00 00 00 00 00 00 00 00 00 00
+fn-detect: [41480ms] [2] (12B): 03 9d 02 00 00 00 00 00 00 00 00 00
+fn-detect: [41480ms] [4] (12B): 05 04 01 00 00 00 00 00 00 00 00 00
+fn-detect: [41997ms] [2] (12B): 03 00 00 00 00 00 00 00 00 00 00 00
+fn-detect: [41998ms] [4] (12B): 05 04 00 00 00 00 00 00 00 00 00 00
+fn-detect: [46745ms] [2] (12B): 03 9d 02 00 00 00 00 00 00 00 00 00
+fn-detect: [46745ms] [4] (12B): 05 04 01 00 00 00 00 00 00 00 00 00
+fn-detect: [47217ms] [2] (12B): 03 00 00 00 00 00 00 00 00 00 00 00
+fn-detect: [47218ms] [4] (12B): 05 04 00 00 00 00 00 00 00 00 00 00

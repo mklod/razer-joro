@@ -1,18 +1,36 @@
 // src/usb.rs — Razer packet builder + USB device communication
-// Last modified: 2026-04-09--2240
+// Last modified: 2026-04-13--2119
 
 use rusb::{Context, DeviceHandle, UsbContext};
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::Duration;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const PACKET_SIZE: usize = 90;
-const TRANSACTION_ID: u8 = 0x1F;
+
+/// Rotating transaction_id counter. Razer firmware on newer devices (Joro
+/// included) silently ignores writes that use a stale/fixed trans_id. Synapse
+/// increments per-request; we do the same. Range 0x01..=0xFE (skip 0x00 and
+/// 0xFF which some firmwares treat as reserved).
+static TRANSACTION_ID_COUNTER: AtomicU8 = AtomicU8::new(0x01);
+
+fn next_transaction_id() -> u8 {
+    let mut id = TRANSACTION_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+    if id == 0 || id == 0xFF {
+        // Skip reserved values by advancing the counter again.
+        TRANSACTION_ID_COUNTER.store(0x01, Ordering::Relaxed);
+        id = 0x01;
+    }
+    id
+}
 
 pub const VARSTORE: u8 = 0x01;
 pub const BACKLIGHT_LED: u8 = 0x05;
 pub const STATUS_NEW: u8 = 0x00;
+#[allow(dead_code)]
 pub const STATUS_OK: u8 = 0x02;
+#[allow(dead_code)]
 pub const STATUS_NOT_SUPPORTED: u8 = 0x05;
 
 const RAZER_VID: u16 = 0x1532;
@@ -50,7 +68,7 @@ pub fn build_packet(command_class: u8, command_id: u8, data_size: u8, args: &[u8
     let mut pkt = [0u8; PACKET_SIZE];
 
     pkt[0x00] = STATUS_NEW;
-    pkt[0x01] = TRANSACTION_ID;
+    pkt[0x01] = next_transaction_id();
     // [0x02-0x03] remaining_packets = 0 (already zero)
     // [0x04] protocol_type = 0 (already zero)
     pkt[0x05] = data_size;
@@ -74,6 +92,7 @@ pub fn build_packet(command_class: u8, command_id: u8, data_size: u8, args: &[u8
 
 // ── Packet parser ────────────────────────────────────────────────────────────
 
+#[allow(dead_code)]
 pub struct ParsedPacket {
     pub status: u8,
     pub transaction_id: u8,
@@ -115,6 +134,7 @@ pub fn parse_packet(buf: &[u8; PACKET_SIZE]) -> ParsedPacket {
 
 // ── RazerDevice ─────────────────────────────────────────────────────────────
 
+#[allow(dead_code)]
 pub enum ConnectionType {
     Wired,
     Dongle,
@@ -122,6 +142,7 @@ pub enum ConnectionType {
 
 pub struct RazerDevice {
     handle: DeviceHandle<Context>,
+    #[allow(dead_code)]
     pid: u16,
 }
 
@@ -164,6 +185,7 @@ impl RazerDevice {
         None
     }
 
+    #[allow(dead_code)]
     pub fn connection_type(&self) -> ConnectionType {
         if self.pid == JORO_PID_DONGLE {
             ConnectionType::Dongle
@@ -173,12 +195,12 @@ impl RazerDevice {
     }
 
     /// Returns true if the device responds to a get_firmware query.
-    pub fn is_connected(&self) -> bool {
+    pub fn is_connected(&mut self) -> bool {
         self.get_firmware().is_ok()
     }
 
     /// Query firmware version string from device.
-    pub fn get_firmware(&self) -> Result<String, String> {
+    pub fn get_firmware(&mut self) -> Result<String, String> {
         let pkt = build_packet(0x00, 0x81, 0, &[]);
         let response = self.send_receive(&pkt)?;
         let parsed = parse_packet(&response);
@@ -196,7 +218,7 @@ impl RazerDevice {
     }
 
     /// Set static RGB color on the Joro.
-    pub fn set_static_color(&self, r: u8, g: u8, b: u8) -> Result<(), String> {
+    pub fn set_static_color(&mut self, r: u8, g: u8, b: u8) -> Result<(), String> {
         let args = [VARSTORE, BACKLIGHT_LED, 0x01, 0x00, 0x00, 0x01, r, g, b];
         let pkt = build_packet(0x0F, 0x02, 9, &args);
         let response = self.send_receive(&pkt)?;
@@ -209,7 +231,7 @@ impl RazerDevice {
     }
 
     /// Set backlight brightness (0-255).
-    pub fn set_brightness(&self, level: u8) -> Result<(), String> {
+    pub fn set_brightness(&mut self, level: u8) -> Result<(), String> {
         let args = [VARSTORE, BACKLIGHT_LED, level];
         let pkt = build_packet(0x0F, 0x04, 3, &args);
         let response = self.send_receive(&pkt)?;
@@ -221,9 +243,97 @@ impl RazerDevice {
         Ok(())
     }
 
+    /// Read battery level via Protocol30 `class=0x07 cmd=0x80`. Per
+    /// openrazer (razerchromacommon.c): the 0-255 value lives in arg[1].
+    /// Maps to a 0-100 percent. Returns Err on read or CRC failure.
+    pub fn get_battery_percent(&mut self) -> Result<u8, String> {
+        // Request 2-byte response (matches openrazer's get_razer_report(0x07, 0x80, 0x02))
+        let pkt = build_packet(0x07, 0x80, 2, &[]);
+        let response = self.send_receive(&pkt)?;
+        let parsed = parse_packet(&response);
+        if !parsed.crc_valid {
+            return Err("get_battery: bad CRC in response".into());
+        }
+        // Log raw bytes for debugging USB↔BLE discrepancies
+        let hex: String = parsed.args.iter().take(8).map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ");
+        eprintln!("joro-usb: battery raw args = [{hex}]");
+        let raw = *parsed
+            .args
+            .get(1)
+            .ok_or("get_battery: response too short")?;
+        let pct = ((raw as u32) * 100 / 255) as u8;
+        Ok(pct)
+    }
+
+    /// Write a firmware Hypershift (Fn-layer) keymap entry over USB.
+    ///
+    /// Packet: `class=0x02 cmd=0x0d` with a 10-byte data payload. Reverse-
+    /// engineered from Razer Synapse USB captures:
+    /// `captures/synapse_hypershift_u3.pcap` shows byte-identical writes on
+    /// the Hypershift tab. Example: Right Ctrl → F2 capture = `01 40 01 02
+    /// 02 00 3b 00 00 00`.
+    ///
+    /// **Verified 2026-04-13--2257**: this writes the Hypershift layer.
+    /// Confirmed by programming Left→Home / Right→End, cycling transport
+    /// once (wired→BLE→wired), and observing Fn+Left=Home / Fn+Right=End
+    /// working on **both** wired and BLE — i.e. both transports read from
+    /// the same Hypershift storage slot.
+    ///
+    /// **Commit semantics**: the firmware stores the write immediately
+    /// (status=0x02 OK, `cmd=0x8d` readback confirms persistence) but
+    /// does NOT refresh the runtime Hypershift table until a transport
+    /// mode switch (wired↔BLE). A previous session mis-concluded this
+    /// was a "dead end" because writes didn't appear to take effect —
+    /// they just needed a transport cycle to go live. See memory
+    /// `project_hypershift_commit_trigger.md`.
+    ///
+    /// **Base-layer writes**: untested. We don't yet know what packet
+    /// Synapse uses to program the *plain* (non-Fn) keymap, or whether
+    /// a different `args[2]` value here would target base layer.
+    ///
+    /// **F-row caveat**: F4 and the other media keys emit from a
+    /// separate Consumer Control pipeline that bypasses this matrix
+    /// entirely. To intercept those, use host-side HID interception on
+    /// the Consumer Control interface.
+    ///
+    /// **BLE equivalent**: not yet implemented. The Protocol30 wrapping
+    /// of this packet for BLE transport is currently unknown — a fresh
+    /// Windows HCI capture of Synapse doing a Hypershift write over BLE
+    /// is needed. See CHANGELOG TODO.
+    ///
+    /// Args:
+    ///   src_matrix - Razer matrix index of the source key
+    ///   modifier   - HID modifier byte for the output combo (0 = none)
+    ///   dst_usage  - HID keyboard usage code of the output key
+    pub fn set_layer_remap(
+        &mut self,
+        src_matrix: u8,
+        modifier: u8,
+        dst_usage: u8,
+    ) -> Result<(), String> {
+        // 10-byte args (matches Synapse's captured Hypershift packet exactly):
+        //   [0] 0x01 constant              [3] output type = 0x02 (HID kbd)
+        //   [1] source matrix index        [4] output payload size = 0x02
+        //   [2] 0x01 profile/var-store     [5] output modifier byte
+        //                                  [6] output HID usage code
+        //                                  [7..10] padding
+        let mut args = [0u8; 10];
+        args[0] = 0x01;
+        args[1] = src_matrix;
+        args[2] = 0x01;
+        args[3] = 0x02;
+        args[4] = 0x02;
+        args[5] = modifier;
+        args[6] = dst_usage;
+        let pkt = build_packet(0x02, 0x0D, 10, &args);
+        self.send_only(&pkt)?;
+        std::thread::sleep(Duration::from_millis(SEND_DELAY_MS));
+        Ok(())
+    }
+
     /// Write a single keymap entry. No response expected.
     /// `index`: logical key index; `usage`: HID usage code to map to.
-    pub fn set_keymap_entry(&self, index: u8, usage: u8) -> Result<(), String> {
+    pub fn set_keymap_entry(&mut self, index: u8, usage: u8) -> Result<(), String> {
         let mut args = [0u8; 18];
         // 10-byte zero header, then: index, 0x02, 0x02, 0x00, usage, 0x00, 0x00, 0x00
         args[10] = index;
@@ -241,7 +351,7 @@ impl RazerDevice {
 
     // ── Internal USB helpers ─────────────────────────────────────────────────
 
-    fn send_receive(&self, pkt: &[u8; PACKET_SIZE]) -> Result<[u8; PACKET_SIZE], String> {
+    pub fn send_receive(&self, pkt: &[u8; PACKET_SIZE]) -> Result<[u8; PACKET_SIZE], String> {
         let timeout = Duration::from_millis(USB_TIMEOUT_MS);
 
         // SET_REPORT (write packet to device)
@@ -273,6 +383,32 @@ impl RazerDevice {
     }
 }
 
+impl crate::device::JoroDevice for RazerDevice {
+    fn is_connected(&mut self) -> bool { RazerDevice::is_connected(self) }
+    fn get_firmware(&mut self) -> Result<String, String> { RazerDevice::get_firmware(self) }
+    fn set_static_color(&mut self, r: u8, g: u8, b: u8) -> Result<(), String> {
+        RazerDevice::set_static_color(self, r, g, b)
+    }
+    fn set_brightness(&mut self, level: u8) -> Result<(), String> {
+        RazerDevice::set_brightness(self, level)
+    }
+    fn set_keymap_entry(&mut self, index: u8, usage: u8) -> Result<(), String> {
+        RazerDevice::set_keymap_entry(self, index, usage)
+    }
+    fn set_layer_remap(
+        &mut self,
+        src_matrix: u8,
+        modifier: u8,
+        dst_usage: u8,
+    ) -> Result<(), String> {
+        RazerDevice::set_layer_remap(self, src_matrix, modifier, dst_usage)
+    }
+    fn get_battery_percent(&mut self) -> Result<u8, String> {
+        RazerDevice::get_battery_percent(self)
+    }
+    fn transport_name(&self) -> &'static str { "USB" }
+}
+
 // ── Unit tests ───────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -289,7 +425,8 @@ mod tests {
     fn test_build_packet_header() {
         let pkt = build_packet(0x0F, 0x02, 9, &[0x01, 0x05, 0x01, 0x00, 0x00, 0x01, 0xFF, 0x00, 0x00]);
         assert_eq!(pkt[0], STATUS_NEW);
-        assert_eq!(pkt[1], TRANSACTION_ID);
+        // trans_id is a rotating counter — verify it's non-zero, non-0xFF.
+        assert!(pkt[1] != 0 && pkt[1] != 0xFF);
         assert_eq!(pkt[5], 9);
         assert_eq!(pkt[6], 0x0F);
         assert_eq!(pkt[7], 0x02);
@@ -319,7 +456,7 @@ mod tests {
         let pkt = build_packet(0x0F, 0x04, 3, &[0x01, 0x05, 0x80]);
         let parsed = parse_packet(&pkt);
         assert_eq!(parsed.status, STATUS_NEW);
-        assert_eq!(parsed.transaction_id, TRANSACTION_ID);
+        assert!(parsed.transaction_id != 0 && parsed.transaction_id != 0xFF);
         assert_eq!(parsed.command_class, 0x0F);
         assert_eq!(parsed.command_id, 0x04);
         assert_eq!(parsed.data_size, 3);

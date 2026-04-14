@@ -1,179 +1,156 @@
-// src/ble.rs — BLE transport for Razer Joro keyboard
-// Last modified: 2026-04-10--1730
+// src/ble.rs — BLE transport for Razer Joro keyboard via direct WinRT
+// Last modified: 2026-04-12
 //
-// Uses Protocol30 over BLE GATT:
+// Replaces the previous btleplug-based implementation. btleplug 0.12 does not
+// configure GattSession.MaintainConnection on Windows, which causes the GATT
+// session to close within ~1 second of connect. By owning the WinRT lifecycle
+// directly through the `windows` crate, we can set MaintainConnection=true on
+// our session and hold the reference for the lifetime of the connection.
+//
+// Protocol30 over GATT:
 //   GET: single 8-byte ATT Write Request to char 1524
 //   SET: split write — 8-byte header then data payload as separate ATT writes
 //   Responses arrive as notifications on char 1525
-//
-// TODO: Refactor USB + BLE behind a common JoroDevice trait (Option A)
 
-use btleplug::api::{
-    Central, Characteristic, Manager as _, Peripheral as _, ScanFilter, WriteType,
-};
-use btleplug::platform::{Manager, Peripheral};
-use futures::stream::StreamExt;
-use std::sync::{Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
-use tokio::runtime::Runtime;
-use tokio::sync::mpsc;
-use uuid::Uuid;
+
+use windows::core::{Error as WinError, Interface, Result as WinResult, GUID};
+use windows::Devices::Bluetooth::Advertisement::{
+    BluetoothLEAdvertisementReceivedEventArgs, BluetoothLEAdvertisementWatcher,
+    BluetoothLEScanningMode,
+};
+use windows::Devices::Bluetooth::GenericAttributeProfile::{
+    GattCharacteristic, GattClientCharacteristicConfigurationDescriptorValue,
+    GattCommunicationStatus, GattDeviceService, GattSession, GattValueChangedEventArgs,
+    GattWriteOption,
+};
+use windows::Devices::Bluetooth::{BluetoothConnectionStatus, BluetoothLEDevice};
+use windows::Devices::Enumeration::DeviceInformation;
+use windows::Foundation::{EventRegistrationToken, IClosable, TypedEventHandler};
+use windows::Storage::Streams::{DataReader, DataWriter};
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const RAZER_SERVICE_UUID: Uuid =
-    Uuid::from_u128(0x52401523_f97c_7f90_0e7f_6c6f4e36db1c);
-const CHAR_TX_UUID: Uuid =
-    Uuid::from_u128(0x52401524_f97c_7f90_0e7f_6c6f4e36db1c);
-const CHAR_RX_UUID: Uuid =
-    Uuid::from_u128(0x52401525_f97c_7f90_0e7f_6c6f4e36db1c);
+const RAZER_SERVICE_UUID: GUID = GUID::from_u128(0x52401523_f97c_7f90_0e7f_6c6f4e36db1c);
+const CHAR_TX_UUID: GUID = GUID::from_u128(0x52401524_f97c_7f90_0e7f_6c6f4e36db1c);
+const CHAR_RX_UUID: GUID = GUID::from_u128(0x52401525_f97c_7f90_0e7f_6c6f4e36db1c);
 
-const SCAN_TIMEOUT: Duration = Duration::from_secs(8);
+// Standard BLE Battery Service (org.bluetooth.service.battery_service)
+// and its Battery Level characteristic (org.bluetooth.characteristic.battery_level).
+// These are SIG-assigned UUIDs in the 16-bit range, expanded to 128-bit form.
+// The Battery Level characteristic returns a single byte 0-100 directly.
+const BATTERY_SERVICE_UUID: GUID = GUID::from_u128(0x0000180f_0000_1000_8000_00805f9b34fb);
+const BATTERY_LEVEL_UUID: GUID = GUID::from_u128(0x00002a19_0000_1000_8000_00805f9b34fb);
+
+const SCAN_TIMEOUT: Duration = Duration::from_millis(1500);
 const WRITE_DELAY: Duration = Duration::from_millis(150);
 const RESPONSE_TIMEOUT: Duration = Duration::from_millis(2000);
 
 pub const STATUS_SUCCESS: u8 = 0x02;
-pub const STATUS_FAILURE: u8 = 0x03;
-pub const STATUS_NOT_SUPPORTED: u8 = 0x05;
 
 // ── BleDevice ────────────────────────────────────────────────────────────────
 
 pub struct BleDevice {
-    rt: Runtime,
-    peripheral: Peripheral,
-    char_tx: Characteristic,
-    rx_receiver: Arc<Mutex<mpsc::Receiver<Vec<u8>>>>,
+    device: BluetoothLEDevice,
+    // Hold the GATT session with MaintainConnection=true so WinRT does not
+    // idle-close the connection. Dropping this releases the setting.
+    _session: GattSession,
+    char_tx: GattCharacteristic,
+    char_rx: GattCharacteristic,
+    /// Standard BLE Battery Level characteristic (org.bluetooth 0x2A19).
+    /// Optional because not every transport/firmware exposes it.
+    char_battery: Option<GattCharacteristic>,
+    // Channel of received notification payloads from the ValueChanged callback
+    notif_rx: mpsc::Receiver<Vec<u8>>,
+    // Token for unregistering the ValueChanged handler in Drop
+    notif_token: EventRegistrationToken,
     txn_id: u8,
+    // Counter for consecutive is_connected=false polls. Windows reports
+    // momentary "Disconnected" immediately after connect even though the
+    // device is fine. We tolerate a few consecutive false readings before
+    // declaring the connection dead.
+    disconnect_count: u32,
 }
 
 impl BleDevice {
-    /// Scan for a Joro keyboard over BLE and connect.
-    /// Returns None if no Joro found within timeout.
+    /// Find a Joro keyboard and set up GATT.
+    ///
+    /// Strategy:
+    ///   1. First, enumerate *paired* BLE devices via `DeviceInformation`
+    ///      (`GetDeviceSelectorFromPairingState(true)`). This works even when
+    ///      the keyboard is already connected to Windows and not advertising.
+    ///   2. Fall back to a live advertisement scan for unpaired first-time use.
     pub fn open() -> Option<Self> {
-        let rt = Runtime::new().ok()?;
-        let (peripheral, char_tx, rx_receiver) = rt.block_on(Self::connect_async())?;
-        Some(BleDevice {
-            rt,
-            peripheral,
-            char_tx,
-            rx_receiver,
-            txn_id: 0,
-        })
-    }
-
-    /// Async connection logic. Returns the components needed by BleDevice.
-    async fn connect_async() -> Option<(Peripheral, Characteristic, Arc<Mutex<mpsc::Receiver<Vec<u8>>>>)> {
-        let manager = Manager::new().await.ok()?;
-        let adapters = manager.adapters().await.ok()?;
-        let adapter = adapters.into_iter().next()?;
-
-        // Check already-known peripherals first (handles paired+connected devices)
-        eprintln!("joro-ble: checking known peripherals...");
-        let mut joro = None;
-
-        if let Ok(peripherals) = adapter.peripherals().await {
-            for p in &peripherals {
-                if let Ok(Some(props)) = p.properties().await {
-                    if let Some(ref name) = props.local_name {
-                        eprintln!("joro-ble:   known: {} ({})", name, props.address);
-                        if name == "Joro" {
-                            joro = Some(p.clone());
-                            break;
-                        }
+        // Path 1: try already-paired devices (fast, works on reconnect)
+        match find_paired_joro() {
+            Ok(Some(device)) => {
+                eprintln!("joro-ble: found paired Joro — attaching");
+                match connect_from_device(device) {
+                    Ok(dev) => {
+                        eprintln!("joro-ble: connected and GATT ready");
+                        return Some(dev);
+                    }
+                    Err(e) => {
+                        eprintln!("joro-ble: paired attach failed: {e:?}");
+                        // fall through to advertisement scan
                     }
                 }
             }
-        }
-
-        // If not found in known devices, try scanning
-        if joro.is_none() {
-            eprintln!("joro-ble: scanning for Joro...");
-            adapter.start_scan(ScanFilter::default()).await.ok()?;
-            tokio::time::sleep(SCAN_TIMEOUT).await;
-            adapter.stop_scan().await.ok()?;
-
-            if let Ok(peripherals) = adapter.peripherals().await {
-                for p in peripherals {
-                    if let Ok(Some(props)) = p.properties().await {
-                        if let Some(ref name) = props.local_name {
-                            eprintln!("joro-ble:   scanned: {} ({})", name, props.address);
-                            if name == "Joro" {
-                                joro = Some(p);
-                                break;
-                            }
-                        }
-                    }
-                }
+            Ok(None) => {
+                eprintln!("joro-ble: no paired Joro found, falling back to advertisement scan");
+            }
+            Err(e) => {
+                eprintln!("joro-ble: paired enumeration failed: {e:?}, falling back to scan");
             }
         }
 
-        let peripheral = joro?;
-        eprintln!("joro-ble: found Joro, connecting...");
-
-        if let Err(e) = peripheral.connect().await {
-            eprintln!("joro-ble: connect FAILED: {e}");
-            return None;
-        }
-        eprintln!("joro-ble: connected, discovering services...");
-
-        if let Err(e) = peripheral.discover_services().await {
-            eprintln!("joro-ble: service discovery FAILED: {e}");
-            return None;
-        }
-
-        let chars = peripheral.characteristics();
-        eprintln!("joro-ble: found {} characteristics", chars.len());
-        for c in &chars {
-            eprintln!("  char: {} props={:?}", c.uuid, c.properties);
-        }
-
-        let char_tx = match chars.iter().find(|c| c.uuid == CHAR_TX_UUID) {
-            Some(c) => c.clone(),
-            None => {
-                eprintln!("joro-ble: TX characteristic (1524) NOT FOUND");
-                return None;
+        // Path 2: advertisement scan (first-time pairing / unpaired devices)
+        let addr = scan_for_joro(SCAN_TIMEOUT)?;
+        eprintln!("joro-ble: scan found Joro at {:012X}", addr);
+        match connect_from_address(addr) {
+            Ok(dev) => {
+                eprintln!("joro-ble: connected and GATT ready");
+                Some(dev)
             }
-        };
-        let char_rx = match chars.iter().find(|c| c.uuid == CHAR_RX_UUID) {
-            Some(c) => c,
-            None => {
-                eprintln!("joro-ble: RX characteristic (1525) NOT FOUND");
-                return None;
+            Err(e) => {
+                eprintln!("joro-ble: connect failed: {e:?}");
+                None
             }
-        };
-
-        if let Err(e) = peripheral.subscribe(char_rx).await {
-            eprintln!("joro-ble: subscribe FAILED: {e}");
-            return None;
         }
-        eprintln!("joro-ble: subscribed to notifications");
-
-        // Notification receiver channel
-        let (tx, rx) = mpsc::channel::<Vec<u8>>(32);
-        let mut notif_stream = peripheral.notifications().await.ok()?;
-
-        tokio::spawn(async move {
-            while let Some(notif) = notif_stream.next().await {
-                if notif.uuid == CHAR_RX_UUID {
-                    let _ = tx.send(notif.value).await;
-                }
-            }
-        });
-
-        // Drain unsolicited notifications (keyboard sends status on connect)
-        let rx = Arc::new(Mutex::new(rx));
-        tokio::time::sleep(Duration::from_millis(500)).await;
-        {
-            let mut guard = rx.lock().unwrap();
-            while guard.try_recv().is_ok() {}
-        }
-
-        Some((peripheral, char_tx, rx))
     }
 
     fn next_txn(&mut self) -> u8 {
         self.txn_id = self.txn_id.wrapping_add(1);
         self.txn_id
+    }
+
+    fn drain_notifications(&self) {
+        while self.notif_rx.try_recv().is_ok() {}
+    }
+
+    /// Write bytes to char_tx as an ATT Write Request (with response).
+    fn write_char(&self, data: &[u8]) -> Result<(), String> {
+        let buf = vec_to_buffer(data).map_err(|e| format!("DataWriter: {e}"))?;
+        let result = self
+            .char_tx
+            .WriteValueWithResultAndOptionAsync(&buf, GattWriteOption::WriteWithResponse)
+            .map_err(|e| format!("WriteValueWithResult: {e}"))?
+            .get()
+            .map_err(|e| format!("WriteValueWithResult get: {e}"))?;
+
+        let status = result.Status().map_err(|e| format!("Status: {e}"))?;
+        if status != GattCommunicationStatus::Success {
+            return Err(format!("write status: {:?}", status));
+        }
+        Ok(())
+    }
+
+    /// Wait for a notification payload from char_rx (via ValueChanged).
+    fn read_notification(&self) -> Result<Vec<u8>, String> {
+        self.notif_rx
+            .recv_timeout(RESPONSE_TIMEOUT)
+            .map_err(|_| "BLE response timeout".to_string())
     }
 
     /// Send a GET command (8-byte header, no data). Returns response data bytes.
@@ -182,7 +159,7 @@ impl BleDevice {
         let header = [txn, 0, 0, 0, class, cmd, sub1, sub2];
 
         self.drain_notifications();
-        self.write_bytes(&header)?;
+        self.write_char(&header)?;
         self.read_response(txn)
     }
 
@@ -200,42 +177,19 @@ impl BleDevice {
         let header = [txn, dlen, 0, 0, class, cmd, sub1, sub2];
 
         self.drain_notifications();
-
-        // Split write: header first, then data as separate ATT Write Request
-        self.write_bytes(&header)?;
+        self.write_char(&header)?;
         std::thread::sleep(WRITE_DELAY);
-        self.write_bytes(data)?;
-
-        let _response = self.read_response(txn)?;
-        // For SET, we just check status (response data is empty)
+        self.write_char(data)?;
+        let _ = self.read_response(txn)?;
         Ok(())
     }
 
-    fn write_bytes(&self, data: &[u8]) -> Result<(), String> {
-        self.rt
-            .block_on(
-                self.peripheral
-                    .write(&self.char_tx, data, WriteType::WithResponse),
-            )
-            .map_err(|e| format!("BLE write failed: {e}"))
-    }
-
     fn read_response(&self, _expected_txn: u8) -> Result<Vec<u8>, String> {
-        let mut guard = self.rx_receiver.lock().unwrap();
-
         // Wait for header notification
-        let header = self
-            .rt
-            .block_on(async {
-                tokio::time::timeout(RESPONSE_TIMEOUT, guard.recv()).await
-            })
-            .map_err(|_| "BLE response timeout".to_string())?
-            .ok_or("BLE notification channel closed")?;
-
+        let header = self.read_notification()?;
         if header.len() < 8 {
             return Err(format!("BLE response too short: {} bytes", header.len()));
         }
-
         let status = header[7];
         if status != STATUS_SUCCESS {
             return Err(format!(
@@ -243,35 +197,43 @@ impl BleDevice {
                 status, header[0]
             ));
         }
-
         let data_len = header[1] as usize;
         if data_len == 0 {
             return Ok(vec![]);
         }
-
         // Wait for data continuation notification
-        let data_pkt = self
-            .rt
-            .block_on(async {
-                tokio::time::timeout(RESPONSE_TIMEOUT, guard.recv()).await
-            })
-            .map_err(|_| "BLE data continuation timeout".to_string())?
-            .ok_or("BLE notification channel closed")?;
-
+        let data_pkt = self.read_notification()?;
         Ok(data_pkt[..data_len.min(data_pkt.len())].to_vec())
-    }
-
-    fn drain_notifications(&self) {
-        let mut guard = self.rx_receiver.lock().unwrap();
-        while guard.try_recv().is_ok() {}
     }
 
     // ── Public API (mirrors RazerDevice) ─────────────────────────────────────
 
-    pub fn is_connected(&self) -> bool {
-        self.rt
-            .block_on(self.peripheral.is_connected())
-            .unwrap_or(false)
+    /// Check the BluetoothLEDevice.ConnectionStatus property, with tolerance
+    /// for Windows' momentary "Disconnected" flaps right after connect. Only
+    /// returns false after N consecutive failures; any single success resets
+    /// the counter. This is a cheap property read, not a GATT operation.
+    pub fn is_connected(&mut self) -> bool {
+        const DISCONNECT_THRESHOLD: u32 = 3;
+        let status_ok = self
+            .device
+            .ConnectionStatus()
+            .map(|s| s == BluetoothConnectionStatus::Connected)
+            .unwrap_or(false);
+        if status_ok {
+            self.disconnect_count = 0;
+            true
+        } else {
+            self.disconnect_count += 1;
+            if self.disconnect_count >= DISCONNECT_THRESHOLD {
+                false
+            } else {
+                eprintln!(
+                    "joro-ble: transient disconnect ({}/{})",
+                    self.disconnect_count, DISCONNECT_THRESHOLD
+                );
+                true // still consider connected
+            }
+        }
     }
 
     pub fn get_firmware(&mut self) -> Result<String, String> {
@@ -285,6 +247,7 @@ impl BleDevice {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_brightness(&mut self) -> Result<u8, String> {
         let data = self.send_get(0x10, 0x85, 0, 0)?;
         data.first()
@@ -292,12 +255,58 @@ impl BleDevice {
             .ok_or_else(|| "get_brightness: no data".into())
     }
 
+    /// Read battery level. Uses the standard BLE Battery Service (0x180F /
+    /// 0x2A19) if the keyboard exposes it — this returns 0-100 directly and
+    /// matches what Synapse/OS shows. Falls back to Razer Protocol30
+    /// `class=0x07 cmd=0x80` if the standard service isn't available (the
+    /// Protocol30 encoding is opaque and gives wrong values; we only use it
+    /// as a last-resort fallback).
+    pub fn get_battery_percent(&mut self) -> Result<u8, String> {
+        if let Some(ref char_bat) = self.char_battery {
+            let result = char_bat
+                .ReadValueAsync()
+                .map_err(|e| format!("battery ReadValue: {e}"))?
+                .get()
+                .map_err(|e| format!("battery ReadValue get: {e}"))?;
+            if result.Status().map_err(|e| format!("battery status: {e}"))?
+                != GattCommunicationStatus::Success
+            {
+                return Err("battery read: GATT communication failure".into());
+            }
+            let buf = result
+                .Value()
+                .map_err(|e| format!("battery Value: {e}"))?;
+            let reader = DataReader::FromBuffer(&buf)
+                .map_err(|e| format!("battery DataReader: {e}"))?;
+            let len = reader
+                .UnconsumedBufferLength()
+                .map_err(|e| format!("battery len: {e}"))? as usize;
+            if len == 0 {
+                return Err("battery read: empty response".into());
+            }
+            let mut data = vec![0u8; len];
+            reader
+                .ReadBytes(&mut data)
+                .map_err(|e| format!("battery ReadBytes: {e}"))?;
+            let pct = data[0].min(100);
+            eprintln!("joro-ble: battery (std BLE svc) = {pct}%");
+            return Ok(pct);
+        }
+
+        // Fallback: Razer Protocol30 (encoding is opaque on BLE; may be wrong)
+        let data = self.send_get(0x07, 0x80, 0, 0)?;
+        let hex: String = data.iter().take(8).map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ");
+        eprintln!("joro-ble: battery fallback Protocol30 raw = [{hex}]");
+        let raw = *data.get(1).ok_or("get_battery: response too short")?;
+        let pct = ((raw as u32) * 100 / 255) as u8;
+        Ok(pct)
+    }
+
     pub fn set_brightness(&mut self, level: u8) -> Result<(), String> {
         self.send_set(0x10, 0x05, 0x01, 0x00, &[level])
     }
 
     pub fn set_static_color(&mut self, r: u8, g: u8, b: u8) -> Result<(), String> {
-        // Effect data: [enabled, 0, 0, effect_type=static, R, G, B]
         self.send_set(0x10, 0x03, 0x01, 0x00, &[0x01, 0x00, 0x00, 0x01, r, g, b])
     }
 
@@ -308,6 +317,7 @@ impl BleDevice {
         )
     }
 
+    #[allow(dead_code)]
     pub fn set_breathing_dual(
         &mut self,
         r1: u8, g1: u8, b1: u8,
@@ -323,15 +333,300 @@ impl BleDevice {
         self.send_set(0x10, 0x03, 0x01, 0x00, &[0x03, 0x00, 0x00, 0x00])
     }
 
+    #[allow(dead_code)]
     pub fn set_off(&mut self) -> Result<(), String> {
-        // byte0=0x00 disables lighting
         self.send_set(0x10, 0x03, 0x01, 0x00, &[0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00])
     }
 
-    /// Note: BLE does not support firmware keymap remaps (class 0x02 NOT_SUPPORTED).
-    /// All remaps are host-side via WH_KEYBOARD_LL. This is a no-op.
-    pub fn set_keymap_entry(&self, _index: u8, _usage: u8) -> Result<(), String> {
-        // Intentionally no-op: keymaps not available over BLE
+    /// BLE does not support firmware keymap remaps. No-op.
+    pub fn set_keymap_entry(&mut self, _index: u8, _usage: u8) -> Result<(), String> {
         Ok(())
     }
+}
+
+impl Drop for BleDevice {
+    fn drop(&mut self) {
+        eprintln!("joro-ble: Drop — releasing GATT session");
+        // Unregister the ValueChanged handler so it stops firing
+        let _ = self.char_rx.RemoveValueChanged(self.notif_token);
+        // Close the device handle so Windows releases the BLE link.
+        // Without this, the keyboard can stay invisible to scans after disconnect.
+        if let Ok(closable) = self.device.cast::<IClosable>() {
+            let _ = closable.Close();
+        }
+        // _session drops automatically, releasing MaintainConnection
+    }
+}
+
+impl crate::device::JoroDevice for BleDevice {
+    fn is_connected(&mut self) -> bool { BleDevice::is_connected(self) }
+    fn get_firmware(&mut self) -> Result<String, String> { BleDevice::get_firmware(self) }
+    fn set_static_color(&mut self, r: u8, g: u8, b: u8) -> Result<(), String> {
+        BleDevice::set_static_color(self, r, g, b)
+    }
+    fn set_brightness(&mut self, level: u8) -> Result<(), String> {
+        BleDevice::set_brightness(self, level)
+    }
+    fn set_effect_breathing(&mut self, r: u8, g: u8, b: u8) -> Result<(), String> {
+        BleDevice::set_breathing_single(self, r, g, b)
+    }
+    fn set_effect_spectrum(&mut self) -> Result<(), String> {
+        BleDevice::set_spectrum(self)
+    }
+    fn set_keymap_entry(&mut self, index: u8, usage: u8) -> Result<(), String> {
+        BleDevice::set_keymap_entry(self, index, usage)
+    }
+    fn get_battery_percent(&mut self) -> Result<u8, String> {
+        BleDevice::get_battery_percent(self)
+    }
+    fn transport_name(&self) -> &'static str { "BLE" }
+}
+
+// ── Free functions ──────────────────────────────────────────────────────────
+
+/// Run a BluetoothLEAdvertisementWatcher for `timeout`, watching for any
+/// advertisement whose LocalName equals "Joro". Returns the first matching
+/// Bluetooth address (u64) seen, or None if none arrived in time.
+fn scan_for_joro(timeout: Duration) -> Option<u64> {
+    eprintln!("joro-ble: starting advertisement watcher...");
+
+    let watcher = BluetoothLEAdvertisementWatcher::new().ok()?;
+    watcher
+        .SetScanningMode(BluetoothLEScanningMode::Active)
+        .ok()?;
+
+    let (tx, rx) = mpsc::channel::<u64>();
+    let tx = Arc::new(Mutex::new(Some(tx)));
+
+    let tx_for_handler = tx.clone();
+    let handler = TypedEventHandler::<
+        BluetoothLEAdvertisementWatcher,
+        BluetoothLEAdvertisementReceivedEventArgs,
+    >::new(move |_sender, args| {
+        if let Some(args) = args.as_ref() {
+            if let Ok(adv) = args.Advertisement() {
+                if let Ok(name) = adv.LocalName() {
+                    let name_str = name.to_string_lossy();
+                    if name_str == "Joro" {
+                        if let Ok(addr) = args.BluetoothAddress() {
+                            // Take the sender so we only send once
+                            if let Ok(mut guard) = tx_for_handler.lock() {
+                                if let Some(sender) = guard.take() {
+                                    let _ = sender.send(addr);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    });
+
+    let token = watcher.Received(&handler).ok()?;
+    watcher.Start().ok()?;
+
+    let result = rx.recv_timeout(timeout).ok();
+
+    let _ = watcher.Stop();
+    let _ = watcher.RemoveReceived(token);
+
+    if result.is_none() {
+        eprintln!("joro-ble: no Joro advertisements received in {timeout:?}");
+    }
+    result
+}
+
+/// Enumerate paired BLE devices via DeviceInformation and return a
+/// BluetoothLEDevice named "Joro" if one is paired. Works even when the
+/// device isn't currently advertising (e.g. Windows already has it connected).
+fn find_paired_joro() -> WinResult<Option<BluetoothLEDevice>> {
+    let selector = BluetoothLEDevice::GetDeviceSelectorFromPairingState(true)?;
+    let devices = DeviceInformation::FindAllAsyncAqsFilter(&selector)?.get()?;
+    let size = devices.Size()?;
+    eprintln!("joro-ble: enumerated {} paired BLE device(s)", size);
+    for i in 0..size {
+        let info = devices.GetAt(i)?;
+        let name = info.Name()?.to_string_lossy();
+        if name == "Joro" {
+            let id = info.Id()?;
+            eprintln!("joro-ble:   paired '{}' at {}", name, id.to_string_lossy());
+            match BluetoothLEDevice::FromIdAsync(&id)?.get() {
+                Ok(dev) => return Ok(Some(dev)),
+                Err(e) => {
+                    eprintln!("joro-ble: FromIdAsync failed for paired device: {e}");
+                    continue;
+                }
+            }
+        }
+    }
+    Ok(None)
+}
+
+/// Connect to a Joro at the given Bluetooth address (used for the
+/// advertisement-scan path). Resolves the address to a BluetoothLEDevice
+/// and delegates to `connect_from_device`.
+fn connect_from_address(addr: u64) -> WinResult<BleDevice> {
+    let device = BluetoothLEDevice::FromBluetoothAddressAsync(addr)?.get()?;
+    eprintln!("joro-ble: BluetoothLEDevice acquired");
+    connect_from_device(device)
+}
+
+/// Set up GATT session with MaintainConnection=true, discover the Razer
+/// service, find char_tx/char_rx, subscribe to notifications, and return a
+/// ready BleDevice. The BluetoothLEDevice can come from either the paired
+/// enumeration path or the advertisement scan path.
+fn connect_from_device(device: BluetoothLEDevice) -> WinResult<BleDevice> {
+    let dev_id = device.BluetoothDeviceId()?;
+    let session = GattSession::FromDeviceIdAsync(&dev_id)?.get()?;
+    session.SetMaintainConnection(true)?;
+    eprintln!("joro-ble: GattSession with MaintainConnection=true");
+
+    // Find the Razer custom service
+    let svcs_result = device.GetGattServicesForUuidAsync(RAZER_SERVICE_UUID)?.get()?;
+    let svcs_status = svcs_result.Status()?;
+    if svcs_status != GattCommunicationStatus::Success {
+        return Err(WinError::new(
+            windows::core::HRESULT(0),
+            format!("service discovery status: {:?}", svcs_status),
+        ));
+    }
+    let services = svcs_result.Services()?;
+    if services.Size()? == 0 {
+        return Err(WinError::new(windows::core::HRESULT(0), "Razer service not found"));
+    }
+    let service: GattDeviceService = services.GetAt(0)?;
+    eprintln!("joro-ble: Razer service found");
+
+    // Find char_tx (1524)
+    let char_tx = find_char(&service, CHAR_TX_UUID, "TX (1524)")?;
+    let char_rx = find_char(&service, CHAR_RX_UUID, "RX (1525)")?;
+    eprintln!("joro-ble: TX/RX characteristics found");
+
+    // Subscribe to notifications on char_rx
+    let cccd_result = char_rx
+        .WriteClientCharacteristicConfigurationDescriptorAsync(
+            GattClientCharacteristicConfigurationDescriptorValue::Notify,
+        )?
+        .get()?;
+    if cccd_result != GattCommunicationStatus::Success {
+        return Err(WinError::new(
+            windows::core::HRESULT(0),
+            format!("CCCD write status: {:?}", cccd_result),
+        ));
+    }
+    eprintln!("joro-ble: notifications subscribed");
+
+    // Wire up the ValueChanged event to a channel
+    let (notif_tx, notif_rx) = mpsc::channel::<Vec<u8>>();
+    let notif_tx = Arc::new(Mutex::new(notif_tx));
+
+    let tx_for_handler = notif_tx.clone();
+    let trace = std::env::var("JORO_BLE_TRACE").is_ok();
+    let handler = TypedEventHandler::<GattCharacteristic, GattValueChangedEventArgs>::new(
+        move |_sender, args| {
+            if let Some(args) = args.as_ref() {
+                if let Ok(buf) = args.CharacteristicValue() {
+                    if let Ok(reader) = DataReader::FromBuffer(&buf) {
+                        let len = reader.UnconsumedBufferLength().unwrap_or(0) as usize;
+                        let mut data = vec![0u8; len];
+                        if reader.ReadBytes(&mut data).is_ok() {
+                            if trace {
+                                let hex: String = data
+                                    .iter()
+                                    .map(|b| format!("{:02x}", b))
+                                    .collect::<Vec<_>>()
+                                    .join(" ");
+                                eprintln!("joro-ble-notif ({} bytes): {}", data.len(), hex);
+                            }
+                            if let Ok(guard) = tx_for_handler.lock() {
+                                let _ = guard.send(data);
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(())
+        },
+    );
+    let notif_token = char_rx.ValueChanged(&handler)?;
+
+    // Drain any unsolicited notifications the keyboard sends on connect
+    std::thread::sleep(Duration::from_millis(500));
+    while notif_rx.try_recv().is_ok() {}
+
+    // Optional: standard BLE Battery Service (0x180F) with Battery Level
+    // characteristic (0x2A19). If present, we'll use it for battery reads
+    // instead of Razer Protocol30 — it returns a clean 0-100 byte directly.
+    let char_battery = find_battery_level_char(&device).ok();
+    if char_battery.is_some() {
+        eprintln!("joro-ble: standard BLE Battery Service found");
+    } else {
+        eprintln!("joro-ble: standard BLE Battery Service NOT found — falling back to Protocol30");
+    }
+
+    Ok(BleDevice {
+        device,
+        _session: session,
+        char_tx,
+        char_rx,
+        char_battery,
+        notif_rx,
+        notif_token,
+        txn_id: 0,
+        disconnect_count: 0,
+    })
+}
+
+/// Discover the standard BLE Battery Service (0x180F) and return its
+/// Battery Level characteristic (0x2A19), if present.
+fn find_battery_level_char(device: &BluetoothLEDevice) -> WinResult<GattCharacteristic> {
+    let svcs = device
+        .GetGattServicesForUuidAsync(BATTERY_SERVICE_UUID)?
+        .get()?;
+    if svcs.Status()? != GattCommunicationStatus::Success {
+        return Err(WinError::new(
+            windows::core::HRESULT(0),
+            "battery service not found",
+        ));
+    }
+    let services = svcs.Services()?;
+    if services.Size()? == 0 {
+        return Err(WinError::new(
+            windows::core::HRESULT(0),
+            "battery service empty",
+        ));
+    }
+    let svc: GattDeviceService = services.GetAt(0)?;
+    find_char(&svc, BATTERY_LEVEL_UUID, "Battery Level (0x2A19)")
+}
+
+fn find_char(
+    service: &GattDeviceService,
+    uuid: GUID,
+    label: &str,
+) -> WinResult<GattCharacteristic> {
+    let result = service.GetCharacteristicsForUuidAsync(uuid)?.get()?;
+    let status = result.Status()?;
+    if status != GattCommunicationStatus::Success {
+        return Err(WinError::new(
+            windows::core::HRESULT(0),
+            format!("char {} status: {:?}", label, status),
+        ));
+    }
+    let chars = result.Characteristics()?;
+    if chars.Size()? == 0 {
+        return Err(WinError::new(
+            windows::core::HRESULT(0),
+            format!("char {} not found", label),
+        ));
+    }
+    Ok(chars.GetAt(0)?)
+}
+
+/// Convert a byte slice to a WinRT IBuffer via DataWriter.
+fn vec_to_buffer(data: &[u8]) -> WinResult<windows::Storage::Streams::IBuffer> {
+    let writer = DataWriter::new()?;
+    writer.WriteBytes(data)?;
+    writer.DetachBuffer()
 }

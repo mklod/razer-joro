@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Razer Joro Settings</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #000;
+  --fg: #e8e8e8;
+  --muted: #7a7a7a;
+  --dim: #555;
+  --border: #1c1c1c;
+  --key-bg: #000;
+  --key-text: rgb(80, 80, 80);
+  --key-outline: rgba(255, 255, 255, 0.55);
+  --key-outline-hover: rgba(255, 255, 255, 0.85);
+  --accent: #00cc44;
+  --accent-glow: rgba(0, 204, 68, 0.55);
+  --accent-hover: #1fe065;
+  --accent-dim: #006622;
+  --danger: #ff4444;
+  --font-ui: "Segoe UI", "Segoe UI Variable Display", -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg); color: var(--fg);
+  font: 13px var(--font-ui);
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+body { padding: 14px 28px 14px; }
+h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
+.sub { color: var(--muted); font-size: 11px; }
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.battery {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #a8a8a8;
+  font-size: 13px;
+  font-weight: 500;
+}
+.battery svg { display: block; }
+.battery .pct { min-width: 34px; text-align: right; }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.transport-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 12px;
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  color: #a8a8a8;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+.transport-indicator .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #555;
+}
+.transport-indicator.connected { color: var(--fg); border-color: #2a4a2a; }
+.transport-indicator.connected .dot { background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
+.transport-indicator.disconnected { color: var(--muted); }
+.transport-indicator.disconnected .dot { background: #555; }
+
+/* Section heading between keyboard and lighting */
+.section-title {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 28px 0 10px;
+}
+
+/* ── Layer toggle (Default / Hypershift) ──────────────────────── */
+.layer-toggle {
+  display: inline-flex;
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px;
+  margin-bottom: 10px;
+  gap: 2px;
+}
+.layer-toggle button {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  padding: 6px 14px;
+  font: 500 11px var(--font-ui);
+  cursor: pointer;
+  border-radius: 3px;
+}
+.layer-toggle button:hover { color: var(--fg); }
+.layer-toggle button.active {
+  background: var(--accent);
+  color: #000;
+  font-weight: 600;
+}
+
+/* Disabled state for keys without known matrix index in Hypershift view */
+.key.no-matrix {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.key.no-matrix:hover { border-color: rgb(100, 100, 100); }
+
+/* ── Keyboard ────────────────────────────────────────────────── */
+.keyboard {
+  background: radial-gradient(ellipse at center, #0a0a0a 0%, #000 85%);
+  border-radius: 0;                 /* sharp corners */
+  padding: 14px 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
+  border: 1px solid #ffffff;        /* solid white outer outline */
+}
+.row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.row:last-child { margin-bottom: 0; }
+
+.key {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 60px;
+  background: linear-gradient(to bottom, #0c0c0c 0%, #040404 100%);
+  color: var(--key-text);
+  border: 2px solid rgb(100, 100, 100);
+  border-radius: 6px;
+  font: 400 12.5px var(--font-ui);
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  padding: 7px 8px 5px;
+  position: relative;
+  line-height: 1;
+  text-transform: none;
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.9);
+  transition: all 0.08s ease;
+  /* Flex column: labels stacked at TOP CENTER of the key by default */
+  display: flex;
+  flex-direction: column;
+  align-items: center;       /* horizontal: centered */
+  justify-content: flex-start; /* vertical: push to top */
+  gap: 6px;                  /* space between top and bot labels */
+}
+.key:hover:not(.dead):not(.mapped):not(.selected) {
+  border-color: rgb(160, 160, 160);
+}
+
+.key.mapped {
+  background: linear-gradient(to bottom, #0c0c0c 0%, #040404 100%);
+  color: var(--key-text);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 14px 1px var(--accent-glow),
+    0 2px 2px rgba(0, 0, 0, 0.9);
+}
+.key.mapped:hover {
+  border-color: var(--accent-hover);
+  box-shadow:
+    0 0 18px 2px var(--accent-glow),
+    0 2px 2px rgba(0, 0, 0, 0.9);
+}
+
+.key.selected {
+  background: linear-gradient(to bottom, #1fe065 0%, #00aa38 100%);
+  color: #000;
+  font-weight: 600;
+  border-color: #006622;
+  box-shadow:
+    0 0 22px 2px var(--accent-glow),
+    0 2px 2px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.key.dead { cursor: default; }
+.key.dead:hover { border-color: rgba(255, 255, 255, 0.55); }
+
+/* ── Per-key alignment variants ──────────────────────────────── */
+/* Default is top-center. Override with .align-left, -right, or -center. */
+.key.align-left  { align-items: flex-start; }
+.key.align-right { align-items: flex-end; }
+.key.align-center { justify-content: center; padding-top: 0; padding-bottom: 0; }
+
+/* ── Labels ──────────────────────────────────────────────────── */
+.key .top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: inherit;
+  line-height: 1;
+}
+.key .top-num {
+  font-size: 9px;
+  font-weight: 400;
+  color: inherit;
+  margin-left: 1px;
+}
+.key .bot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-weight: 400;
+  line-height: 1;
+}
+.key.selected .bot { color: rgba(0, 0, 0, 0.6); }
+
+/* F-row subscript (F1/F2/...): pulled out of flow, anchored bottom-right */
+.key .bot.f-sub {
+  position: absolute;
+  bottom: 3px;
+  right: 4px;
+  font-size: 8px;
+  color: #555;
+}
+
+/* Letter keys: bigger uppercase letter */
+.key.letter .top {
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0.3px;
+}
+
+/* F-row: noticeably shorter keys, all center-aligned both axes */
+.row.f-row .key {
+  height: 34px;
+  padding: 4px 5px 3px;
+  justify-content: center;
+}
+.row.f-row .key .top { font-size: 10.5px; }
+
+/* CapsLock indicator LED dot */
+.key.caps-led::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 3px rgba(255, 255, 255, 0.45);
+}
+/* Bluetooth slot LED (small dot, top-right of F1/F2/F3) */
+.key.bt-led::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 3px rgba(255, 255, 255, 0.45);
+}
+
+/* SVG sizing — each SVG controls its own size via inline width/height attrs.
+   CSS only sets `display: block` so they don't add inline baseline gaps. */
+.key svg { display: block; }
+
+/* Width helpers */
+.k1    { flex-grow: 1; }
+.k1x25 { flex-grow: 1.25; }
+.k1x5  { flex-grow: 1.5; }
+.k1x75 { flex-grow: 1.75; }
+.k2    { flex-grow: 2; }
+.k2x25 { flex-grow: 2.25; }
+.kSpace { flex-grow: 6.25; }
+
+/* ── Popover ─────────────────────────────────────────────────── */
+.popover {
+  position: fixed;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 7px;
+  padding: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
+  z-index: 100;
+  min-width: 320px;
+}
+.popover .label {
+  color: var(--muted); font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+.popover .pop-field { margin-bottom: 8px; }
+.popover .pop-field > label {
+  display: block; color: var(--muted);
+  font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 3px;
+}
+.popover input[type="text"] {
+  width: 100%; background: #0a0a0a; color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 7px 9px; border-radius: 3px; font: inherit;
+}
+.popover input[type="text"]:focus { outline: none; border-color: var(--accent); }
+.popover .pop-hint {
+  color: var(--dim); font-size: 10px;
+  margin-top: 4px; margin-bottom: 10px; line-height: 1.5;
+}
+.popover .pop-hint code {
+  background: #0a0a0a; padding: 1px 4px; border-radius: 2px;
+  font-family: "Consolas", monospace; color: #ddd;
+}
+.popover .pop-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.popover button {
+  background: #2a2a2a; color: var(--fg); border: 0;
+  padding: 7px 14px; border-radius: 3px; font: inherit; cursor: pointer;
+}
+.popover button:hover { background: #3a3a3a; }
+.popover button.primary { background: var(--accent); color: #000; font-weight: 600; }
+.popover button.primary:hover { background: var(--accent-hover); }
+.popover button.danger {
+  background: transparent; color: var(--danger); padding: 7px 10px;
+}
+.popover button.danger:hover { background: rgba(255, 68, 68, 0.1); }
+.popover button:disabled { opacity: 0.3; cursor: default; }
+
+/* ── Legend + status ─────────────────────────────────────────── */
+.legend {
+  display: flex; gap: 18px; color: var(--muted);
+  font-size: 11px; align-items: center; margin-top: 14px;
+}
+.legend .swatch-outline {
+  display: inline-block; width: 12px; height: 12px;
+  background: #0a0a0a; border-radius: 2px;
+  margin-right: 6px; vertical-align: middle;
+  box-shadow:
+    0 0 0 1.5px var(--accent),
+    0 0 8px var(--accent-glow);
+}
+.status { margin-left: auto; color: var(--muted); font-size: 11px; }
+.status.ok { color: var(--accent); }
+.status.err { color: var(--danger); }
+
+/* ── Lighting panel (single row) ─────────────────────────────── */
+.lighting {
+  background: radial-gradient(ellipse at center, #0b0b0b 0%, #000 85%);
+  border-radius: 10px;
+  padding: 14px 18px;
+  border: 1px solid #141414;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.lighting-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lighting-group > label {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+.lighting input[type="color"] {
+  width: 40px; height: 32px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 5px;
+  cursor: pointer; padding: 2px;
+}
+.lighting input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
+.lighting .hex {
+  font-family: "Consolas", monospace; font-size: 12px;
+  color: #ccc; background: #0a0a0a;
+  padding: 7px 10px; border-radius: 4px;
+  border: 1px solid var(--border); min-width: 76px;
+  text-align: center;
+}
+.brightness-group { flex: 1; min-width: 220px; }
+.brightness-group input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none; appearance: none;
+  height: 4px; background: #222; border-radius: 2px;
+  outline: none; cursor: pointer;
+}
+.brightness-group input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--accent); cursor: pointer;
+  box-shadow: 0 0 8px rgba(0, 204, 68, 0.5);
+  transition: transform 0.1s;
+}
+.brightness-group input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.brightness-group .value {
+  font-family: "Consolas", monospace; font-size: 12px;
+  color: #ccc; min-width: 42px; text-align: center;
+  background: #0a0a0a; padding: 7px 8px; border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.lighting select {
+  background: #0a0a0a; color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 8px 10px; border-radius: 4px;
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.lighting select:focus { outline: none; border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>Razer Joro Settings</h1>
+    <div class="sub">Click a key to set a remap. Changes save automatically.</div>
+  </div>
+  <div class="header-right">
+    <div class="transport-indicator disconnected" id="transport">
+      <span class="dot"></span>
+      <span id="transport-label">Disconnected</span>
+    </div>
+    <div class="battery" id="battery">
+      <svg viewBox="0 0 28 14" width="26" height="13" fill="none" stroke="currentColor" stroke-width="1.2">
+        <rect x="0.8" y="0.8" width="23.4" height="12.4" rx="1.8"/>
+        <rect x="24.8" y="4" width="2.4" height="6" rx="0.6" fill="currentColor" stroke="none"/>
+        <rect id="battery-fill" x="2.5" y="2.5" width="0" height="9" fill="currentColor" stroke="none" rx="0.5"/>
+        <!-- Charging bolt (shown when on USB, hidden otherwise) -->
+        <path id="battery-bolt" d="M 13.5 2 L 8.5 8 L 12 8 L 11 12 L 16.5 6 L 13 6 Z" fill="#ffffff" stroke="none" style="display:none;"/>
+      </svg>
+      <span class="pct" id="battery-pct">—</span>
+    </div>
+  </div>
+</div>
+
+<div class="layer-toggle" id="layer-toggle">
+  <button data-layer="default" class="active">Default</button>
+  <button data-layer="hypershift">Hypershift (Fn)</button>
+</div>
+<div class="keyboard" id="kb"></div>
+<div class="legend">
+  <span><span class="swatch-outline"></span>Remapped</span>
+  <span id="legend-hint" style="color: var(--dim);">Use <code style="background:#0a0a0a;padding:1px 4px;border-radius:2px;font-family:Consolas,monospace;color:#ccc;">+</code> for modifier combos (e.g. Ctrl+F5, Win+L)</span>
+  <div class="status" id="status"></div>
+</div>
+
+<div class="section-title">Lighting</div>
+<div class="lighting">
+  <div class="lighting-group">
+    <label>Color</label>
+    <input type="color" id="lighting-color" value="#00cc44">
+    <div class="hex" id="lighting-hex">#00CC44</div>
+  </div>
+  <div class="lighting-group brightness-group">
+    <label>Brightness</label>
+    <input type="range" id="lighting-brightness" min="0" max="255" value="200">
+    <div class="value" id="lighting-brightness-val">200</div>
+  </div>
+  <div class="lighting-group">
+    <label>Effect</label>
+    <select id="lighting-mode">
+      <option value="static">Static</option>
+      <option value="breathing">Breathing</option>
+      <option value="spectrum">Spectrum Cycling</option>
+    </select>
+  </div>
+  <div class="status" id="status-lighting" style="margin-left: auto;"></div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────────────────────────────────
+// Inline SVG icons — each icon specifies its own fill/stroke. The `.key svg`
+// CSS rule does NOT set fill/stroke globally (so filled icons stay filled).
+// ──────────────────────────────────────────────────────────────────────────
+const ICONS = {
+  // Bluetooth glyph
+  bluetooth: `<svg viewBox="0 0 24 24" width="14" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7 L17 17 L12 22 L12 2 L17 7 L7 17"/></svg>`,
+
+  // Two overlapping screens (PC/screens mode)
+  screens: `<svg viewBox="0 0 26 20" width="19" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="1.5" y="2" width="14" height="10" rx="1"/><rect x="10" y="8" width="14" height="10" rx="1" fill="#000"/></svg>`,
+
+  // Speaker icons — solid white fill
+  speakerMute: `<svg viewBox="0 0 24 24" width="18" height="15" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 9 L6 13 L3 13 L3 17 L6 17 L10 21 Z" fill="#fff"/><path d="M14 11 L20 17 M20 11 L14 17"/></svg>`,
+  speakerLow: `<svg viewBox="0 0 24 24" width="18" height="15" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 9 L6 13 L3 13 L3 17 L6 17 L10 21 Z" fill="#fff"/><path d="M14 11 C 17 12.5 17 17.5 14 19"/></svg>`,
+  speakerHigh: `<svg viewBox="0 0 24 24" width="19" height="15" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 9 L6 13 L3 13 L3 17 L6 17 L10 21 Z" fill="#fff"/><path d="M14 11 C 17 12.5 17 17.5 14 19 M17 8 C 21 10 21 20 17 22"/></svg>`,
+
+  // Sun with short rays (brightness down)
+  sunSmall: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 6 V4 M12 20 V18 M6 12 H4 M20 12 H18 M7.6 7.6 L6.2 6.2 M17.8 17.8 L16.4 16.4 M7.6 16.4 L6.2 17.8 M17.8 6.2 L16.4 7.6"/></svg>`,
+
+  // Sun filled with long rays (brightness up)
+  sunLarge: `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="3.5" fill="currentColor"/><g fill="none"><path d="M12 5 V2 M12 22 V19 M5 12 H2 M22 12 H19 M7 7 L4.8 4.8 M19.2 19.2 L17 17 M7 17 L4.8 19.2 M19.2 4.8 L17 7"/></g></svg>`,
+
+  // Keyboard backlight DIM: trapezoidal keyboard (front view) with short rays above
+  backlightDown: `<svg viewBox="0 0 28 18" width="22" height="14" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15 L6 12 L22 12 L24 15 Z"/><line x1="10" y1="9" x2="10" y2="11"/><line x1="14" y1="8" x2="14" y2="11"/><line x1="18" y1="9" x2="18" y2="11"/></svg>`,
+
+  // Keyboard backlight BRIGHT: same keyboard with longer rays
+  backlightUp: `<svg viewBox="0 0 28 18" width="22" height="14" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15 L6 12 L22 12 L24 15 Z"/><line x1="10" y1="3" x2="10" y2="11"/><line x1="14" y1="2" x2="14" y2="11"/><line x1="18" y1="3" x2="18" y2="11"/></svg>`,
+
+  // Padlock
+  lock: `<svg viewBox="0 0 24 24" width="14" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11 V7.5 A4 4 0 0 1 16 7.5 V11"/></svg>`,
+
+  // Backspace: large, long thin left arrow
+  backspace: `<svg viewBox="0 0 54 14" width="44" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M52 7 L3 7"/><path d="M12 1 L3 7 L12 13"/></svg>`,
+
+  // Arrow keys — stroke chevrons (not filled triangles)
+  arrowUp:    `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15 L12 9 L18 15"/></svg>`,
+  arrowDown:  `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9 L12 15 L18 9"/></svg>`,
+  arrowLeft:  `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6 L9 12 L15 18"/></svg>`,
+  arrowRight: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6 L15 12 L9 18"/></svg>`,
+
+  // Globe (fn key secondary label) — 2x larger
+  globe: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12 H21"/></svg>`,
+
+  // Windows logo: solid WHITE filled 2x2 grid
+  windows: `<svg viewBox="0 0 22 22" width="14" height="14"><rect x="1" y="1" width="9" height="9" fill="#fff"/><rect x="12" y="1" width="9" height="9" fill="#fff"/><rect x="1" y="12" width="9" height="9" fill="#fff"/><rect x="12" y="12" width="9" height="9" fill="#fff"/></svg>`,
+
+  // Copilot — solid WHITE filled (from icons8-microsoft-copilot.svg)
+  copilot: `<svg viewBox="0 0 50 50" width="16" height="16"><path fill="#fff" d="M25.97 32.13c-.57 1.94-1.13 3.86-1.64 5.6l-1.9 6.41C21.92 45.82 20.35 47 18.59 47h-.12c-2.23 0-4.18-1.47-4.8-3.6l-1.38-4.77C11.67 36.49 9.82 35 7.59 35h13.89C23.42 35 25.16 33.85 25.97 32.13zM45.56 34.42C43.65 40.71 40.8 47 36.04 47h-13c.59-.64 1.04-1.42 1.31-2.29 2.996-10.134 4.332-14.658 7.06-24.22C32 18.42 33.88 17 36.03 17h6.2C50.76 17 47.81 26.97 45.56 34.42zM42.41 15H28.52c-1.94 0-3.68 1.15-4.49 2.87.56-1.93 1.12-3.84 1.64-5.6l1.9-6.41C28.08 4.18 29.65 3 31.41 3h.12c2.23 0 4.18 1.47 4.8 3.6l1.38 4.77C38.33 13.51 40.18 15 42.41 15zM26.96 3c-.59.64-1.04 1.42-1.31 2.29-2.146 7.258-3.943 13.294-7.06 24.22C18 31.58 16.12 33 13.97 33h-6.2c-8.53 0-5.58-9.97-3.33-17.42C6.35 9.29 9.2 3 13.96 3H26.96z"/></svg>`,
+
+  // Media control icons (pg up / pg dn / home / end)
+  mediaPrev:      `<svg viewBox="0 0 24 16" width="14" height="10"><rect x="3" y="2" width="2" height="12" rx="0.5" fill="currentColor"/><path d="M22 2 L9 8 L22 14 Z" fill="currentColor"/></svg>`,
+  mediaNext:      `<svg viewBox="0 0 24 16" width="14" height="10"><rect x="19" y="2" width="2" height="12" rx="0.5" fill="currentColor"/><path d="M2 2 L15 8 L2 14 Z" fill="currentColor"/></svg>`,
+  mediaPlayPause: `<svg viewBox="0 0 24 16" width="13" height="10"><rect x="4" y="2" width="2" height="12" rx="0.5" fill="currentColor"/><rect x="8" y="2" width="2" height="12" rx="0.5" fill="currentColor"/><path d="M13 2 L23 8 L13 14 Z" fill="currentColor"/></svg>`,
+  mediaMute:      `<svg viewBox="0 0 24 16" width="14" height="10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4 L6 7 L3 7 L3 9 L6 9 L10 12 Z" fill="currentColor"/><path d="M14 5 L20 11 M20 5 L14 11"/></svg>`,
+};
+
+// ──────────────────────────────────────────────────────────────────────────
+// Layout
+// ──────────────────────────────────────────────────────────────────────────
+const K = (top, key, opts = {}) => ({ top, key, ...opts });
+
+const LAYOUT = [
+  // F-row (16)
+  [
+    K('esc',  'Escape'),
+    // F-row firmware metadata (discovered 2026-04-13):
+    //   - F1/F2/F3: BLE slot selectors — firmware internal handler, bypasses
+    //     matrix in BLE mode, no-op in wired. `fwNote` is informational.
+    //   - F4: firmware keyboard macro → Win+Tab (triggers Task View). That's
+    //     why a `[[remap]] Win+Tab → X` entry in the config will show up
+    //     under F4 in this UI.
+    //   - F5..F9: Consumer Control usages over the 0x0C HID page. hidapi
+    //     reads are non-consuming on Windows so our daemon can observe
+    //     them but cannot swallow them — `fwMedia` is informational.
+    K('',     'F1',  { icon: 'bluetooth', topNum: '1', bot: 'F1', fSub: true, btLed: true, fwNote: 'BLE slot 1' }),
+    K('',     'F2',  { icon: 'bluetooth', topNum: '2', bot: 'F2', fSub: true, btLed: true, fwNote: 'BLE slot 2' }),
+    K('',     'F3',  { icon: 'bluetooth', topNum: '3', bot: 'F3', fSub: true, btLed: true, fwNote: 'BLE slot 3' }),
+    K('',     'F4',  { icon: 'screens',     bot: 'F4', fSub: true, fwEmits: 'Win+Tab', fwNote: 'firmware macro → Win+Tab' }),
+    K('',     'F5',  { icon: 'speakerMute', bot: 'F5', fSub: true, fwMedia: 'Mute',           fwNote: 'Consumer: Mute (0x00E2)' }),
+    K('',     'F6',  { icon: 'speakerLow',  bot: 'F6', fSub: true, fwMedia: 'VolumeDown',     fwNote: 'Consumer: VolumeDown (0x00EA)' }),
+    K('',     'F7',  { icon: 'speakerHigh', bot: 'F7', fSub: true, fwMedia: 'VolumeUp',       fwNote: 'Consumer: VolumeUp (0x00E9)' }),
+    K('',     'F8',  { icon: 'sunSmall',    bot: 'F8', fSub: true, fwMedia: 'BrightnessDown', fwNote: 'Consumer: BrightnessDown (0x0070)' }),
+    K('',     'F9',  { icon: 'sunLarge',    bot: 'F9', fSub: true, fwMedia: 'BrightnessUp',   fwNote: 'Consumer: BrightnessUp (0x006F)' }),
+    K('',     'F10', { icon: 'backlightDown', bot: 'F10', fSub: true, fwNote: 'F10 (emission TBD)' }),
+    K('',     'F11', { icon: 'backlightUp',   bot: 'F11', fSub: true, fwNote: 'F11 (emission TBD)' }),
+    K('prt sc', 'PrintScreen', { bot: 'F12', fSub: true }),
+    K('ins',  'Insert'),
+    K('del',  'Delete'),
+    K('',     'LockKey', { icon: 'lock', emits: 'Win+L' }),
+  ],
+  // Number row (15) — bot stacks directly below top
+  [
+    K('`',  'Grave',      { bot: '~' }),
+    K('1',  '1',          { bot: '!' }),
+    K('2',  '2',          { bot: '@' }),
+    K('3',  '3',          { bot: '#' }),
+    K('4',  '4',          { bot: '$' }),
+    K('5',  '5',          { bot: '%' }),
+    K('6',  '6',          { bot: '^' }),
+    K('7',  '7',          { bot: '&' }),
+    K('8',  '8',          { bot: '*' }),
+    K('9',  '9',          { bot: '(' }),
+    K('0',  '0',          { bot: ')' }),
+    K('-',  'Minus',      { bot: '_' }),
+    K('=',  'Equal',      { bot: '+' }),
+    K('',   'Backspace',  { width: 'k2', icon: 'backspace', align: 'right' }),
+    K('pg up', 'PageUp', { botIcon: 'mediaPrev' }),
+  ],
+  // QWERTY row (15)
+  [
+    K('tab', 'Tab',       { width: 'k1x5', align: 'left' }),
+    K('Q', 'q', { letter: true }),
+    K('W', 'w', { letter: true }),
+    K('E', 'e', { letter: true }),
+    K('R', 'r', { letter: true }),
+    K('T', 't', { letter: true }),
+    K('Y', 'y', { letter: true }),
+    K('U', 'u', { letter: true }),
+    K('I', 'i', { letter: true }),
+    K('O', 'o', { letter: true }),
+    K('P', 'p', { letter: true }),
+    K('[',  'LeftBracket',  { bot: '{' }),
+    K(']',  'RightBracket', { bot: '}' }),
+    K('\\', 'Backslash',    { bot: '|' }),
+    K('pg dn', 'PageDown', { botIcon: 'mediaNext' }),
+  ],
+  // Home row (14)
+  [
+    K('caps', 'CapsLock', { width: 'k1x75', capsLed: true, align: 'left' }),
+    K('A', 'a', { letter: true }),
+    K('S', 's', { letter: true }),
+    K('D', 'd', { letter: true }),
+    K('F', 'f', { letter: true }),
+    K('G', 'g', { letter: true }),
+    K('H', 'h', { letter: true }),
+    K('J', 'j', { letter: true }),
+    K('K', 'k', { letter: true }),
+    K('L', 'l', { letter: true }),
+    K(';',  'Semicolon', { bot: ':' }),
+    K("'",  'Quote',     { bot: '"' }),
+    K('enter', 'Enter',  { width: 'k2x25', align: 'right' }),
+    K('home', 'Home', { botIcon: 'mediaPlayPause' }),
+  ],
+  // Shift row (14)
+  [
+    K('shift', 'LShift',  { width: 'k2x25', emits: 'Shift', align: 'left' }),
+    K('Z', 'z', { letter: true }),
+    K('X', 'x', { letter: true }),
+    K('C', 'c', { letter: true }),
+    K('V', 'v', { letter: true }),
+    K('B', 'b', { letter: true }),
+    K('N', 'n', { letter: true }),
+    K('M', 'm', { letter: true }),
+    K(',',  'Comma',  { bot: '<' }),
+    K('.',  'Period', { bot: '>' }),
+    K('/',  'Slash',  { bot: '?' }),
+    K('shift', 'RShift',  { width: 'k1x75', emits: 'Shift' }),
+    K('',  'Up',  { icon: 'arrowUp', align: 'center' }),
+    K('end', 'End', { botIcon: 'mediaMute' }),
+  ],
+  // Bottom row (12) — dual labels stacked (top + bot right below)
+  [
+    K('ctrl', 'LCtrl',     { width: 'k1x25', emits: 'Ctrl' }),
+    K('fn',   'LFn',       { width: 'k1x25', botIcon: 'globe', emits: 'Fn' }),
+    K('',     'Win',       { width: 'k1x25', icon: 'windows', bot: 'option' }),
+    K('alt',  'LAlt',      { width: 'k1x25', bot: 'cmd', emits: 'Alt' }),
+    K('',     'Space',     { width: 'kSpace' }),
+    K('alt',  'RAlt',      { width: 'k1x25', bot: 'cmd', emits: 'Alt' }),
+    K('',     'CopilotKey',{ width: 'k1x25', icon: 'copilot', bot: 'option', emits: 'Win+Copilot' }),
+    K('fn',   'RFn',       { width: 'k1x25', botIcon: 'globe', emits: 'Fn' }),
+    K('ctrl', 'RCtrl',     { width: 'k1x25', emits: 'Ctrl' }),
+    K('',  'Left',  { icon: 'arrowLeft',  align: 'center' }),
+    K('',  'Down',  { icon: 'arrowDown',  align: 'center' }),
+    K('',  'Right', { icon: 'arrowRight', align: 'center' }),
+  ],
+];
+
+// ──────────────────────────────────────────────────────────────────────────
+// State + helpers
+// ──────────────────────────────────────────────────────────────────────────
+let remaps = [];          // base-layer (host-side) remaps
+let fnRemaps = [];        // Fn-layer firmware remaps (class=0x02 cmd=0x0d, USB-only write)
+let fnHostRemaps = [];    // Fn-layer HOST-side remaps (daemon WH_KEYBOARD_LL + fn_detect)
+let knownMatrixKeys = new Set();  // lowercase key names with known matrix index
+let currentLayer = 'default';     // 'default' | 'hypershift'
+let transport = null;     // 'USB' | 'BLE' | null — affects fn-layer write availability
+let lighting = { color: '#00cc44', brightness: 200, mode: 'static' };
+
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function emitsOf(k) {
+  return (k.emits || k.key || '').trim();
+}
+
+// Returns the remap or fn_remap matching this key for the current layer.
+// Hypershift mode returns an object `{ name, from, to, source }` where
+// `source` is `"host"` or `"firmware"`. Host-side entries take precedence
+// because the daemon's WH_KEYBOARD_LL hook intercepts before the firmware
+// Hypershift layer is visible to Windows.
+function findRemapForKey(k) {
+  if (currentLayer === 'hypershift') {
+    const id = (k.key || '').toLowerCase();
+    const host = fnHostRemaps.find(r => (r.from || '').trim().toLowerCase() === id);
+    if (host) return { name: host.name, from: host.from, to: host.to, source: 'host' };
+    const fw = fnRemaps.find(r => (r.from || '').trim().toLowerCase() === id);
+    if (fw) return { name: fw.name, from: fw.from, to: fw.to, source: 'firmware' };
+    return null;
+  }
+  const emits = emitsOf(k).toLowerCase();
+  const fwKey = (k.fwEmits || '').trim().toLowerCase();
+  return remaps.find(r => {
+    const from = (r.from || '').trim().toLowerCase();
+    if (!from) return false;
+    return from === emits || (fwKey && from === fwKey);
+  }) || null;
+}
+
+function isKeyMatrixKnown(k) {
+  if (!k.key) return false;
+  return knownMatrixKeys.has(k.key.toLowerCase());
+}
+
+function saveNow() {
+  const clean = remaps
+    .filter(r => (r.from || '').trim() && (r.to || '').trim())
+    .map(r => ({ name: (r.name || '').trim(), from: r.from.trim(), to: r.to.trim() }));
+  window.ipc.postMessage(JSON.stringify({ action: 'save_remaps', remaps: clean }));
+  setStatus('Saving…', '');
+}
+
+function setStatus(msg, cls) {
+  ['status', 'status-lighting'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'status ' + (cls || '');
+    if (cls === 'ok') {
+      setTimeout(() => { el.textContent = ''; el.className = 'status'; }, 1500);
+    }
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Lighting
+// ──────────────────────────────────────────────────────────────────────────
+function renderLighting() {
+  const colorEl = document.getElementById('lighting-color');
+  const hexEl = document.getElementById('lighting-hex');
+  const brEl = document.getElementById('lighting-brightness');
+  const brValEl = document.getElementById('lighting-brightness-val');
+  const modeEl = document.getElementById('lighting-mode');
+  if (!colorEl) return;
+  colorEl.value = lighting.color.toLowerCase();
+  hexEl.textContent = lighting.color.toUpperCase();
+  brEl.value = lighting.brightness;
+  brValEl.textContent = lighting.brightness;
+  modeEl.value = lighting.mode;
+}
+
+let lightingDebounceTimer = null;
+function sendLighting() {
+  window.ipc.postMessage(JSON.stringify({
+    action: 'set_lighting',
+    color: lighting.color,
+    brightness: lighting.brightness,
+    mode: lighting.mode,
+  }));
+  setStatus('Applying…', '');
+}
+function sendLightingDebounced() {
+  if (lightingDebounceTimer) clearTimeout(lightingDebounceTimer);
+  lightingDebounceTimer = setTimeout(sendLighting, 180);
+}
+
+function wireLightingControls() {
+  document.getElementById('lighting-color').addEventListener('input', e => {
+    lighting.color = e.target.value;
+    document.getElementById('lighting-hex').textContent = lighting.color.toUpperCase();
+    sendLightingDebounced();
+  });
+  document.getElementById('lighting-brightness').addEventListener('input', e => {
+    lighting.brightness = +e.target.value;
+    document.getElementById('lighting-brightness-val').textContent = lighting.brightness;
+    sendLightingDebounced();
+  });
+  document.getElementById('lighting-mode').addEventListener('change', e => {
+    lighting.mode = e.target.value;
+    sendLighting();
+  });
+}
+
+// (Tabs removed — keyboard and lighting are on the same page now.)
+
+// ──────────────────────────────────────────────────────────────────────────
+// Rendering
+// ──────────────────────────────────────────────────────────────────────────
+function makeTopLabel(k) {
+  const span = document.createElement('span');
+  span.className = 'top';
+  if (k.icon && ICONS[k.icon]) {
+    span.innerHTML = ICONS[k.icon];
+  } else {
+    span.textContent = k.top;
+  }
+  if (k.topNum) {
+    const num = document.createElement('span');
+    num.className = 'top-num';
+    num.textContent = k.topNum;
+    span.appendChild(num);
+  }
+  return span;
+}
+
+function makeBotLabel(k) {
+  if (k.bot === undefined && !k.botIcon) return null;
+  const span = document.createElement('span');
+  span.className = 'bot';
+  if (k.fSub) span.classList.add('f-sub');
+  if (k.botIcon && ICONS[k.botIcon]) {
+    span.innerHTML = ICONS[k.botIcon];
+  } else {
+    span.textContent = k.bot;
+  }
+  return span;
+}
+
+function renderKeyboard() {
+  const kb = document.getElementById('kb');
+  kb.innerHTML = '';
+  LAYOUT.forEach((row, idx) => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'row';
+    if (idx === 0) rowEl.classList.add('f-row'); // first row uses shorter key height
+    row.forEach(k => {
+      const btn = document.createElement('button');
+      const classes = ['key', k.width || 'k1'];
+      if (k.letter) classes.push('letter');
+      if (k.dead) classes.push('dead');
+      if (k.capsLed) classes.push('caps-led');
+      if (k.btLed) classes.push('bt-led');
+      if (k.align === 'left')   classes.push('align-left');
+      if (k.align === 'right')  classes.push('align-right');
+      if (k.align === 'center') classes.push('align-center');
+
+      // In Hypershift view, gray out keys whose Razer matrix index is unknown
+      if (currentLayer === 'hypershift' && k.key && !isKeyMatrixKnown(k) && !k.dead) {
+        classes.push('no-matrix');
+      }
+
+      btn.className = classes.join(' ');
+
+      const mapped = findRemapForKey(k);
+      if (mapped) {
+        btn.classList.add('mapped');
+        // Include firmware-behavior context in the tooltip so it's clear
+        // that e.g. F4's remap lives under the "Win+Tab" source.
+        const fwHint = k.fwEmits ? ` (${k.key} → ${k.fwEmits})` : '';
+        btn.title = `${mapped.from} → ${mapped.to}${fwHint}`;
+      } else if (k.key) {
+        if (currentLayer === 'hypershift' && !isKeyMatrixKnown(k)) {
+          btn.title = `${k.key} — matrix index unknown, can't remap yet`;
+        } else if (currentLayer === 'hypershift') {
+          btn.title = `Fn+${k.key}`;
+        } else if (k.fwNote) {
+          btn.title = `${k.key} — ${k.fwNote}`;
+        } else {
+          btn.title = emitsOf(k);
+        }
+      }
+
+      btn.appendChild(makeTopLabel(k));
+      const bot = makeBotLabel(k);
+      if (bot) btn.appendChild(bot);
+
+      if (!k.dead) {
+        btn.addEventListener('click', (e) => onKeyClick(k, btn, e));
+      }
+      rowEl.appendChild(btn);
+    });
+    kb.appendChild(rowEl);
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Popover
+// ──────────────────────────────────────────────────────────────────────────
+let popover = null;
+
+function closePopover() {
+  if (popover) {
+    popover.remove();
+    popover = null;
+  }
+  document.querySelectorAll('.key.selected').forEach(k => k.classList.remove('selected'));
+}
+
+function onKeyClick(k, btnEl, evt) {
+  evt.stopPropagation();
+  if (!k.key) return;
+  // Hypershift: skip keys without a known matrix index
+  if (currentLayer === 'hypershift' && !isKeyMatrixKnown(k)) return;
+
+  closePopover();
+  btnEl.classList.add('selected');
+
+  const existing = findRemapForKey(k);
+  const isHypershift = currentLayer === 'hypershift';
+  // For keys with a `fwEmits` (firmware keyboard macro — F4 → Win+Tab),
+  // prefill From with that macro so the user can directly set the target.
+  // Consumer-usage keys (F5..F9) use `fwMedia` which is informational only.
+  const defaultFrom = isHypershift
+    ? k.key
+    : (existing ? existing.from : (k.fwEmits || emitsOf(k)));
+  const defaultTo = existing ? existing.to : '';
+  const labelText = isHypershift ? `Hypershift remap (Fn + ${escapeHtml(k.key)})` : 'Remap';
+  const fromReadOnly = isHypershift ? ' readonly' : '';
+  // Hypershift target selector: "host" (daemon, any transport) or
+  // "firmware" (persistent across daemon restarts, USB-only writes).
+  // Default: existing entry's source, or "host" if none.
+  const defaultTarget = (existing && existing.source === 'firmware') ? 'firmware' : 'host';
+  const hypershiftTargetSelector = isHypershift ? `
+    <div class="pop-field">
+      <label>Apply to</label>
+      <select id="pop-target">
+        <option value="host"${defaultTarget==='host'?' selected':''}>Host-side daemon (works on BLE, needs daemon running)</option>
+        <option value="firmware"${defaultTarget==='firmware'?' selected':''}>Keyboard firmware (persistent, requires USB to write)</option>
+      </select>
+    </div>` : '';
+  const sourceBadge = (isHypershift && existing)
+    ? `<div class="pop-hint" style="color:#9cf;">Current binding: <b>${existing.source === 'host' ? 'host-side daemon' : 'keyboard firmware'}</b> — <code>${escapeHtml(existing.from)}</code> → <code>${escapeHtml(existing.to)}</code></div>`
+    : '';
+  const transportNote = (isHypershift && defaultTarget === 'firmware' && transport !== 'USB')
+    ? `<div class="pop-hint" style="color:#ff8866;">⚠ Firmware writes require USB. Saved to config but won't apply until next USB connection.</div>`
+    : '';
+
+  // Firmware-behavior note: tells the user what this key fires at the
+  // firmware level, so they know why F4 remaps via "Win+Tab" etc.
+  let fwNoteLine = '';
+  if (!isHypershift) {
+    if (k.fwEmits) {
+      fwNoteLine = `<div class="pop-hint" style="color:#88c0ff;">${escapeHtml(k.key)} fires <code>${escapeHtml(k.fwEmits)}</code> at the firmware level. Remapping <code>${escapeHtml(k.fwEmits)}</code> will intercept this key.</div>`;
+    } else if (k.fwMedia) {
+      fwNoteLine = `<div class="pop-hint" style="color:#ffb066;">${escapeHtml(k.key)} fires <code>${escapeHtml(k.fwMedia)}</code> on the Consumer Control HID page. Windows handles these natively and the daemon cannot currently swallow them — remap entry will be informational only.</div>`;
+    } else if (k.fwNote) {
+      fwNoteLine = `<div class="pop-hint" style="color:#9aa;">${escapeHtml(k.fwNote)}</div>`;
+    }
+  }
+
+  popover = document.createElement('div');
+  popover.className = 'popover';
+  popover.innerHTML = `
+    <div class="label">${labelText}</div>
+    ${sourceBadge}
+    <div class="pop-field">
+      <label>From</label>
+      <input type="text" id="pop-from" value="${escapeHtml(defaultFrom)}"${fromReadOnly}>
+    </div>
+    <div class="pop-field">
+      <label>To</label>
+      <input type="text" id="pop-to" value="${escapeHtml(defaultTo)}" placeholder="e.g. Home, F5, Ctrl+C">
+    </div>
+    ${hypershiftTargetSelector}
+    <div class="pop-hint">
+      ${isHypershift
+        ? 'Single key (<code>Home</code>) or modifier combo (<code>Ctrl+F12</code>).'
+        : 'Leave <b>From</b> unchanged for a direct remap, or add a modifier for combos like <code>Ctrl+' + escapeHtml(emitsOf(k)) + '</code>.'}
+    </div>
+    ${fwNoteLine}
+    ${transportNote}
+    <div class="pop-actions">
+      <button class="danger" id="pop-clear"${existing ? '' : ' disabled'}>Clear</button>
+      <button id="pop-cancel">Cancel</button>
+      <button class="primary" id="pop-save">Save</button>
+    </div>
+  `;
+  document.body.appendChild(popover);
+
+  const rect = btnEl.getBoundingClientRect();
+  const popRect = popover.getBoundingClientRect();
+  let left = rect.left + rect.width / 2 - popRect.width / 2;
+  let top = rect.bottom + 8;
+  if (left < 8) left = 8;
+  if (left + popRect.width > window.innerWidth - 8) left = window.innerWidth - popRect.width - 8;
+  if (top + popRect.height > window.innerHeight - 8) top = rect.top - popRect.height - 8;
+  popover.style.left = left + 'px';
+  popover.style.top = top + 'px';
+
+  const fromInput = popover.querySelector('#pop-from');
+  const toInput = popover.querySelector('#pop-to');
+  toInput.focus();
+
+  popover.querySelector('#pop-cancel').addEventListener('click', closePopover);
+  popover.querySelector('#pop-clear').addEventListener('click', () => {
+    if (existing) {
+      if (isHypershift) {
+        // Clear the existing binding at its recorded source. Firmware
+        // entries stay live until the firmware is overwritten; host
+        // entries stop taking effect immediately.
+        const action = existing.source === 'firmware' ? 'clear_fn_remap' : 'clear_fn_host_remap';
+        window.ipc.postMessage(JSON.stringify({ action, from: k.key }));
+      } else {
+        const idx = remaps.indexOf(existing);
+        if (idx >= 0) remaps.splice(idx, 1);
+        renderKeyboard();
+        saveNow();
+      }
+    }
+    closePopover();
+  });
+  popover.querySelector('#pop-save').addEventListener('click', savePopover);
+  [fromInput, toInput].forEach(el => {
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); savePopover(); }
+      else if (e.key === 'Escape') { e.preventDefault(); closePopover(); }
+    });
+  });
+
+  function savePopover() {
+    const fromVal = fromInput.value.trim();
+    const toVal = toInput.value.trim();
+    if (!fromVal || !toVal) { toInput.focus(); return; }
+    if (isHypershift) {
+      const targetSel = popover.querySelector('#pop-target');
+      const target = targetSel ? targetSel.value : 'host';
+      const action = target === 'firmware' ? 'set_fn_remap' : 'set_fn_host_remap';
+      window.ipc.postMessage(JSON.stringify({
+        action,
+        from: k.key,
+        to: toVal,
+      }));
+    } else {
+      if (existing) {
+        const idx = remaps.indexOf(existing);
+        if (idx >= 0) remaps.splice(idx, 1);
+      }
+      remaps.push({ name: `${fromVal} → ${toVal}`, from: fromVal, to: toVal });
+      renderKeyboard();
+      saveNow();
+    }
+    closePopover();
+  }
+}
+
+document.addEventListener('click', e => {
+  if (popover && !popover.contains(e.target) && !e.target.closest('.key')) {
+    closePopover();
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// Rust → JS bridges
+// ──────────────────────────────────────────────────────────────────────────
+function renderBattery(pct) {
+  const fill = document.getElementById('battery-fill');
+  const label = document.getElementById('battery-pct');
+  if (!fill || !label) return;
+  // On USB, renderTransport owns the battery display (full shell + bolt)
+  // — ignore percentage updates to avoid overwriting the "charging" look.
+  if (transport === 'USB') return;
+  if (pct == null) {
+    fill.setAttribute('width', '0');
+    label.textContent = '—';
+    return;
+  }
+  // Fill width: 0-100% of 18.5 units (inner width of battery shell)
+  const width = (Math.max(0, Math.min(100, pct)) / 100) * 18.5;
+  fill.setAttribute('width', width.toFixed(2));
+  label.textContent = pct + '%';
+}
+
+function renderTransport(t) {
+  const el = document.getElementById('transport');
+  const label = document.getElementById('transport-label');
+  const bolt = document.getElementById('battery-bolt');
+  const fill = document.getElementById('battery-fill');
+  const pctLabel = document.getElementById('battery-pct');
+  if (!el || !label) return;
+  if (t === 'USB') {
+    el.className = 'transport-indicator connected';
+    label.textContent = 'USB';
+    // Wired: show a white lightning bolt inside an empty battery outline,
+    // hide percentage text. Charge state is irrelevant while plugged in.
+    if (bolt) bolt.style.display = '';
+    if (fill) fill.setAttribute('width', '0');
+    if (pctLabel) pctLabel.textContent = '';
+  } else if (t === 'BLE') {
+    el.className = 'transport-indicator connected';
+    label.textContent = 'Bluetooth';
+    if (bolt) bolt.style.display = 'none';
+  } else {
+    el.className = 'transport-indicator disconnected';
+    label.textContent = 'Disconnected';
+    if (bolt) bolt.style.display = 'none';
+  }
+}
+
+window.joroSetState = function(state) {
+  remaps = (state.remaps || []).map(r => ({
+    name: r.name || '',
+    from: r.from || '',
+    to: r.to || '',
+  }));
+  fnRemaps = (state.fn_remaps || []).map(r => ({
+    name: r.name || '',
+    from: r.from || '',
+    to: r.to || '',
+  }));
+  fnHostRemaps = (state.fn_host_remaps || []).map(r => ({
+    name: r.name || '',
+    from: r.from || '',
+    to: r.to || '',
+  }));
+  knownMatrixKeys = new Set(
+    (state.known_matrix_keys || []).map(s => String(s).toLowerCase())
+  );
+  transport = state.transport || null;
+  if (state.lighting) {
+    lighting = {
+      color: state.lighting.color || '#00cc44',
+      brightness: state.lighting.brightness != null ? state.lighting.brightness : 200,
+      mode: state.lighting.mode || 'static',
+    };
+  }
+  renderKeyboard();
+  renderLighting();
+  renderBattery(state.battery != null ? state.battery : null);
+  renderTransport(transport);
+  setStatus('', '');
+};
+
+window.joroSaveResult = function(result) {
+  if (result.ok) setStatus('Saved', 'ok');
+  else setStatus('Error: ' + (result.error || 'unknown'), 'err');
+};
+
+// Called by the Rust daemon periodically (~30s) to refresh the battery indicator.
+window.joroSetBattery = function(pct) {
+  renderBattery(pct);
+};
+
+function wireLayerToggle() {
+  document.querySelectorAll('#layer-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const layer = btn.dataset.layer;
+      if (layer === currentLayer) return;
+      currentLayer = layer;
+      document.querySelectorAll('#layer-toggle button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      // Update legend hint
+      const hint = document.getElementById('legend-hint');
+      if (hint) {
+        hint.innerHTML = (currentLayer === 'hypershift')
+          ? 'Fn+key bindings. Default: host-side daemon (works on any transport). Optional: firmware Fn-layer (persistent, requires USB to write). Pick per-key in the popover.'
+          : 'Use <code style="background:#0a0a0a;padding:1px 4px;border-radius:2px;font-family:Consolas,monospace;color:#ccc;">+</code> for modifier combos (e.g. Ctrl+F5, Win+L)';
+      }
+      closePopover();
+      renderKeyboard();
+    });
+  });
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  wireLightingControls();
+  wireLayerToggle();
+  renderKeyboard();
+  renderLighting();
+  window.ipc.postMessage(JSON.stringify({ action: 'request_state' }));
+});
+</script>
+</body>
+</html>

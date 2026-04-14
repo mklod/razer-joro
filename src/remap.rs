@@ -42,6 +42,16 @@ pub struct ComboRemap {
     pub key_vk: VkCode,
 }
 
+/// Host-side Fn-layer remap. Source is one VK pressed while `fn_detect::FN_HELD`
+/// is true; output is modifier(s) + key. This is the daemon's equivalent of
+/// firmware Hypershift, usable over BLE where firmware writes are unavailable.
+#[derive(Debug, Clone)]
+pub struct FnHostRemap {
+    pub from_vk: VkCode,
+    pub modifier_vks: Vec<VkCode>,
+    pub key_vk: VkCode,
+}
+
 /// Trigger-based remap for combo-source keys (e.g., Lock key sends Win+L → Delete).
 #[derive(Debug, Clone)]
 pub struct TriggerRemap {
@@ -66,6 +76,19 @@ unsafe impl Send for SendHook {}
 static HOOK_HANDLE: Mutex<Option<SendHook>> = Mutex::new(None);
 static REMAP_TABLE: Mutex<Vec<ComboRemap>> = Mutex::new(Vec::new());
 static TRIGGER_TABLE: Mutex<Vec<TriggerRemap>> = Mutex::new(Vec::new());
+static FN_HOST_REMAP_TABLE: Mutex<Vec<FnHostRemap>> = Mutex::new(Vec::new());
+
+/// Currently-held Fn-layer remap (if any). Set on Fn+key key-down, cleared on
+/// the source-VK key-up. Tracks which output combo we emitted so we release
+/// the same combo even if Fn was released first.
+static ACTIVE_FN_REMAP: Mutex<Option<ActiveFnRemap>> = Mutex::new(None);
+
+#[derive(Clone)]
+struct ActiveFnRemap {
+    from_vk: VkCode,
+    output_mods: Vec<VkCode>,
+    output_key: VkCode,
+}
 
 /// Modifier gate state. When a gated modifier is pressed, we suppress it and
 /// wait for the next key to decide what to do.
@@ -101,6 +124,7 @@ struct ActiveTrigger {
 static DEBUG_LOG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Enable/disable VK debug logging in the hook.
+#[allow(dead_code)]
 pub fn set_debug_log(enabled: bool) {
     DEBUG_LOG.store(enabled, std::sync::atomic::Ordering::Relaxed);
 }
@@ -189,11 +213,13 @@ pub fn build_remap_tables(
                 }
             };
 
-            if mods.is_empty() {
-                // Single-key → single-key: firmware remap, skip
-                continue;
-            }
-
+            // mods may be empty — that's a plain single-key → single-key remap
+            // (e.g. "a" → "b"). The hook's send_combo_down/up helpers handle an
+            // empty modifier list correctly (iterate zero mods, then send key).
+            // Previously this branch skipped with the intent of letting firmware
+            // handle it via matrix_index, but BLE has no firmware keymaps and
+            // USB firmware remaps also require matrix_index — so in practice
+            // this was silently dropping user-configured remaps.
             combo_table.push(ComboRemap {
                 from_vk,
                 modifier_vks: mods,
@@ -224,6 +250,49 @@ pub fn update_remap_table(table: Vec<ComboRemap>) {
 /// Replace the active trigger remap table.
 pub fn update_trigger_table(table: Vec<TriggerRemap>) {
     *TRIGGER_TABLE.lock().unwrap() = table;
+}
+
+/// Replace the active Fn-layer host remap table.
+pub fn update_fn_host_remap_table(table: Vec<FnHostRemap>) {
+    *FN_HOST_REMAP_TABLE.lock().unwrap() = table;
+}
+
+/// Build a Fn-layer host remap table from config entries. `from` must be a
+/// single key name (not a combo) since Fn is already the modifier. `to` can
+/// be a single key or a combo. Entries with unparseable keys are logged and
+/// skipped.
+pub fn build_fn_host_remap_table(
+    entries: &[crate::config::FnRemapConfig],
+) -> Vec<FnHostRemap> {
+    let mut out = Vec::new();
+    for entry in entries {
+        let from_vk = match keys::key_name_to_vk(entry.from.trim()) {
+            Some(vk) => vk,
+            None => {
+                eprintln!(
+                    "fn_host_remap: unknown source key '{}', skipping",
+                    entry.from
+                );
+                continue;
+            }
+        };
+        let (mods, key_vk) = match keys::parse_key_combo(entry.to.trim()) {
+            Some(pair) => pair,
+            None => {
+                eprintln!(
+                    "fn_host_remap: cannot parse output '{}', skipping",
+                    entry.to
+                );
+                continue;
+            }
+        };
+        out.push(FnHostRemap {
+            from_vk,
+            modifier_vks: mods,
+            key_vk,
+        });
+    }
+    out
 }
 
 /// Install the low-level keyboard hook on the current thread.
@@ -288,6 +357,57 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
     // Skip injected events (LLKHF_INJECTED = 0x10) to prevent recursion
     if injected {
         return CallNextHookEx(None, code, wparam, lparam);
+    }
+
+    // ── Fn-layer host remap (Hypershift over BLE) ────────────────────────────
+    //
+    // When `fn_detect::FN_HELD` is true, the user is holding the Razer Fn key.
+    // Joro's firmware Fn layer may or may not be active — if it is, Fn+Left
+    // already emits VK_HOME via firmware and arrives here as 0x24. If not,
+    // Fn+Left arrives as VK_LEFT (0x25) and we translate host-side per the
+    // user's `[[fn_host_remap]]` config. Active remaps are tracked in
+    // `ACTIVE_FN_REMAP` so the source key-up still releases the right combo
+    // even if Fn was released first.
+    {
+        // Handle source key-up for an in-flight Fn remap first (regardless
+        // of current FN_HELD state).
+        if is_up {
+            let active = ACTIVE_FN_REMAP.lock().unwrap().clone();
+            if let Some(ref a) = active {
+                if a.from_vk == vk {
+                    if debug {
+                        dbg_log(&format!(
+                            "  ACT: fn-remap up 0x{vk:04X} -> release {:?}+0x{:04X}",
+                            a.output_mods, a.output_key
+                        ));
+                    }
+                    send_combo_up(&a.output_mods, a.output_key);
+                    *ACTIVE_FN_REMAP.lock().unwrap() = None;
+                    return LRESULT(1);
+                }
+            }
+        }
+        // On key-down while Fn is held, check the fn_host_remap table.
+        if is_down && crate::fn_detect::fn_held() {
+            let table = FN_HOST_REMAP_TABLE.lock().unwrap();
+            let matched = table.iter().find(|r| r.from_vk == vk).cloned();
+            drop(table);
+            if let Some(r) = matched {
+                if debug {
+                    dbg_log(&format!(
+                        "  ACT: fn-remap down 0x{vk:04X} -> emit {:?}+0x{:04X}",
+                        r.modifier_vks, r.key_vk
+                    ));
+                }
+                send_combo_down(&r.modifier_vks, r.key_vk);
+                *ACTIVE_FN_REMAP.lock().unwrap() = Some(ActiveFnRemap {
+                    from_vk: vk,
+                    output_mods: r.modifier_vks,
+                    output_key: r.key_vk,
+                });
+                return LRESULT(1);
+            }
+        }
     }
 
     // ── Active trigger: suppress key-ups for gate mod, prefix mods, and trigger ──
@@ -585,7 +705,7 @@ fn is_extended_key(vk: VkCode) -> bool {
     )
 }
 
-fn make_key_input(vk: VkCode, key_up: bool) -> INPUT {
+pub(crate) fn make_key_input(vk: VkCode, key_up: bool) -> INPUT {
     let scan = unsafe {
         MapVirtualKeyW(vk as u32, MAP_VIRTUAL_KEY_TYPE(0)) as u16
     };
@@ -610,7 +730,7 @@ fn make_key_input(vk: VkCode, key_up: bool) -> INPUT {
     }
 }
 
-fn send_inputs(inputs: &[INPUT]) {
+pub(crate) fn send_inputs(inputs: &[INPUT]) {
     if inputs.is_empty() {
         return;
     }
@@ -686,17 +806,24 @@ mod tests {
     }
 
     #[test]
-    fn test_build_tables_firmware_remap_skipped() {
+    fn test_build_tables_single_to_single() {
+        // Single-key → single-key remap is handled host-side with an empty
+        // modifier list. Previously this was skipped (intended for firmware
+        // keymap path), but BLE has no firmware keymaps and USB never wired
+        // it up, so user-configured remaps were silently dropped.
         let remaps = vec![
             RemapConfig {
-                name: "Escape to Grave".into(),
-                from: "Escape".into(),
-                to: "Grave".into(),
-                matrix_index: Some(1),
+                name: "a to b".into(),
+                from: "a".into(),
+                to: "b".into(),
+                matrix_index: None,
             },
         ];
         let (combos, triggers) = build_remap_tables(&remaps);
-        assert!(combos.is_empty());
+        assert_eq!(combos.len(), 1);
+        assert_eq!(combos[0].from_vk, 0x41); // 'A'
+        assert!(combos[0].modifier_vks.is_empty());
+        assert_eq!(combos[0].key_vk, 0x42); // 'B'
         assert!(triggers.is_empty());
     }
 
