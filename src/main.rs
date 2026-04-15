@@ -2,12 +2,14 @@
 // Last modified: 2026-04-12
 
 mod ble;
+mod brightness;
 mod config;
 mod consumer_hook;
 mod device;
 mod fn_detect;
 mod keys;
 mod remap;
+mod rzcontrol;
 mod settings_window;
 mod tray;
 mod usb;
@@ -77,6 +79,10 @@ pub enum UserEvent {
     /// Ctrl+C pressed in the terminal. Triggers a graceful shutdown so Drop
     /// runs on BleDevice (releasing the WinRT connection to the keyboard).
     CtrlC,
+    /// Keyboard backlight command posted from the remap LL hook thread so
+    /// we can dispatch BLE I/O on the main thread (BleDevice isn't Send).
+    /// Value is an absolute 0-255 brightness level.
+    BacklightSet(u8),
 }
 
 use std::time::{Duration, Instant};
@@ -84,6 +90,18 @@ use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
 use winit::window::WindowId;
+
+/// Cross-thread handle back into the main winit event loop. Populated in
+/// `fn main()` before the event loop starts; read by remap.rs from the LL
+/// hook thread to post backlight commands (BLE I/O must run on the main
+/// thread because BleDevice isn't Send).
+static GLOBAL_PROXY: std::sync::OnceLock<EventLoopProxy<UserEvent>> = std::sync::OnceLock::new();
+
+pub fn post_user_event(event: UserEvent) {
+    if let Some(p) = GLOBAL_PROXY.get() {
+        let _ = p.send_event(event);
+    }
+}
 
 // ── App state ─────────────────────────────────────────────────────────────────
 
@@ -102,6 +120,19 @@ struct App {
     proxy: EventLoopProxy<UserEvent>,
     settings: Option<settings_window::SettingsWindow>,
     consumer_hook: Option<consumer_hook::ConsumerHook>,
+    /// Razer filter driver session for BLE Fn-primary mode. Held open
+    /// for the lifetime of the feature — scancode hooks tear down on
+    /// CloseHandle. See src/rzcontrol.rs.
+    rzcontrol: Option<rzcontrol::RzControl>,
+    /// Tracks whether we've already run the one-shot Synapse-bootstrap
+    /// dance this process lifetime. Bootstrap piggybacks on Synapse's
+    /// filter-driver init and then kills it — we only need to do it
+    /// once per daemon run.
+    rzcontrol_bootstrap_done: bool,
+    /// Last-applied Joro firmware device mode, cached from try_connect so the
+    /// webview can render F-row labels/remap-from defaults based on which
+    /// usages the keyboard is currently emitting. None = unknown/no device.
+    firmware_fn_primary: Option<bool>,
 }
 
 impl App {
@@ -142,6 +173,60 @@ impl App {
             proxy,
             settings: None,
             consumer_hook: None,
+            rzcontrol: None,
+            rzcontrol_bootstrap_done: false,
+            firmware_fn_primary: None,
+        }
+    }
+
+    /// Sync the Razer filter driver state to match config. Called after
+    /// connect, disconnect, config reload, and during periodic poll.
+    /// Idempotent.
+    ///
+    /// Intentionally NOT gated on the daemon's BLE attach state — the
+    /// filter driver is a PnP-level component that exists as long as
+    /// Joro is paired in Windows, independent of our own GATT session.
+    /// Our BLE attach frequently fails transiently but rzcontrol is
+    /// still usable.
+    fn sync_rzcontrol(&mut self) {
+        let want = self.config.ble_fn_primary;
+
+        if want && self.rzcontrol.is_none() {
+            // One-shot Synapse-bootstrap: launches RazerAppEngine for ~6s
+            // to prime the filter driver's internal state, then kills it
+            // so we own the filter. Only runs once per daemon lifetime.
+            if !self.rzcontrol_bootstrap_done {
+                match rzcontrol::bootstrap_filter_driver(6) {
+                    Ok(true) => eprintln!("joro-daemon: rzcontrol filter driver bootstrapped"),
+                    Ok(false) => {
+                        // User has Synapse running — respect it and don't race.
+                        eprintln!(
+                            "joro-daemon: Synapse is running; skipping rzcontrol (would race with Synapse)"
+                        );
+                        self.rzcontrol_bootstrap_done = true;
+                        return;
+                    }
+                    Err(e) => eprintln!("joro-daemon: rzcontrol bootstrap failed: {e}"),
+                }
+                self.rzcontrol_bootstrap_done = true;
+            }
+            match rzcontrol::RzControl::open() {
+                Ok(mut rz) => match rz.hook_all(rzcontrol::FN_PRIMARY_SCANCODES) {
+                    Ok(()) => {
+                        eprintln!(
+                            "joro-daemon: rzcontrol Fn-primary hooks installed ({} keys)",
+                            rzcontrol::FN_PRIMARY_SCANCODES.len()
+                        );
+                        self.rzcontrol = Some(rz);
+                    }
+                    Err(e) => eprintln!("joro-daemon: rzcontrol hook_all failed: {e}"),
+                },
+                Err(e) => eprintln!("joro-daemon: rzcontrol open failed: {e}"),
+            }
+        } else if !want && self.rzcontrol.is_some() {
+            // Drop closes handle → driver tears down rules.
+            self.rzcontrol = None;
+            eprintln!("joro-daemon: rzcontrol Fn-primary hooks released");
         }
     }
 
@@ -161,6 +246,40 @@ impl App {
         };
 
         eprintln!("joro-daemon: {} device connected", dev.transport_name());
+        // Apply user-requested firmware mode. Defaults to "auto": if any
+        // trigger remap in the config targets a Win-modified key (Win+L,
+        // Win+Copilot, etc.), we keep MM mode because those combos are
+        // generated by the keyboard firmware only in MM mode — Fn/driver
+        // mode suppresses them and Lock/Copilot stop working. Otherwise
+        // we prefer Fn mode so F4-F12 emit plain VK_F4..VK_F12 scancodes
+        // the LL hook can swallow and rewrite.
+        //
+        // User can override via `device_mode = "fn" | "mm" | "auto"` in
+        // config.toml. See memory/project_fnmm_toggle_solved.md.
+        let want_fn = match self.config.device_mode.as_str() {
+            "fn" => Some(true),
+            "mm" => Some(false),
+            _ => {
+                // "auto" or unset: scan config for Win+X trigger remaps
+                let needs_mm = self.config.remap.iter().any(|r| {
+                    let lc = r.from.to_ascii_lowercase();
+                    lc.starts_with("win+") || lc.starts_with("lwin+") || lc.starts_with("rwin+")
+                });
+                if needs_mm { Some(false) } else { Some(true) }
+            }
+        };
+        if let Some(fn_primary) = want_fn {
+            match dev.set_device_mode(fn_primary) {
+                Ok(()) => {
+                    eprintln!(
+                        "joro-daemon: firmware mode = {}",
+                        if fn_primary { "Fn-primary" } else { "MM-primary" }
+                    );
+                    self.firmware_fn_primary = Some(fn_primary);
+                }
+                Err(e) => eprintln!("joro-daemon: set_device_mode failed: {e}"),
+            }
+        }
         // Re-run fn_detect enumeration. Idempotent — new HID collections
         // introduced by this transport (e.g. first BLE connect after
         // daemon boot) get readers spawned here.
@@ -199,6 +318,9 @@ impl App {
         if self.consumer_hook.is_none() {
             self.consumer_hook = consumer_hook::ConsumerHook::start(&self.config.consumer_remap);
         }
+        // BLE Fn-primary filter: only applies when device is on BLE and
+        // config enables it. sync_rzcontrol handles both cases.
+        self.sync_rzcontrol();
         // If the settings window is open, push a full state update so the
         // transport indicator and battery reflect the new connection.
         if self.settings.is_some() {
@@ -391,6 +513,10 @@ impl App {
                 self.cached_battery = None;
                 // Stop the consumer hook — it'll be restarted on reconnect
                 self.consumer_hook = None;
+                // Release filter-driver hooks — will be re-opened on reconnect
+                // if config still enables them. Dropping closes the handle
+                // which tears down the rules in the driver.
+                self.rzcontrol = None;
                 if let Some(ref mut tray) = self.tray {
                     tray.set_connected(false, None, None);
                 }
@@ -442,16 +568,20 @@ impl App {
         }
 
         // Rebuild remap tables
-        let (combo_table, trigger_table) = remap::build_remap_tables(&self.config.remap);
+        let (combo_table, trigger_table, special_table) = remap::build_remap_tables(&self.config.remap);
         let fn_host_table = remap::build_fn_host_remap_table(&self.config.fn_host_remap);
         remap::update_remap_table(combo_table);
         remap::update_trigger_table(trigger_table);
+        remap::update_special_action_table(special_table);
         remap::update_fn_host_remap_table(fn_host_table);
 
         // Reapply to device if connected
         if let Some(ref mut dev) = self.device {
             Self::apply_config(&self.config, &mut **dev);
         }
+
+        // Sync filter-driver hooks to the new ble_fn_primary value.
+        self.sync_rzcontrol();
 
         // Sync the tray submenu checkmarks
         if let Some(ref tray) = self.tray {
@@ -696,6 +826,8 @@ impl App {
             "battery": self.cached_battery,
             "known_matrix_keys": known_matrix_keys,
             "transport": self.device.as_ref().map(|d| d.transport_name()),
+            "firmware_fn_primary": self.firmware_fn_primary,
+            "device_mode_config": self.config.device_mode,
         });
         let script = format!("window.joroSetState({});", state);
         if let Err(e) = s.eval(&script) {
@@ -786,12 +918,13 @@ impl App {
                 }
 
                 // Rebuild host-side remap tables
-                let (combo_table, trigger_table) =
+                let (combo_table, trigger_table, special_table) =
                     remap::build_remap_tables(&self.config.remap);
                 let fn_host_table =
                     remap::build_fn_host_remap_table(&self.config.fn_host_remap);
                 remap::update_remap_table(combo_table);
                 remap::update_trigger_table(trigger_table);
+                remap::update_special_action_table(special_table);
                 remap::update_fn_host_remap_table(fn_host_table);
 
                 // Reapply to device (firmware keymap entries, if any)
@@ -970,13 +1103,14 @@ impl ApplicationHandler<UserEvent> for App {
         }
 
         // Build initial remap tables
-        let (combo_table, trigger_table) = remap::build_remap_tables(&self.config.remap);
+        let (combo_table, trigger_table, special_table) = remap::build_remap_tables(&self.config.remap);
         let fn_host_table = remap::build_fn_host_remap_table(&self.config.fn_host_remap);
         eprintln!(
-            "joro-daemon: {} combo remaps, {} trigger remaps, {} fn-host remaps",
+            "joro-daemon: {} combo remaps, {} trigger remaps, {} fn-host remaps, {} special actions",
             combo_table.len(),
             trigger_table.len(),
-            fn_host_table.len()
+            fn_host_table.len(),
+            special_table.len(),
         );
         for t in &trigger_table {
             eprintln!("  trigger: gate=0x{:04X} trigger=0x{:04X} prefix={:?} -> mods={:?} key=0x{:04X}",
@@ -988,9 +1122,16 @@ impl ApplicationHandler<UserEvent> for App {
                 f.from_vk, f.modifier_vks, f.key_vk
             );
         }
+        for s in &special_table {
+            eprintln!("  special: from=0x{:04X} -> {:?}", s.from_vk, s.action);
+        }
         remap::update_remap_table(combo_table);
         remap::update_trigger_table(trigger_table);
+        remap::update_special_action_table(special_table);
         remap::update_fn_host_remap_table(fn_host_table);
+        // Seed last-known keyboard backlight level so relative Backlight±
+        // actions start from the current config value, not the default.
+        remap::set_last_backlight(self.config.lighting.brightness);
         remap::set_debug_log(true);
 
         // Fn-state HID reader. Enumerates Joro HID collections, opens the
@@ -1003,6 +1144,12 @@ impl ApplicationHandler<UserEvent> for App {
 
         // Try initial device connection
         self.try_connect();
+
+        // Activate the Razer filter driver (fn-primary over BLE) if
+        // enabled in config. Not gated on the daemon's own BLE attach —
+        // rzcontrol is PnP-level and works even if our GATT session
+        // hasn't come up yet.
+        self.sync_rzcontrol();
     }
 
     fn window_event(
@@ -1043,6 +1190,21 @@ impl ApplicationHandler<UserEvent> for App {
             UserEvent::CtrlC => {
                 eprintln!("joro-daemon: Ctrl+C received, shutting down cleanly");
                 self.shutdown_and_exit(event_loop);
+            }
+            UserEvent::BacklightSet(level) => {
+                if let Some(ref mut dev) = self.device {
+                    match dev.set_brightness(level) {
+                        Ok(()) => {
+                            self.config.lighting.brightness = level;
+                            // Persist so the new value survives daemon restart
+                            if let Err(e) = config::save_config(&self.config_path, &self.config) {
+                                eprintln!("Warning: save_config failed: {e}");
+                            }
+                            if self.settings.is_some() { self.push_settings_state(); }
+                        }
+                        Err(e) => eprintln!("backlight set failed: {e}"),
+                    }
+                }
             }
         }
     }
@@ -1173,6 +1335,97 @@ fn main() {
             std::thread::sleep(std::time::Duration::from_secs(60));
         }
     }
+    // brightness probe: test DDC/CI brightness control on external monitors.
+    // Usage: `cargo run -- brightness info` / `brightness +10` / `brightness 50`
+    if args.len() >= 2 && args[1] == "brightness" {
+        let arg = args.get(2).map(|s| s.as_str()).unwrap_or("info");
+        if arg == "info" {
+            let monitors = brightness::PhysicalMonitor::enumerate();
+            eprintln!("brightness: {} DDC/CI-capable monitors", monitors.len());
+            for m in &monitors {
+                eprintln!("  {}  min={} cur={} max={}", m.friendly, m.min, m.cur, m.max);
+            }
+            return;
+        }
+        if arg == "caps" {
+            // Read MCCS capability string from every DDC/CI-capable monitor
+            // to see which VCP feature codes the monitor advertises.
+            let monitors = brightness::PhysicalMonitor::enumerate();
+            for m in &monitors {
+                eprintln!("\n{}", m.friendly);
+                match m.capability_string() {
+                    Some(s) => eprintln!("  caps: {}", s),
+                    None => eprintln!("  caps: (unavailable)"),
+                }
+            }
+            return;
+        }
+        if arg == "vcp" {
+            // `brightness vcp` → dump current value for all standard VCP codes
+            // `brightness vcp 10` → read just that one
+            // `brightness vcp 10 = 75` → write value 75 to VCP 0x10
+            let monitors = brightness::PhysicalMonitor::enumerate();
+            let code = args.get(3).and_then(|s| u8::from_str_radix(s, 16).ok());
+            if args.get(4).map(|s| s.as_str()) == Some("=") {
+                let v = args.get(5).and_then(|s| s.parse::<u32>().ok()).expect("value");
+                let c = code.expect("vcp code hex");
+                for m in &monitors {
+                    match m.vcp_set(c, v) {
+                        Ok(()) => eprintln!("{}  VCP 0x{:02x} <= {}", m.friendly, c, v),
+                        Err(e) => eprintln!("{}  VCP 0x{:02x} set failed: {e}", m.friendly, c),
+                    }
+                }
+                return;
+            }
+            for m in &monitors {
+                eprintln!("\n{}", m.friendly);
+                let codes: Vec<u8> = if let Some(c) = code {
+                    vec![c]
+                } else {
+                    vec![0x02, 0x04, 0x05, 0x06, 0x08, 0x0B, 0x0C, 0x10, 0x12,
+                         0x14, 0x16, 0x18, 0x1A, 0x52, 0x60, 0x62, 0x6B, 0x6C,
+                         0x8D, 0x8F, 0xCA, 0xD6, 0xDC]
+                };
+                for c in codes {
+                    if let Some((cur, max)) = m.vcp_get(c) {
+                        eprintln!("  VCP 0x{c:02x}: cur={cur} max={max}");
+                    }
+                }
+            }
+            return;
+        }
+        // +/- delta in percent (+10, -20, etc.)
+        if let Some(rest) = arg.strip_prefix('+') {
+            if let Ok(d) = rest.parse::<i32>() { brightness::delta_all(d); return; }
+        }
+        if arg.starts_with('-') {
+            if let Ok(d) = arg.parse::<i32>() { brightness::delta_all(d); return; }
+        }
+        // absolute percent
+        if let Ok(p) = arg.parse::<u32>() { brightness::set_all_percent(p); return; }
+        eprintln!("brightness usage: info | caps | vcp [CODE] [= VALUE] | +N | -N | N (0-100)");
+        return;
+    }
+
+    // set-mode fn|mm — flip Joro firmware fn/mm toggle via BLE Protocol30.
+    // See memory/project_fnmm_toggle_solved.md for the decoded command.
+    if args.len() >= 2 && args[1] == "set-mode" {
+        let mut dev = ble::BleDevice::open().expect("no BLE Joro");
+        let fn_primary = match args.get(2).map(|s| s.as_str()) {
+            Some("fn") => true,
+            Some("mm") => false,
+            _ => panic!("set-mode requires 'fn' or 'mm'"),
+        };
+        match dev.set_device_mode(fn_primary) {
+            Ok(()) => eprintln!("set-mode: ok ({})", if fn_primary { "Fn" } else { "MM" }),
+            Err(e) => eprintln!("set-mode: err: {e}"),
+        }
+        match dev.get_device_mode() {
+            Ok(is_fn) => eprintln!("set-mode: current = {}", if is_fn { "Fn" } else { "MM" }),
+            Err(e) => eprintln!("set-mode: get failed: {e}"),
+        }
+        return;
+    }
     // Diagnostic subcommands for keymap reverse engineering. See
     // project_hypershift_commit_trigger memory for current state.
     if args.len() >= 2 && args[1] == "diag-readlayers" {
@@ -1204,6 +1457,9 @@ fn main() {
         .build()
         .expect("Failed to create event loop");
     let proxy = event_loop.create_proxy();
+    // Expose the proxy to background threads (LL hook) for cross-thread
+    // action dispatch, e.g. the keyboard-backlight special action.
+    let _ = GLOBAL_PROXY.set(proxy.clone());
 
     // Register Ctrl+C handler so `cargo run` sessions can be stopped from the
     // terminal without skipping Drop. Without this, killing the daemon leaks

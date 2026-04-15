@@ -196,6 +196,20 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
 .key.dead { cursor: default; }
 .key.dead:hover { border-color: rgba(255, 255, 255, 0.55); }
 
+/* BLE slot keys (F1/F2/F3) locked by the firmware when on BLE. Distinct
+   from generic `.dead`: solid light-grey fill so it's obvious these are
+   hardware-locked and unprogrammable, not just visually empty. */
+.key.ble-locked {
+  cursor: not-allowed;
+  background: #8a8a8a;
+  color: #2a2a2a;
+  border-color: #555;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 2px 2px rgba(0, 0, 0, 0.6);
+}
+.key.ble-locked:hover { border-color: #555; }
+.key.ble-locked .top, .key.ble-locked .bot { color: #2a2a2a; }
+.key.ble-locked .top svg, .key.ble-locked .bot svg { fill: #2a2a2a; stroke: #2a2a2a; }
+
 /* ── Per-key alignment variants ──────────────────────────────── */
 /* Default is top-center. Override with .align-left, -right, or -center. */
 .key.align-left  { align-items: flex-start; }
@@ -554,26 +568,29 @@ const LAYOUT = [
   // F-row (16)
   [
     K('esc',  'Escape'),
-    // F-row firmware metadata (discovered 2026-04-13):
-    //   - F1/F2/F3: BLE slot selectors — firmware internal handler, bypasses
-    //     matrix in BLE mode, no-op in wired. `fwNote` is informational.
-    //   - F4: firmware keyboard macro → Win+Tab (triggers Task View). That's
-    //     why a `[[remap]] Win+Tab → X` entry in the config will show up
-    //     under F4 in this UI.
-    //   - F5..F9: Consumer Control usages over the 0x0C HID page. hidapi
-    //     reads are non-consuming on Windows so our daemon can observe
-    //     them but cannot swallow them — `fwMedia` is informational.
-    K('',     'F1',  { icon: 'bluetooth', topNum: '1', bot: 'F1', fSub: true, btLed: true, fwNote: 'BLE slot 1' }),
-    K('',     'F2',  { icon: 'bluetooth', topNum: '2', bot: 'F2', fSub: true, btLed: true, fwNote: 'BLE slot 2' }),
-    K('',     'F3',  { icon: 'bluetooth', topNum: '3', bot: 'F3', fSub: true, btLed: true, fwNote: 'BLE slot 3' }),
-    K('',     'F4',  { icon: 'screens',     bot: 'F4', fSub: true, fwEmits: 'Win+Tab', fwNote: 'firmware macro → Win+Tab' }),
-    K('',     'F5',  { icon: 'speakerMute', bot: 'F5', fSub: true, fwMedia: 'Mute',           fwNote: 'Consumer: Mute (0x00E2)' }),
-    K('',     'F6',  { icon: 'speakerLow',  bot: 'F6', fSub: true, fwMedia: 'VolumeDown',     fwNote: 'Consumer: VolumeDown (0x00EA)' }),
-    K('',     'F7',  { icon: 'speakerHigh', bot: 'F7', fSub: true, fwMedia: 'VolumeUp',       fwNote: 'Consumer: VolumeUp (0x00E9)' }),
-    K('',     'F8',  { icon: 'sunSmall',    bot: 'F8', fSub: true, fwMedia: 'BrightnessDown', fwNote: 'Consumer: BrightnessDown (0x0070)' }),
-    K('',     'F9',  { icon: 'sunLarge',    bot: 'F9', fSub: true, fwMedia: 'BrightnessUp',   fwNote: 'Consumer: BrightnessUp (0x006F)' }),
-    K('',     'F10', { icon: 'backlightDown', bot: 'F10', fSub: true, fwNote: 'F10 (emission TBD)' }),
-    K('',     'F11', { icon: 'backlightUp',   bot: 'F11', fSub: true, fwNote: 'F11 (emission TBD)' }),
+    // F-row: F1/F2/F3 are firmware-locked BLE slot selectors — on BLE they
+    // bypass the HID stack entirely and we can't intercept them. They're
+    // rendered as `dead` at runtime when `transport === 'BLE'`.
+    // F4-F12 are fully programmable: the daemon keeps Joro's firmware in
+    // Fn-primary mode (Protocol30 class=0x01 cmd=0x02 data=[0x03,0]) so
+    // they always emit plain VK_F4..VK_F12 scancodes the LL hook swallows
+    // and rewrites.
+    K('',     'F1',  { icon: 'bluetooth', topNum: '1', bot: 'F1', fSub: true, btLed: true, bleSlot: true, fwNote: 'BLE slot 1 — firmware-locked in BLE mode' }),
+    K('',     'F2',  { icon: 'bluetooth', topNum: '2', bot: 'F2', fSub: true, btLed: true, bleSlot: true, fwNote: 'BLE slot 2 — firmware-locked in BLE mode' }),
+    K('',     'F3',  { icon: 'bluetooth', topNum: '3', bot: 'F3', fSub: true, btLed: true, bleSlot: true, fwNote: 'BLE slot 3 — firmware-locked in BLE mode' }),
+    // `mmEmits` = what the key sends when the Joro firmware is in MM-primary
+    // mode. When the daemon picks MM (because the config has Win+Lock or
+    // Win+Copilot trigger remaps), the UI swaps the remap source to this
+    // name and shows it in the key tooltip. In Fn mode, F4-F12 emit their
+    // plain VK_F* name and `mmEmits` is ignored.
+    K('',     'F4',  { icon: 'screens',       bot: 'F4',  fSub: true }),
+    K('',     'F5',  { icon: 'speakerMute',   bot: 'F5',  fSub: true, mmEmits: 'VolumeMute' }),
+    K('',     'F6',  { icon: 'speakerLow',    bot: 'F6',  fSub: true, mmEmits: 'VolumeDown' }),
+    K('',     'F7',  { icon: 'speakerHigh',   bot: 'F7',  fSub: true, mmEmits: 'VolumeUp' }),
+    K('',     'F8',  { icon: 'sunSmall',      bot: 'F8',  fSub: true, mmEmits: 'BrightnessDown', mmConsumer: true }),
+    K('',     'F9',  { icon: 'sunLarge',      bot: 'F9',  fSub: true, mmEmits: 'BrightnessUp',   mmConsumer: true }),
+    K('',     'F10', { icon: 'backlightDown', bot: 'F10', fSub: true, mmEmits: 'BacklightDown', mmVendor: true }),
+    K('',     'F11', { icon: 'backlightUp',   bot: 'F11', fSub: true, mmEmits: 'BacklightUp',   mmVendor: true }),
     K('prt sc', 'PrintScreen', { bot: 'F12', fSub: true }),
     K('ins',  'Insert'),
     K('del',  'Delete'),
@@ -675,6 +692,7 @@ let fnHostRemaps = [];    // Fn-layer HOST-side remaps (daemon WH_KEYBOARD_LL + 
 let knownMatrixKeys = new Set();  // lowercase key names with known matrix index
 let currentLayer = 'default';     // 'default' | 'hypershift'
 let transport = null;     // 'USB' | 'BLE' | null — affects fn-layer write availability
+let firmwareFnPrimary = null;  // true = Fn, false = MM, null = unknown (no device)
 let lighting = { color: '#00cc44', brightness: 200, mode: 'static' };
 
 function escapeHtml(s) {
@@ -683,6 +701,15 @@ function escapeHtml(s) {
 }
 
 function emitsOf(k) {
+  return (k.emits || k.key || '').trim();
+}
+
+// What this key actually sends to the OS in the keyboard's current firmware
+// mode. F5-F11 in MM mode emit consumer usages (VolumeMute, BrightnessDown,
+// etc.) so the remap source is that name, not "F5". In Fn mode they emit
+// their plain VK_F* name. Falls back to the key's `emits` / `key` field.
+function effectiveEmitsOf(k) {
+  if (k.mmEmits && firmwareFnPrimary === false) return k.mmEmits;
   return (k.emits || k.key || '').trim();
 }
 
@@ -701,12 +728,14 @@ function findRemapForKey(k) {
     return null;
   }
   const emits = emitsOf(k).toLowerCase();
+  const eff = effectiveEmitsOf(k).toLowerCase();
   const fwKey = (k.fwEmits || '').trim().toLowerCase();
-  return remaps.find(r => {
-    const from = (r.from || '').trim().toLowerCase();
-    if (!from) return false;
-    return from === emits || (fwKey && from === fwKey);
-  }) || null;
+  // Precedence: the remap whose `from` matches what the key ACTUALLY emits
+  // right now (effectiveEmits) wins, because that's the one the hook will
+  // fire on. A stale remap whose source matches only `emits` or `fwEmits`
+  // is shown as fallback.
+  const byFrom = (needle) => remaps.find(r => (r.from || '').trim().toLowerCase() === needle) || null;
+  return byFrom(eff) || byFrom(emits) || (fwKey ? byFrom(fwKey) : null);
 }
 
 function isKeyMatrixKnown(k) {
@@ -829,9 +858,16 @@ function renderKeyboard() {
       const btn = document.createElement('button');
       const classes = ['key', k.width || 'k1'];
       if (k.letter) classes.push('letter');
+      // F1/F2/F3 are firmware-locked BLE slot keys when the keyboard is
+      // paired over BLE. Treat them as dead in that mode so the user gets
+      // a clear "not programmable here" affordance instead of silently
+      // failing remaps. Styled distinctly via `.ble-locked` (solid light
+      // grey) so the user can tell "hardware lock" from "unused key".
+      const isLockedBleSlot = k.bleSlot && transport === 'BLE';
       if (k.dead) classes.push('dead');
+      if (isLockedBleSlot) { classes.push('dead'); classes.push('ble-locked'); }
       if (k.capsLed) classes.push('caps-led');
-      if (k.btLed) classes.push('bt-led');
+      if (k.btLed && !isLockedBleSlot) classes.push('bt-led');
       if (k.align === 'left')   classes.push('align-left');
       if (k.align === 'right')  classes.push('align-right');
       if (k.align === 'center') classes.push('align-center');
@@ -844,10 +880,13 @@ function renderKeyboard() {
       btn.className = classes.join(' ');
 
       const mapped = findRemapForKey(k);
-      if (mapped) {
+      if (isLockedBleSlot) {
+        btn.title = `${k.key} — firmware-locked as ${k.fwNote || 'BLE slot selector'}. Remapping is blocked while on BLE.`;
+      } else if (mapped) {
         btn.classList.add('mapped');
         // Include firmware-behavior context in the tooltip so it's clear
-        // that e.g. F4's remap lives under the "Win+Tab" source.
+        // e.g. when F5 is showing a "VolumeMute → F5" remap the user sees
+        // they're catching the consumer usage, not the scancode.
         const fwHint = k.fwEmits ? ` (${k.key} → ${k.fwEmits})` : '';
         btn.title = `${mapped.from} → ${mapped.to}${fwHint}`;
       } else if (k.key) {
@@ -855,6 +894,8 @@ function renderKeyboard() {
           btn.title = `${k.key} — matrix index unknown, can't remap yet`;
         } else if (currentLayer === 'hypershift') {
           btn.title = `Fn+${k.key}`;
+        } else if (k.mmEmits && firmwareFnPrimary === false) {
+          btn.title = `${k.key} → emits ${k.mmEmits} (MM firmware mode)`;
         } else if (k.fwNote) {
           btn.title = `${k.key} — ${k.fwNote}`;
         } else {
@@ -866,7 +907,7 @@ function renderKeyboard() {
       const bot = makeBotLabel(k);
       if (bot) btn.appendChild(bot);
 
-      if (!k.dead) {
+      if (!k.dead && !isLockedBleSlot) {
         btn.addEventListener('click', (e) => onKeyClick(k, btn, e));
       }
       rowEl.appendChild(btn);
@@ -901,10 +942,13 @@ function onKeyClick(k, btnEl, evt) {
   const isHypershift = currentLayer === 'hypershift';
   // For keys with a `fwEmits` (firmware keyboard macro — F4 → Win+Tab),
   // prefill From with that macro so the user can directly set the target.
-  // Consumer-usage keys (F5..F9) use `fwMedia` which is informational only.
+  // In MM mode F5-F11 emit consumer usages, so the "From" default should
+  // be the MM emit name (VolumeMute, BrightnessDown, etc.) — that's what
+  // Windows actually sees when the user presses the key, and what the hook
+  // matches on.
   const defaultFrom = isHypershift
     ? k.key
-    : (existing ? existing.from : (k.fwEmits || emitsOf(k)));
+    : (existing ? existing.from : (k.fwEmits || effectiveEmitsOf(k)));
   const defaultTo = existing ? existing.to : '';
   const labelText = isHypershift ? `Hypershift remap (Fn + ${escapeHtml(k.key)})` : 'Remap';
   const fromReadOnly = isHypershift ? ' readonly' : '';
@@ -927,14 +971,23 @@ function onKeyClick(k, btnEl, evt) {
     ? `<div class="pop-hint" style="color:#ff8866;">⚠ Firmware writes require USB. Saved to config but won't apply until next USB connection.</div>`
     : '';
 
-  // Firmware-behavior note: tells the user what this key fires at the
-  // firmware level, so they know why F4 remaps via "Win+Tab" etc.
+  // Firmware-behavior note: tells the user what this key actually emits
+  // given the CURRENT firmware mode, so they know to remap the right name.
   let fwNoteLine = '';
   if (!isHypershift) {
     if (k.fwEmits) {
       fwNoteLine = `<div class="pop-hint" style="color:#88c0ff;">${escapeHtml(k.key)} fires <code>${escapeHtml(k.fwEmits)}</code> at the firmware level. Remapping <code>${escapeHtml(k.fwEmits)}</code> will intercept this key.</div>`;
-    } else if (k.fwMedia) {
-      fwNoteLine = `<div class="pop-hint" style="color:#ffb066;">${escapeHtml(k.key)} fires <code>${escapeHtml(k.fwMedia)}</code> on the Consumer Control HID page. Windows handles these natively and the daemon cannot currently swallow them — remap entry will be informational only.</div>`;
+    } else if (k.mmEmits && firmwareFnPrimary === false) {
+      // MM mode: tell the user the key emits a consumer/vendor usage.
+      if (k.mmVendor) {
+        fwNoteLine = `<div class="pop-hint" style="color:#ffb066;">${escapeHtml(k.key)} currently emits <code>${escapeHtml(k.mmEmits)}</code> as a Razer vendor HID usage — the LL keyboard hook can't intercept these. Switch firmware to Fn-primary to make ${escapeHtml(k.key)} fully programmable.</div>`;
+      } else if (k.mmConsumer) {
+        fwNoteLine = `<div class="pop-hint" style="color:#ffd066;">${escapeHtml(k.key)} currently emits <code>${escapeHtml(k.mmEmits)}</code> on the Consumer Control HID page. The daemon's consumer hook catches this — remap fires via that path.</div>`;
+      } else {
+        fwNoteLine = `<div class="pop-hint" style="color:#88c0ff;">${escapeHtml(k.key)} currently emits <code>${escapeHtml(k.mmEmits)}</code> (MM mode). Remapping <code>${escapeHtml(k.mmEmits)}</code> intercepts this key via the LL hook.</div>`;
+      }
+    } else if (k.mmEmits && firmwareFnPrimary === true) {
+      fwNoteLine = `<div class="pop-hint" style="color:#9aa;">${escapeHtml(k.key)} emits plain <code>${escapeHtml(k.key)}</code> in Fn mode (current). Switch to MM to restore <code>${escapeHtml(k.mmEmits)}</code> behaviour.</div>`;
     } else if (k.fwNote) {
       fwNoteLine = `<div class="pop-hint" style="color:#9aa;">${escapeHtml(k.fwNote)}</div>`;
     }
@@ -1108,6 +1161,7 @@ window.joroSetState = function(state) {
     (state.known_matrix_keys || []).map(s => String(s).toLowerCase())
   );
   transport = state.transport || null;
+  firmwareFnPrimary = (state.firmware_fn_primary === undefined) ? null : state.firmware_fn_primary;
   if (state.lighting) {
     lighting = {
       color: state.lighting.color || '#00cc44',

@@ -58,4 +58,15 @@ pub trait JoroDevice {
 
     /// Short label for logging ("USB" / "BLE").
     fn transport_name(&self) -> &'static str;
+
+    /// Set Joro's firmware-level device mode. `fn_primary = true` puts the
+    /// keyboard in driver mode — F4-F12 emit plain VK_F4..VK_F12 scancodes
+    /// the host LL hook can intercept and rewrite. `false` is MM mode where
+    /// F5-F9 emit consumer usages (mute/vol/brightness).
+    ///
+    /// BLE: Protocol30 `SET class=0x01 cmd=0x02 sub=00,00 data=[mode, 0]`.
+    /// USB: not yet implemented — default no-op.
+    fn set_device_mode(&mut self, _fn_primary: bool) -> Result<(), String> {
+        Ok(())
+    }
 }
