@@ -68,6 +68,21 @@ pub struct TriggerRemap {
     pub output_key: VkCode,
 }
 
+// ── Injection tagging ────────────────────────────────────────────────────────
+//
+// Our SendInput calls arrive back at WH_KEYBOARD_LL with LLKHF_INJECTED set,
+// same as any other synthetic event. Windows itself injects media-key VKs
+// (VK_VOLUME_MUTE, VK_VOLUME_DOWN, VK_VOLUME_UP, VK_MEDIA_PLAY_PAUSE, etc.)
+// when it processes Consumer Control HID reports — those also arrive with
+// LLKHF_INJECTED set. We need to process the Windows-native injections (so
+// the user can remap VolumeMute → F5) while skipping our own injections
+// (to prevent recursion).
+//
+// Tag our own events with a magic `dwExtraInfo` value and treat only events
+// matching the tag as "ours to skip". Windows-native injections always have
+// dwExtraInfo=0.
+const OUR_INJECTION_TAG: usize = 0x4A6F524F; // 'JoRO' little-endian magic
+
 // ── Global state (hook callback is a C function pointer, must be static) ─────
 
 struct SendHook(HHOOK);
@@ -350,12 +365,17 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
     // Log ALL events (including injected) before any processing
     if debug && (is_down || is_up) {
         let dir = if is_down { "DN" } else { "UP" };
-        let inj = if injected { " INJ" } else { "" };
+        let inj = if injected {
+            if kb.dwExtraInfo == OUR_INJECTION_TAG { " INJ=ours" } else { " INJ=win" }
+        } else { "" };
         dbg_log(&format!("{dir} vk=0x{vk:04X} scan=0x{:04X}{inj}", kb.scanCode));
     }
 
-    // Skip injected events (LLKHF_INJECTED = 0x10) to prevent recursion
-    if injected {
+    // Skip ONLY our own injected events (tagged via dwExtraInfo) to prevent
+    // recursion. Windows-native injections (media VKs generated from HID
+    // Consumer Control reports) leave dwExtraInfo=0 and MUST be processed
+    // normally so media-to-function-key remaps can fire.
+    if injected && kb.dwExtraInfo == OUR_INJECTION_TAG {
         return CallNextHookEx(None, code, wparam, lparam);
     }
 
@@ -724,7 +744,9 @@ pub(crate) fn make_key_input(vk: VkCode, key_up: bool) -> INPUT {
                 wScan: scan,
                 dwFlags: flags,
                 time: 0,
-                dwExtraInfo: 0,
+                // Tag so our hook's injection filter can skip our own events
+                // while still processing Windows-native injections.
+                dwExtraInfo: OUR_INJECTION_TAG,
             },
         },
     }

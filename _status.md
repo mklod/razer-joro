@@ -1,5 +1,110 @@
 # Razer Joro — Status
 
+## Session 2026-04-14--1937 — 🎯 PoC proves Synapse-parity fn-primary over BLE (F4–F12) from user-mode Python
+
+**Breakthrough:** `scripts/rzcontrol_poc.py` opens the Razer filter-driver control device from user-mode and drives the same `EnableInputHook`/`SetInputHook` IOCTLs Synapse uses. Verified round-trip:
+
+- `python rzcontrol_poc.py hook F8` — F8 becomes VK_F8 (Chrome DevTools "resume" fires), monitor brightness OSD stops.
+- `python rzcontrol_poc.py unhook F8` — F8 returns to monitor brightness.
+- No Synapse, no BLE writes, no elevation needed.
+- `SetInputHook` struct: `{flag=1 at offset 4, scancode at offset 0x0a, rest zero}` = "install filter rule that translates scancode to default function-key VK and swallows the consumer usage". flag=0 = "remove rule".
+
+**F1/F2/F3 BLE slot keys test — prior memory stands.** Hooked them via the filter, slot switching still happens. They're firmware-locked below the HID stack so the filter never sees the scancode. The earlier `project_joro_pairing_requirement.md` statement "BLE F1/F2/F3 are firmware-locked, uncircumventable" is correct after all.
+
+**Complete capability matrix for Joro BLE via filter driver:**
+
+| Key | Scancode | Mechanism | Host-side toggle possible? |
+|---|---|---|---|
+| F1, F2, F3 | 0x3b-0x3d | Firmware slot switcher (below HID stack) | ❌ No |
+| F4 | 0x3e | Firmware macro (Win+Tab) | ✅ Via existing combo-source remap |
+| F5, F6, F7 | 0x3f-0x41 | Consumer VK_VOLUME_MUTE/DOWN/UP | ✅ Via filter OR LL hook with injection tag fix |
+| **F8, F9** | 0x42, 0x43 | Consumer BrightnessDown/Up (no Win32 VK) | ✅ **Via filter driver** (new finding) |
+| **F10, F11** | 0x44, 0x57 | Col06 vendor backlight reports | ✅ **Via filter driver** (new, presumed) |
+| F12 | 0x58 | VK_SNAPSHOT | ✅ Via filter OR LL hook |
+
+**The 4 keys we previously couldn't touch (F8/F9/F10/F11) are now usable via the filter driver.** This is full Synapse parity for fn-primary Fn-keys mode.
+
+**Important nuance:** the filter's "flag=1" behavior is "translate scancode to default function-key VK". That matches Synapse's fn-primary Fn-keys mode. For the MM-keys mode (default), we simply don't install the hook — brightness/volume flows normally. For arbitrary custom remaps (e.g. F8 → Ctrl+F12), we'd need to figure out the 272 reserved bytes in the SetInputHook struct; not blocking the MVP.
+
+**Session sequence of wins:**
+1. Frida hook of `ntdll.dll!NtDeviceIoControlFile` in RazerAppEngine main PID captured Synapse's init IOCTLs (`EnableInputHook`, `EnableInputNotify`, `SetInputHook` ×19 scancodes)
+2. Decoded IOCTL codes, device path, struct layout
+3. Wrote Python PoC using `SetupDiEnumDeviceInterfaces` + `CreateFileW` + `DeviceIoControl`
+4. PoC successfully opened rzcontrol device, applied `EnableInputHook(1)`, registered F8 — Chrome DevTools confirmed VK_F8 emission
+5. PoC `SetInputHook(F8, flag=0)` confirmed round-trip — F8 restored to brightness
+6. F1/F2/F3 test confirmed firmware-locked, not filter-mediated
+
+**Files in this session (scripts/):** `rzcontrol_poc.py` (hook/unhook/enable/disable CLI), `frida_ble_hook.js`, `frida_attach_all.py`, `frida_enum_modules.py`, `frida_enum_ble_exports.py`, `frida_mapping_hook.py`, `frida_mapping_all.py`, `frida_hook_pid.py`, `frida_find_me_dll.py`, `frida_dump_modules.py`, `frida_dump_node_exports.py`, `frida_hid_hook.py`, `frida_hid_dll_hook.py`, `frida_watch_init.py`, `parse_procmon.py`. All Python, all used at different stages of the investigation.
+
+**Next session TODO (concrete, queued):**
+1. Port `rzcontrol_poc.py` to Rust (`src/rzcontrol.rs`): `SetupDiEnumDeviceInterfaces` via `windows-rs`, `CreateFile`, `DeviceIoControl`. Functions: `hook(scancode)`, `unhook(scancode)`, `enable()`, `disable()`.
+2. Integrate into daemon startup — ensure Razer Elevation Service + mapping engine aren't holding the rzcontrol handle exclusively when we try to open it.
+3. Extend `fn_host_remap` config semantics: per-key "fn-primary mode (filter-managed)" vs existing "LL-hook-managed". For F5/F6/F7/F12 we can use either; for F8/F9/F10/F11 only filter-managed works.
+4. UI: "Function Keys Primary" toggle in settings webview that calls new IPC actions `rzcontrol_enable_fn_primary` / `rzcontrol_disable_fn_primary`.
+5. Test that our daemon's rzcontrol calls survive a transport cycle (wired↔BLE) and a full keyboard power-cycle.
+6. Document the final user-facing flow in webview hints.
+
+**Open follow-ups:**
+- 272-byte tail of SetInputHook struct — may encode arbitrary translation output. Uncaptured. Not needed for MVP.
+- `0x88883020` IOCTL (function 0xC08) — captured twice with consumer usage 0x70 (BrightnessDown). Possibly a consumer-usage-level filter that runs before the scancode filter. Not needed for MVP.
+- Rust tests for the IOCTL client — `mockall` or integration tests against a staged device.
+
+**Related memories updated:** `project_razer_filter_driver_ioctls.md` has the full decoded IOCTL reference + struct layout + PoC verification notes.
+
+## Session 2026-04-14--1854 — Razer filter driver IOCTL interface decoded via Frida
+
+**Goal: Synapse parity for fn-primary on BLE (F4–F12 + Esc/Tab/LAlt/navigation).**
+
+**The mechanism**: Synapse drives a kernel-mode **Razer lower-filter driver (`RzDev_02ce.sys`)** installed on Joro's BLE HID-over-GATT PnP node. Not BLE writes, not hidapi, not WinRT — pure IOCTL to a user-mode-accessible control device.
+
+**Device path** (enumerate via interface GUID `{e3be005d-d130-4910-88ff-09ae02f680e9}`):
+```
+\\?\rzcontrol#vid_068e&pid_02ce&mi_00#<pnp_instance>#{e3be005d-d130-4910-88ff-09ae02f680e9}
+```
+
+**IOCTL vocabulary** (all `METHOD_BUFFERED`, device type `0x8888`):
+
+| Code | Function | Name | In/Out | Notes |
+|---|---|---|---|---|
+| `0x88883018` | 0xC06 | (status poll) | 0/304 | Heartbeat; output is kernel pool data, not an event stream |
+| `0x8888301C` | 0xC07 | `RedirectInput` | ?/? | From old error log; not called in 2026-04-14 capture |
+| `0x88883020` | 0xC08 | (unknown) | 20/? | Payload includes Consumer usage `0x70` BrightnessDown |
+| `0x88883024` | 0xC09 | `SetInputHook` | **292/0** | Per-scancode filter registration |
+| `0x88883030` | 0xC0C | `EnumInputHook` | ?/? | From old error log |
+| `0x88883034` | 0xC0D | `EnableInputHook` | **4/0** | Payload `01 00 00 00` turns filter on |
+| `0x88883038` | 0xC0E | `EnableInputNotify` | **4/0** | Payload `01 00 00 00` enables notification channel |
+
+**SetInputHook struct** (292 bytes): `[header 4B] [active_flag 4B] [modifier 2B] [scancode u16 LE] [272B unknown, all zero in capture]`.
+
+**Scancodes filter registers** on Joro BLE first-time Joro-page open:
+`01 0f 38 3b 3c 3d 3e 3f 40 41 42 43 44 47 49 4f 51 57 58`
+= Esc, Tab, LAlt, **F1, F2, F3**, F4–F10, Home, PgUp, End, PgDn, F11, F12.
+
+**🔴 Significant lead — F1/F2/F3 are in the filter's scancode list.** Prior memory says "BLE F1/F2/F3 are firmware-locked slot selectors, uncircumventable" — but that was empirically tested with Synapse + filter driver in the chain. **The filter may be what's suppressing them, not the firmware.** Verification needed: remove `RzDev_02ce` from `LowerFilters` or send `SetInputHook` with active=0, then test if F1/F2/F3 emit scancodes to Windows.
+
+**Still unknown:**
+- 272 bytes of SetInputHook tail (possibly translation rules for fn-primary mode)
+- How Synapse receives intercepted scancodes to re-emit them (`0x88883018` is a heartbeat, not an event channel)
+- How to cleanly unregister a scancode
+
+**How this was discovered:** Frida (17.9.1) attached to RazerAppEngine.exe main PID, hooked `ntdll.dll!NtDeviceIoControlFile` at bottom-of-stack so every user-mode→kernel syscall was caught. Filtered by Razer device type 0x8888. Captured 40+ IOCTL calls during Joro-page init. Scripts at `scripts/frida_*.py`.
+
+**Also discovered in passing:**
+- `mapping_engine.dll` (267 exports, loaded lazily when Synapse UI opens Joro page, only in main RazerAppEngine process) contains `driver_impl_win.cc` that constructs these IOCTLs
+- Fn-primary toggle click only calls `localStorageSetItem` + `stopMacroRecording` — state persistence, not device I/O
+- node-ble-rz Node addon is loaded but NOT used for fn-primary (confirmed via node-ble-rz.log + hidapi hook)
+- Synapse has 8 `.node` native modules; one contains `node-hid` (`hid_write`, `hid_send_feature_report`, etc), but those aren't called during fn-primary toggle either
+
+**What landed this session (code):** zero code changes to the daemon. All work was capture/RE. Next session: implement the Rust IOCTL client.
+
+**What to do next:**
+1. **POC:** Python script that opens the rzcontrol device via `CreateFile` and calls `EnableInputHook(1)` with `DeviceIoControl`. Confirms we can reach the filter from user-mode without Synapse. ~15 min.
+2. **Rust port:** If POC works, add `src/rzcontrol.rs` with a client that replicates Synapse's init sequence. Integrate with existing fn_host_remap flow.
+3. **F1/F2/F3 test:** Verify if removing the filter unblocks F1/F2/F3 scancodes on BLE.
+4. **Event channel:** Figure out how Synapse receives intercepted scancodes (second Frida pass — look for IoCompletionPort, event object, or a different IOCTL we missed).
+
+Detailed findings live in memory: `project_razer_filter_driver_ioctls.md`.
+
 ## Session 2026-04-14--0142 — Hypershift UI wired for host-side remaps (BLE-only editing works end-to-end)
 
 Extended today's Fn-detection work into the settings webview. User can now view, add, edit, and clear Fn-layer bindings entirely over BLE with the daemon running — no USB cable ever required.
