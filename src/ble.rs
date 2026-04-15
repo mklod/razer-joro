@@ -342,6 +342,30 @@ impl BleDevice {
     pub fn set_keymap_entry(&mut self, _index: u8, _usage: u8) -> Result<(), String> {
         Ok(())
     }
+
+    /// Set Joro's firmware-level device mode. This is the fn↔mm toggle Synapse
+    /// exposes as "Function Keys Primary". In Fn mode, F5-F12 emit plain
+    /// scancodes; in MM mode, they emit consumer usages (mute/vol/brightness).
+    /// F4 also toggles. F1/F2/F3 are BLE slot keys and are unaffected.
+    ///
+    /// Protocol30: SET class=0x01 cmd=0x02 sub=00,00 data=[mode, 0]
+    /// mode 0x03 = driver/Fn primary; mode 0x00 = normal/MM primary.
+    /// See memory/project_fnmm_toggle_solved.md for the reverse-engineering
+    /// history.
+    pub fn set_device_mode(&mut self, fn_primary: bool) -> Result<(), String> {
+        let mode_byte = if fn_primary { 0x03 } else { 0x00 };
+        self.send_set(0x01, 0x02, 0x00, 0x00, &[mode_byte, 0x00])
+    }
+
+    /// Read the current firmware mode. Returns true if Fn-primary (mode 3),
+    /// false if MM-primary (mode 0).
+    pub fn get_device_mode(&mut self) -> Result<bool, String> {
+        let data = self.send_get(0x01, 0x82, 0x00, 0x00)?;
+        if data.is_empty() {
+            return Err("get_device_mode: empty response".into());
+        }
+        Ok(data[0] == 0x03)
+    }
 }
 
 impl Drop for BleDevice {
@@ -380,6 +404,9 @@ impl crate::device::JoroDevice for BleDevice {
         BleDevice::get_battery_percent(self)
     }
     fn transport_name(&self) -> &'static str { "BLE" }
+    fn set_device_mode(&mut self, fn_primary: bool) -> Result<(), String> {
+        BleDevice::set_device_mode(self, fn_primary)
+    }
 }
 
 // ── Free functions ──────────────────────────────────────────────────────────

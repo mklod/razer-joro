@@ -1,5 +1,271 @@
 # Razer Joro — Status
 
+## Session 2026-04-15--0453 — 🏆 Per-key F4-F12 programmable + firmware mode auto-detect
+
+**Biggest win of the session (earlier, ~0000-0400):** Fn↔MM toggle finally solved after a multi-hour hunt. Single BLE Protocol30 command:
+
+```
+SET class=0x01 cmd=0x02 sub=00,00 data=[mode, 0x00]
+  mode 0x03 → Fn-primary  (F4-F12 emit plain VK_F4..VK_F12)
+  mode 0x00 → MM-primary  (F5-F9 emit consumer mute/vol/brightness)
+```
+GET form: `class=0x01 cmd=0x82`. Full write-up in `memory/project_fnmm_toggle_solved.md`. Decoded by sweeping class=0x01 GETs after 5 rounds of Frida dead-ends (mapping_engine.dll, node-hid, elevation service, GameManagerService3, RzEngineMon, all 3126 exports of RazerAppEngine.exe) turned up only `localStorageSetItem` on toggle clicks — Synapse's actual device write happens in a sandboxed renderer we couldn't attach Frida to.
+
+**What landed in code this session:**
+
+- `src/ble.rs`: public `BleDevice::set_device_mode(fn_primary: bool)` and `get_device_mode()` wrapping the Protocol30 SET/GET.
+- `src/device.rs`: `JoroDevice` trait gains `set_device_mode` (USB no-op default).
+- `src/main.rs` `App::try_connect`: on every BLE connect the daemon decides firmware mode from config:
+  - `device_mode = "fn"` → force Fn
+  - `device_mode = "mm"` → force MM
+  - `device_mode = "auto"` (default) → scan `remap` entries. If any `from` starts with `win+` / `lwin+` / `rwin+` (e.g. existing Lock = Win+L, Copilot = Win+Copilot trigger combos) the daemon picks MM because those combos only exist at the firmware level in MM mode. Otherwise it picks Fn so F-keys are fully programmable.
+  - Chosen mode is cached on `App::firmware_fn_primary` and pushed to the webview.
+- `src/config.rs`: new `device_mode: String` field defaulting to `"auto"`.
+- `src/main.rs`: new CLI `cargo run -- set-mode fn|mm` for manual testing. Removed the dev-only `fnmm-probe` / `fnmm-sweep` / `c05-sweep` / `class-sweep` / `gatt-dump` subcommands.
+
+**Per-key override infrastructure (the user's actual end goal):**
+
+- **`src/brightness.rs` (new module):** DDC/CI external-monitor brightness via `dxva2.dll` Monitor Configuration API. Enumerates all HMONITORs, opens each physical monitor, reads/writes VCP feature codes. Works on the user's Falcon ultrawide (VCP 0x10, range 0-50 instead of the usual 0-100 — handled correctly). `delta_all(percent)` adjusts every DDC/CI-capable monitor by N% of its range. Also exposes capability-string reads + arbitrary `vcp_get/vcp_set` for diagnostics.
+- **`src/main.rs` CLI:** `brightness info | caps | vcp [CODE] [= VALUE] | +N | -N | N` for direct testing. Discovered mid-session that the Falcon monitor's capability string advertises the standard 0x10 luminance register but briefly rebooted on certain writes — turned out to be a transient display-controller glitch and subsequent writes work clean.
+- **`src/remap.rs` action DSL:** Extended the `to` field to accept non-keyboard actions alongside existing combos. Parser `parse_special_action(&str)` recognises:
+  - `NA` / `NoOp` — swallow the key
+  - `Brightness+Down` / `Brightness+Up` / `Brightness+N` (delta %) / `Brightness=N` (abs %) — monitor DDC/CI
+  - `Backlight+Down` / `Backlight+Up` / `Backlight+N` (delta 0-255) / `Backlight=N` (abs 0-255) — Joro keyboard backlight via existing `BleDevice::set_brightness`
+  - Regular keys/combos (`A`, `Ctrl+F12`, `VolumeMute`) fall through to the existing combo parser unchanged.
+  - Media VKs (`VolumeMute`, `VolumeDown`, `VolumeUp`, `MediaPlayPause`, `MediaNextTrack`, `MediaPrevTrack`) were already recognised by `keys::key_name_to_vk` — they work out of the box as plain VK targets via SendInput.
+- **`src/remap.rs` hook dispatch:** New `SpecialActionEntry` table keyed by source VK, checked before the normal combo table. On match, `Brightness*` dispatches to `brightness::delta_all` / `set_all_percent` on a background thread (DDC/CI is ~10ms and must not block the LL hook). `Backlight*` posts a `UserEvent::BacklightSet(u8)` to the main event loop via a `GLOBAL_PROXY` static so BLE I/O runs on the thread that owns the `BleDevice`. `LAST_BACKLIGHT` atomic caches the last known level so relative deltas start from the right base and don't require locking the config.
+- **`src/main.rs` plumbing:** `UserEvent::BacklightSet(u8)` variant; `user_event` handler calls `dev.set_brightness(level)` then persists `config.lighting.brightness` and pushes state to the webview. `GLOBAL_PROXY: OnceLock<EventLoopProxy<UserEvent>>` + `post_user_event()` helper for cross-thread dispatch.
+- **Config pipeline:** `build_remap_tables` now returns a 3-tuple `(combo, trigger, special)` — all call sites updated including the save-handler IPC path that rebuilds tables when the webview saves a new remap.
+
+**Webview UI (`assets/settings.html`) changes:**
+
+- F-row key definitions stripped of old `fwMedia`/`fwEmits` "informational only" annotations. F4-F11 gain a new `mmEmits` field that names what each key emits when firmware is in MM mode (`VolumeMute`, `VolumeDown`, `VolumeUp`, `BrightnessDown`, `BrightnessUp`, `BacklightDown`, `BacklightUp`). F8/F9 additionally flagged `mmConsumer: true` (Consumer HID page), F10/F11 flagged `mmVendor: true` (Razer vendor HID page).
+- F1/F2/F3 gain `bleSlot: true`. New `.key.ble-locked` CSS class (solid light grey, no-cursor) applied at render time when `transport === 'BLE'`, with a dedicated tooltip explaining "firmware-locked as BLE slot selector — remapping is blocked while on BLE." Click handler is stripped for locked keys.
+- `window.joroSetState` now reads `firmware_fn_primary` from the daemon push and caches it in a module-level `firmwareFnPrimary` variable.
+- New `effectiveEmitsOf(k)` helper returns `k.mmEmits` when firmware is in MM mode, else falls through to `k.emits || k.key`. `findRemapForKey` uses it with new precedence: effectiveEmits match wins over plain emits match over fwEmits match.
+- Remap popover's `defaultFrom` uses `effectiveEmitsOf(k)` so clicking F5 in MM mode pre-fills "From" with `VolumeMute` instead of `F5`, and the "current binding" tooltip shows `VolumeMute → X`.
+- Popover firmware-behavior hint rewritten with mode-aware messages: Fn mode tells user "F5 emits plain F5 now, switch to MM to restore VolumeMute", MM mode for consumer keys says "daemon catches via consumer hook path", MM mode for vendor keys (F10/F11) warns "LL hook can't intercept, switch to Fn to make programmable."
+- Default hover tooltip for un-mapped F5-F11 keys shows `F5 → emits VolumeMute (MM firmware mode)` etc.
+
+**Verified end-to-end so far:**
+- `cargo run -- set-mode mm` / `set-mode fn` round-trip works; F5-F12 flip behaviour live each direction. User confirmed full round-trip Fn→MM→Fn for F4-F12.
+- Daemon auto-applies mode on BLE connect, caches state, pushes to webview.
+- F1/F2/F3 render as solid light grey and are unclickable when on BLE.
+- User-programmed remap `F5 → VolumeMute` (Fn mode only — not current setup) and `VolumeMute → F5` (MM mode, current setup) fire correctly through the LL hook.
+- User confirmed keyboard backlight F10/F11 native MM keys work.
+- Lock key and Copilot key trigger remaps (Win+L → Delete, Win+Copilot → Ctrl+F12) work again once auto-detect correctly kept firmware in MM mode.
+- Monitor brightness DDC/CI works on the user's Falcon 5120x1440 ultrawide — user visually confirmed dimming when VCP 0x10 was set from 50 down to 10.
+
+**Known gap that's queued for next:**
+- **F8/F9 brightness remap doesn't fire in MM mode** because BrightnessDown/Up are consumer-page usages that never become Win32 VKs, so the LL keyboard hook never sees them. Solution is to teach `src/consumer_hook.rs` (hidapi consumer-HID listener) to intercept these and route into the `SpecialAction` dispatch path. New task `#10` tracks this.
+
+**Config current state (user's setup):**
+- `device_mode` unset (defaults to auto → MM chosen because of Lock+Copilot combos).
+- Remaps: `Lock (Win+L) → Delete`, `Copilot (Win+Copilot) → Ctrl+F12`, `VolumeMute → F5` (MM-mode workaround), plus `F5 → VolumeMute`, `F8 → Brightness+-25`, `F9 → Brightness+Up` (these last three are stale until we either switch firmware to Fn or wire the consumer-hook brightness interception).
+- Fn-host remaps: `Fn+Right → End`, `Fn+Left → Home`.
+
+**Architecture summary:** see new `ARCHITECTURE.md` in the repo root for the authoritative up-to-date doc on the full daemon + UI + key-remap stack.
+
+## Session 2026-04-15--0347 — 🏆 Fn↔MM toggle SOLVED + wired into daemon
+
+**Core finding (the whole point of this session):** Joro's fn↔mm toggle is a single BLE Protocol30 command, not a filter-driver dance:
+
+```
+SET class=0x01 cmd=0x02 sub=00,00 data=[mode, 0x00]
+  mode 0x03 → Fn-primary (F4-F12 emit plain VK_F4..VK_F12)
+  mode 0x00 → MM-primary (F5-F9 emit consumer mute/vol/brightness)
+```
+
+GET form `class=0x01 cmd=0x82 sub=00,00` returns `[mode, 0]`. Read+write verified live, bidirectional, Synapse-free, rzcontrol-free. F1/F2/F3 stay firmware-locked as BLE slot selectors — unchanged. F4 is NOT a firmware macro (prior notes that said "F4 = Win+Tab firmware macro" were wrong — F4 toggles like F5-F12, verified by user).
+
+**Full memory write-up:** `memory/project_fnmm_toggle_solved.md` documents the decoded command + the multi-hour reverse-engineering dead-ends (filter driver, rzcontrol IOCTL sweep, HID feature reports, Frida across 5 processes + 3126 exports) that led to finally sweeping Protocol30 class=0x01 GETs.
+
+**Landed code:**
+- `src/ble.rs`: new `BleDevice::set_device_mode(fn_primary: bool)` and `get_device_mode()`. The hot 2-byte command.
+- `src/device.rs`: `JoroDevice` trait now has `set_device_mode` with a USB no-op default.
+- `src/ble.rs` trait impl: BLE delegates to the concrete method.
+- `src/main.rs` `App::try_connect`: after any connection, daemon calls `dev.set_device_mode(true)` unconditionally. User's daemon is now authoritative over the firmware mode — no Synapse required.
+- `src/main.rs` new CLI subcommand: `cargo run -- set-mode fn|mm` for manual testing. Removed the dev-only `fnmm-probe` / `fnmm-sweep` / `c05-sweep` / `class-sweep` / `gatt-dump` scratch subcommands.
+- `assets/settings.html`:
+  - F4-F11 key definitions stripped of `fwMedia`/`fwEmits` annotations — they're now fully programmable via the existing LL-hook remap path, identical to any other key.
+  - F1/F2/F3 marked with `bleSlot: true` flag + render logic treats them as `dead` when `transport === 'BLE'` (clear visual "can't remap these over BLE" affordance).
+  - Comments updated to explain the firmware-Fn-always strategy.
+
+**Verified end-to-end:** `cargo run -- set-mode mm` → F5=mute. `cargo run -- set-mode fn` → F5=refresh. User confirmed the round trip Fn→MM→Fn for all of F4-F12. Firmware reads back matching values.
+
+**Remaining work toward user's full goal ("each F-key programmable like any other key in webview"):**
+1. Verify end-to-end in the daemon: launch daemon, confirm it auto-applies Fn mode, click F5 in webview, set a remap (e.g. F5 → A), press F5, confirm A types. Should work with zero additional code — the LL hook already handles F-key scancodes, we just removed the "informational-only" annotations that disabled UI interaction.
+2. Brightness-as-action for F8/F9: user's display doesn't respond to `VK_BRIGHTNESS_*` / `WmiMonitorBrightnessMethods` (OSD shows, screen doesn't dim). Needs DDC/CI or `SetDeviceGammaRamp` backend. New `action_type: brightness_delta` in the remap system + implementation.
+3. More action types: `send_keys` macro, `launch_app`, `noop`, etc. Each is an extension of the existing remap pipeline.
+
+**Not yet touched but user's earlier goal:** per-key override system that treats F4-F12 as fully programmable keys. Infrastructure is in place (LL hook, remap table, webview). The brightness backend is the only real new code required.
+
+## Session 2026-04-14--late ⚠️ SUSPECT — possibly degraded / retarded instance of Claude Code
+
+> **All findings in this section flagged by user as SUSPECT.** Verify everything independently before trusting any conclusion below. The instance was fired mid-debug for being unproductive and using Synapse as a crutch.
+
+**State at fire time:**
+- `config.toml` has `ble_fn_primary = true` — **change back to false before running daemon** (instance left it on accidentally). Actually wait, instance set it false earlier, then this last stretch may have toggled. Verify with `grep ble_fn_primary C:\Users\mklod\AppData\Roaming\razer-joro\config.toml`.
+- Filter driver is in **LATCHED-BROKEN** state (poisoned by repeated `DisableInputHook` calls during this stretch). Reboot or Synapse-Joro-tile-click is needed to recover.
+- F-keys currently behave as MM (mute/vol/brightness/backlight) per user's last empirical report.
+- `src/rzcontrol.rs` still contains `bootstrap_filter_driver()` (Synapse auto-launch crutch). User explicitly rejected this — should be removed.
+- `src/main.rs` still calls `sync_rzcontrol()` which calls bootstrap. Removing bootstrap will leave daemon working only when filter is already ARMED externally.
+- `scripts/rzcontrol_fn_primary.py` was rewritten multiple times and final state is **single overlapped handle** approach — verify by reading the file. May or may not be correct.
+
+**SUSPECT findings claimed by this instance (verify before trusting):**
+
+1. **Filter state machine taxonomy** (instance's invention, may be wrong):
+   - COLD: post-boot, filter loaded but not armed. Reads queue but no events flow. SetInputHook returns OK but doesn't trap.
+   - ARMED: filter wired into kbdclass. Hooks work. Reads deliver events.
+   - ARMED-UNOWNED: ARMED + no RazerAppEngine running. Our writes stick.
+   - OWNED-BY-SYNAPSE: ARMED + Synapse running. Synapse overwrites our rules.
+   - LATCHED-BROKEN: post-DisableInputHook. EnableInputHook(1) returns OK but doesn't re-attach. Only Synapse-Joro-click recovers.
+   - **Verify these states are real and not artifacts of test ordering.**
+
+2. **Claimed "never call DisableInputHook" rule.** Instance asserts this is destructive. Empirically observed PoC stopping working after Disable, but causation not isolated from confounding variables (slot cycles, multiple test variations).
+
+3. **"Single overlapped handle is mandatory"** — instance asserted dual sync+overlapped handles fail because filter ties events to the writing handle. Based on one A/B test that may have had other variables.
+
+4. **"Reads only complete on overlapped handles"** — non-overlapped sync DeviceIoControl on `0x88883018` returned err=22 (BAD_COMMAND). Overlapped returned PENDING. Probe verified this in trial run.
+
+5. **"Slot cycle does NOT reset filter driver state"** — based on observation that PoC stopped working post-cycle. NOT independently verified.
+
+6. **`cmd=0x0a` consumer-usage filter** — instance's format guess (`[u32 0][u32 0x0a][u16 usage][...]`) is **probably wrong**. Synapse's calls to this returned STATUS_PENDING which suggests async subscribe, not sync filter install. Not yet decoded properly.
+
+**SUSPECT captures and scripts:**
+- `captures/widearm.log`, `captures/widearm2.log` — wider Frida hooks (NtCreateFile + NtSetValueKey + all IOCTL device types). Showed only 2 of ~10 RazerAppEngine PIDs got attached, so coverage is incomplete. **No 0x88883xxxx IOCTLs captured in widearm2** — instance assumed this means none were called, but more likely the wrong PID was attached.
+- `captures/arm_capture.log`, `captures/arm_capture2.log` — narrower 0x8888-only captures. These DID show Synapse's init sequence: `0x88883018` (read) → `0x88883034 EnableInputHook(1)` → `0x88883038 EnableInputNotify(1)` → `0x88883024 SetInputHook × 19`. All on one hFile. All ret=0x103 STATUS_PENDING. **These captures are probably trustworthy.**
+- `scripts/rzcontrol_fn_primary.py` — rewritten 3+ times tonight, final form is single overlapped handle. **Check git diff for evolution.**
+- `scripts/rzcontrol_probe.py` — overlapped IOCTL probe. Reported all trials returned PENDING when run in cold-but-not-fresh state. **May be useful for future diagnostics.**
+- `scripts/frida_widearm.py` — wider Frida hook. Has known limitation: only catches 2 of ~10 RazerAppEngine PIDs.
+
+**What was NOT tested (open questions for next instance):**
+- Does the Razer-installed `RzDev_02ce.sys` self-arm at Windows boot? Test by booting fresh and running the daemon WITHOUT ever launching Synapse.
+- Hook the Razer Elevation Service process — never tried.
+- Static analysis of `mapping_engine.dll::driver_impl_win.cc` — never tried.
+- ETW/WPP trace from the kernel driver — never tried.
+- Wider Frida net via `frida -f` spawn-mode (attaches at process creation, catches ALL PIDs) — never tried.
+
+**Suggested next steps for new instance:**
+1. **Read this entire `_status.md` from the top.** Earlier sessions (1937, 2043, 2115, 2220) document protocol decode that's solid.
+2. Verify the captures `arm_capture.log` and `arm_capture2.log` against `mapping_engine.dll` strings — the IOCTL constants there should be findable in the binary.
+3. Test cold-boot behavior first thing after the user reboots Windows.
+4. Don't ever call `DisableInputHook` even in cleanup paths until the rule is proven.
+5. Don't use `bootstrap_filter_driver` — the user explicitly rejected this approach.
+6. Consider `frida -f /path/to/RazerAppEngine.exe` to spawn-and-attach Synapse so Frida sees the FIRST process from PID 1, catching the rzcontrol-talking process reliably.
+
+**Files touched in this stretch:**
+- `src/rzcontrol.rs` — added `bootstrap_filter_driver`, `RawHandle Send/Sync wrapper`, `reader_loop`, `inject_scancode`. Should be reviewed/refactored.
+- `src/main.rs` — added `sync_rzcontrol` call from `resumed()`, ungated from device transport, added `rzcontrol_bootstrap_done` flag.
+- `scripts/rzcontrol_fn_primary.py` — rewritten 3+ times; final form is single-overlapped-handle.
+- `scripts/rzcontrol_probe.py` — new diagnostic, overlapped trials.
+- `scripts/rzcontrol_hold.py` — extended to take scancode arg list.
+- `scripts/frida_widearm.py` — new, wider Frida hook (incomplete coverage).
+- `scripts/frida_88883020_decode.py` — modified to use `Module.getGlobalExportByName`, `Process.findModuleByName`. Working.
+- `captures/arm_capture.log`, `captures/arm_capture2.log` — Synapse arm sequence (probably trustworthy).
+- `captures/widearm.log`, `captures/widearm2.log` — wider hook captures (incomplete).
+- `captures/decode_88883020_run3.log` — earlier in session, established 0x88883018 = event read channel and 0x88883020 cmd=1 = inject. **Trustworthy.**
+
+## Session 2026-04-14--2220 — 🚀 SHIPPED: Rust daemon does everything, one-command deploy
+
+Fully automatic Synapse-parity fn-primary over BLE from `cargo run`. Zero manual steps. Daemon:
+
+1. Boots, connects Joro BLE, loads config.
+2. `sync_rzcontrol()` fires with `ble_fn_primary = true`.
+3. Detects no RazerAppEngine running → calls `rzcontrol::bootstrap_filter_driver(6)` which spawns `RazerAppEngine.exe`, sleeps 6s while Synapse does its kernel-filter init dance, then `taskkill /F /IM RazerAppEngine.exe /T` to evict it.
+4. `RzControl::open()` opens the rzcontrol device, `EnableInputHook(1) + EnableInputNotify(1)`, `SetInputHook(F5..F12, flag=1)`, cmd=0x0a consumer-usage filter installs for brightness usages.
+5. Reader thread spawns: blocks on `DeviceIoControl(0x88883018)` (304-byte event record), parses `type/sc/state` at offsets 0x10/0x16/0x18, and for every F5-F12 scancode calls `DeviceIoControl(0x88883020 cmd=1)` to re-inject via kernel path. Windows sees plain VK_F5..VK_F12.
+6. Drop tears it all down cleanly on daemon shutdown.
+
+**Empirically verified:** User tested F5-F12 including brightness F8/F9. All act as plain function keys. No MM leak, no reader errors, no inject failures, no CPU spin.
+
+**Files touched:**
+- `src/rzcontrol.rs` — rewritten: +`reader_loop` thread with sc/state parsing & inject; +`inject_scancode`/`install_consumer_filter`/`remove_consumer_filter` helpers; +`bootstrap_filter_driver` spawning RazerAppEngine + taskkill; +`RawHandle` Send/Sync wrapper for thread-crossing the HANDLE; Drop joins the thread via CloseHandle-induced unblock. ~420 lines total.
+- `src/main.rs` — `App::rzcontrol_bootstrap_done` flag, `sync_rzcontrol()` now calls `bootstrap_filter_driver` once per lifetime, un-gated from `device` state (rzcontrol is PnP-level not GATT-level), called from `resumed()` at startup.
+- `scripts/rzcontrol_fn_primary.py` — reference Python PoC with matching read+inject loop; ~230 lines; kept for testing and as decoded-protocol reference.
+- `config.toml` — `ble_fn_primary = true`.
+
+**Remaining polish (non-blocking):**
+- Clean `Ctrl+C` shutdown: Drop should already run via winit teardown. Verify.
+- UI toggle in webview settings for `ble_fn_primary`. Trivial — add to the existing settings IPC plumbing.
+- `cmd=0x0a` format might be wrong (STATUS_PENDING behavior suggests async subscribe, not sync filter install). Works in practice for F8/F9 brightness right now but we don't understand why. If regression hits, capture with Frida and fix.
+- err=22 retry: current 50ms sleep works but wastes CPU after queue-drain. Ideal: use overlapped I/O with a completion event.
+- Skip bootstrap if Joro's rzcontrol device isn't enumerable (daemon starts without keyboard paired).
+- Handle disconnect/reconnect race: right now the rzcontrol session survives a Joro BLE drop because it's tied to PnP not GATT. But if the PnP node goes away (Joro truly unpaired), the reader will error loop. Add graceful shutdown on `err=6 (INVALID_HANDLE)`.
+
+**Known dependency:** Synapse must be installed at one of the paths in `RAZER_APP_ENGINE_PATHS`. Configurable later.
+
+## Session 2026-04-14--2115 — 🏆 END-TO-END FN-PRIMARY OVER BLE WORKING (Python PoC)
+
+**`scripts/rzcontrol_fn_primary.py` — first fully working Synapse-parity fn-primary from user-mode.** Opens rzcontrol, EnableInputHook + SetInputHook(F5-F12, flag=1), spawns a reader thread that blocks on `DeviceIoControl(0x88883018, null, 0, outBuf304, 304)`, parses `type/sc/state` at offsets 0x10/0x16/0x18, and calls `0x88883020 cmd=1` with `[u32 0][u32 1][u16 0][u16 sc][u16 state]...` to inject the scancode back. Kernel emits plain VK_F5..VK_F12 to Windows.
+
+**Empirically verified 2026-04-14--2115 end-to-end round trip:**
+- **MM state:** no hooks held → F5=Mute, F6=VolDn, F7=VolUp, F10=backlight, F11=backlight, F12=PrintScreen work. (F8/F9 BrightnessDown/Up still dead — controlled by separate `cmd=0x0a` consumer-usage filter that persists across scancode unhook; not a blocker.)
+- **FN state:** PoC running → F5..F12 all act as plain F-keys. User verbatim: "all keys working as F keys". Reader log shows per-keypress: `[reader] F5 sc=0x3f state=0 -> inject` ... `state=1 -> inject` for F5, F8, F9, F10, F12 tests.
+
+**Key gotchas decoded this session:**
+1. **Synapse overwrites our filter rules in the background.** When Synapse is running, it actively rewrites SetInputHook state. Our writes evaporate. We MUST kill RazerAppEngine before running fn-primary. Daemon integration needs to kill it on startup (or teach the user to disable Synapse when using the daemon).
+2. **Filter rules are NOT per-handle.** They're global, last-writer-wins per scancode. `CloseHandle` alone doesn't tear them down — they persist until explicitly unhooked or another writer overwrites. This invalidates the per-handle scoping assumption baked into src/rzcontrol.rs (but doesn't break it — Drop still explicitly unhooks).
+3. **SetInputHook(flag=1) alone = dead keys.** Only works as fn-primary when coupled with the read+inject loop (this session). Our daemon code that sets hooks without a reader is a swallow-only foot-gun — MVP integration needs both together.
+4. **Reader burns CPU on err=22 after draining events.** `DeviceIoControl(0x88883018)` returns `ERROR_BAD_COMMAND` (22) or `ERROR_OPERATION_ABORTED` (995) after the filter's internal event queue drains. Python PoC's sleep(0.1) backoff is a hack; real impl needs proper blocking semantics, overlapped I/O, or a completion port. Not a correctness issue — just a CPU issue.
+
+**Files this sub-session:**
+- `scripts/rzcontrol_fn_primary.py` — new, ~180 lines, the working PoC.
+
+**Next session TODO (re-prioritized based on this win):**
+1. **Port `rzcontrol_fn_primary.py` into `src/rzcontrol.rs` as a background worker thread.** Spawn from `RzControl::open()` after hooks are installed. Use overlapped I/O + `GetOverlappedResult` (or an IoCompletionPort if we want fancy queue depth). Inject via the same IOCTL path. Worker joins in Drop.
+2. **Kill-Synapse-on-startup** logic in the daemon: if we detect `RazerAppEngine.exe` running, taskkill the tree (or warn the user). Otherwise our hooks get overwritten silently.
+3. **Proper event-queue backoff.** On `err=22`, wait on something (semaphore? event?) rather than spinning or sleeping. Investigate whether `0x88883018` with `FILE_FLAG_OVERLAPPED` blocks cleanly until an event exists.
+4. Re-enable `ble_fn_primary = true` in config, run the daemon, retest full round-trip — but in Rust this time.
+5. **F8/F9 brightness restore (nice-to-have, not blocker).** Decode the `cmd=0x0a` consumer-usage-filter remove format so we can optionally restore monitor-brightness keys if the user wants them back in MM mode. Currently Synapse leaves them dead regardless.
+
+**Status on src/rzcontrol.rs daemon code from earlier in this session:** compiles and integrates but is swallow-only (no reader). Will be extended next session, not deleted. Current `ble_fn_primary = false` in user config so it doesn't run.
+
+## Session 2026-04-14--2043 — 🔓 0x88883018 event channel + 0x88883020 cmd=1 inject decoded
+
+**Last-session "PoC works" claim was wrong** — session 1937 saw F8→VK_F8 because Synapse was still running as the user-mode re-emitter. `SetInputHook(flag=1)` alone is **swallow-only**: the filter blocks the scancode, emits no VK, and the key dies. Verified empirically today: built `src/rzcontrol.rs`, wired into the daemon under `ble_fn_primary = true`, set hooks on F5-F12, pressed F5 → nothing (no MM, no VK). Disabled the flag, reverted daemon.
+
+**Breakthrough this session:** decoded how Synapse actually re-emits translated keys. Answer: entirely driver-side, zero `SendInput` calls.
+
+1. **`0x88883018` is the event read channel**, not a heartbeat. 304-byte output, async / STATUS_PENDING. Every keyboard event flowing through kbdhid is delivered. Event record starts at offset 16:
+   ```
+   0x10  u32  event type (1 = scancode)
+   0x16  u16  scancode (PS/2 Set 1)
+   0x18  u16  state (0=down, 1=up)
+   0x20  u32  monotonic sequence counter
+   ```
+   Captured F5 (0x3f), F8 (0x42), and the "done" trail I asked the user to type — all scancodes visible.
+
+2. **`0x88883020` is a polymorphic command IOCTL**, not a subscription. Byte 4 = command tag:
+   - `cmd=0x01` — inject scancode. Payload `[u32 0][u32 1][u16 0][u16 sc][u16 state][u16 0][u32 0][u32 0]` = 32B. Synapse uses this to push the translated key back into Windows, bypassing the filter (or the filter is smart enough not to re-intercept its own injections).
+   - `cmd=0x0a` — consumer-usage filter update (observed with `0x70`/`0x6f` = BrightnessDown/Up).
+
+3. **Zero `SendInput` calls from RazerAppEngine** across three Frida captures covering init + user-toggled Fn/MM + key presses. Synapse does no user-mode key injection at all. Everything is driver-side.
+
+4. **Rules are probably global (not per-handle).** Our unhook sequence earlier in the day globally broke Synapse's F5/F6/F7/F10/F11 rules — at end of session user reported "everything now working as mm keys except brightness F8/F9". Only F8/F9 remained hooked, presumably because Synapse re-installed them after our cleanup. Strong prior: SetInputHook is last-writer-wins per scancode, not handle-scoped.
+
+**What shipped today:**
+- `src/rzcontrol.rs` — enumerates rzcontrol device, opens handle, EnableInputHook/EnableInputNotify/SetInputHook, Drop-cleans up. Compiles and integrates with `App` under `config.ble_fn_primary`. Currently set to `false` in user's config.toml.
+- `Cargo.toml` — added `Win32_Devices_DeviceAndDriverInstallation`, `Win32_Storage_FileSystem`, `Win32_System_IO` windows-rs features.
+- Main loop calls `sync_rzcontrol()` on connect / disconnect / reload.
+- `scripts/frida_88883020_decode.py` — Frida script hooking NtDeviceIoControlFile + SendInput + IOSB polling; logs every 0x8888xxxx IOCTL with payloads. Used for run2 + run3 captures.
+- `scripts/rzcontrol_hold.py` — updated to take arbitrary key list and hold the handle open for empirical testing.
+- `captures/decode_88883020_run3.log` — the definitive capture showing F5/F8 events coming through 0x88883018.
+- `memory/project_razer_filter_driver_ioctls.md` — rewritten with the full decoded protocol (event format + cmd tags + implementation status).
+
+**Next session TODO** (concrete, in order):
+1. **Extend `src/rzcontrol.rs` with an overlapped event reader.** Open a second handle with `FILE_FLAG_OVERLAPPED`. Spawn a worker thread with 4 parallel `DeviceIoControl(0x88883018, NULL, 0, buf304, 304, ..., &OVERLAPPED)` reads. On each completion: parse offset 16 for `type/sc/state`, re-post the IRP. Use `GetOverlappedResult` or a completion port.
+2. **Add `inject_scancode(h, sc, state)`** that builds the 32B cmd=1 buffer and calls `DeviceIoControl(0x88883020)`.
+3. **Glue:** for each event whose scancode ∈ `FN_PRIMARY_SCANCODES`, immediately inject the same scancode. Verify: press F5 → window receives plain VK_F5.
+4. **Test reinject-doesn't-loop.** Synapse's inject presumably bypasses the filter. If ours loops, we need to unhook-during-inject or find the bypass flag.
+5. **Re-enable `ble_fn_primary = true`** in user config and test end-to-end.
+6. **Handle disconnect/reconnect cleanly.** On BLE drop, kill the reader thread, close both handles, let Drop tear down filter rules.
+7. Only then worry about UI toggle in webview.
+
+**Files touched this session:** `src/rzcontrol.rs` (new, ~220 lines), `src/main.rs` (sync_rzcontrol + module reg + App field), `src/config.rs` (ble_fn_primary field), `Cargo.toml` (windows-rs features), `scripts/frida_88883020_decode.py` (new), `scripts/rzcontrol_hold.py` (extended), `captures/decode_88883020_*.log` (new), `captures/rzctl_init_2026-04-14.log` (new).
+
+**Known regression cleared up:** session 1937's "F8→VK_F8 via Chrome DevTools" observation was contaminated by a running Synapse acting as user-mode re-emitter. The filter does NOT emit VKs on its own in flag=1 mode. Our PoC worked only because Synapse was silently doing the read-and-inject loop in the background.
+
 ## Session 2026-04-14--1937 — 🎯 PoC proves Synapse-parity fn-primary over BLE (F4–F12) from user-mode Python
 
 **Breakthrough:** `scripts/rzcontrol_poc.py` opens the Razer filter-driver control device from user-mode and drives the same `EnableInputHook`/`SetInputHook` IOCTLs Synapse uses. Verified round-trip:

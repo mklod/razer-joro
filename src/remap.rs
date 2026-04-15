@@ -93,6 +93,48 @@ static REMAP_TABLE: Mutex<Vec<ComboRemap>> = Mutex::new(Vec::new());
 static TRIGGER_TABLE: Mutex<Vec<TriggerRemap>> = Mutex::new(Vec::new());
 static FN_HOST_REMAP_TABLE: Mutex<Vec<FnHostRemap>> = Mutex::new(Vec::new());
 
+/// Special actions that aren't just keyboard VKs — brightness DDC/CI,
+/// app launches, script hooks, etc. Keyed by source VK. Checked BEFORE
+/// the regular remap table so a special action shadows any normal remap.
+static SPECIAL_ACTION_TABLE: Mutex<Vec<SpecialActionEntry>> = Mutex::new(Vec::new());
+
+#[derive(Debug, Clone)]
+pub struct SpecialActionEntry {
+    pub from_vk: VkCode,
+    pub action: SpecialAction,
+}
+
+#[derive(Debug, Clone)]
+pub enum SpecialAction {
+    /// Adjust monitor brightness by N percent of the monitor's range via
+    /// DDC/CI (VCP 0x10). Negative = dim, positive = brighten.
+    BrightnessDelta(i32),
+    /// Set monitor brightness to an absolute percentage of range (0..=100).
+    BrightnessAbs(u32),
+    /// Adjust Joro's own keyboard backlight by N (value is delta in the
+    /// 0..0xFF firmware range). Dispatched on a background thread through
+    /// `ACTIVE_DEVICE` so the hook thread doesn't block on BLE I/O.
+    BacklightDelta(i32),
+    /// Set Joro keyboard backlight to absolute 0..0xFF value.
+    BacklightAbs(u8),
+    /// Swallow the key — source is blocked, no output sent. For "NA" /
+    /// dead-key remap target.
+    NoOp,
+}
+
+pub fn update_special_action_table(table: Vec<SpecialActionEntry>) {
+    *SPECIAL_ACTION_TABLE.lock().unwrap() = table;
+}
+
+/// Last-known Joro keyboard backlight level (0-255). Updated by main.rs on
+/// config apply/reload so the hook can compute relative backlight deltas
+/// without calling back into main.
+static LAST_BACKLIGHT: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(128);
+
+pub fn set_last_backlight(level: u8) {
+    LAST_BACKLIGHT.store(level, std::sync::atomic::Ordering::Relaxed);
+}
+
 /// Currently-held Fn-layer remap (if any). Set on Fn+key key-down, cleared on
 /// the source-VK key-up. Tracks which output combo we emitted so we release
 /// the same combo even if Fn was released first.
@@ -168,11 +210,58 @@ fn dbg_log(msg: &str) {
 /// - `from` has `+` → combo-source → TriggerRemap
 /// - `from` single key, `to` has `+` → combo-output → ComboRemap
 /// - `from` single key, `to` single key → firmware remap (skipped)
+/// Parse a remap `to` string as a special (non-keyboard) action.
+/// Returns None if the string looks like a normal key/combo. Matching is
+/// case-insensitive.
+///
+/// Recognized action DSL:
+///   "NA" or "NoOp"                 — dead key (swallow source)
+///   "Brightness+Down" / "+Up"      — monitor (DDC/CI) dim/brighten 10%
+///   "Brightness+N"                 — explicit delta in %
+///   "Brightness=N"                 — absolute % (0-100)
+///   "Backlight+Down" / "+Up"       — Joro keyboard backlight ±10%
+///   "Backlight+N"                  — explicit delta in 0..255
+///   "Backlight=N"                  — absolute 0..255
+pub fn parse_special_action(s: &str) -> Option<SpecialAction> {
+    let s = s.trim();
+    let lc = s.to_ascii_lowercase();
+    if lc == "na" || lc == "noop" || lc == "no-op" {
+        return Some(SpecialAction::NoOp);
+    }
+    if let Some(rest) = lc.strip_prefix("brightness+") {
+        if rest == "down" { return Some(SpecialAction::BrightnessDelta(-10)); }
+        if rest == "up"   { return Some(SpecialAction::BrightnessDelta(10));  }
+        if let Ok(n) = rest.parse::<i32>() {
+            return Some(SpecialAction::BrightnessDelta(n));
+        }
+    }
+    if let Some(rest) = lc.strip_prefix("brightness=") {
+        if let Ok(n) = rest.parse::<u32>() {
+            return Some(SpecialAction::BrightnessAbs(n.min(100)));
+        }
+    }
+    if let Some(rest) = lc.strip_prefix("backlight+") {
+        // Default step is ~10% of the 0-255 range (=25).
+        if rest == "down" { return Some(SpecialAction::BacklightDelta(-25)); }
+        if rest == "up"   { return Some(SpecialAction::BacklightDelta(25));  }
+        if let Ok(n) = rest.parse::<i32>() {
+            return Some(SpecialAction::BacklightDelta(n));
+        }
+    }
+    if let Some(rest) = lc.strip_prefix("backlight=") {
+        if let Ok(n) = rest.parse::<u32>() {
+            return Some(SpecialAction::BacklightAbs(n.min(255) as u8));
+        }
+    }
+    None
+}
+
 pub fn build_remap_tables(
     remaps: &[crate::config::RemapConfig],
-) -> (Vec<ComboRemap>, Vec<TriggerRemap>) {
+) -> (Vec<ComboRemap>, Vec<TriggerRemap>, Vec<SpecialActionEntry>) {
     let mut combo_table = Vec::new();
     let mut trigger_table = Vec::new();
+    let mut special_table = Vec::new();
 
     for entry in remaps {
         if entry.from.contains('+') {
@@ -220,6 +309,14 @@ pub fn build_remap_tables(
                 }
             };
 
+            // Check for special actions first — brightness, NA, etc.
+            // If matched, these go in the special-action table and we skip
+            // the normal key-combo parse (which would fail for "Brightness+Down").
+            if let Some(action) = parse_special_action(&entry.to) {
+                special_table.push(SpecialActionEntry { from_vk, action });
+                continue;
+            }
+
             let (mods, key_vk) = match keys::parse_key_combo(&entry.to) {
                 Some(pair) => pair,
                 None => {
@@ -243,7 +340,7 @@ pub fn build_remap_tables(
         }
     }
 
-    (combo_table, trigger_table)
+    (combo_table, trigger_table, special_table)
 }
 
 /// Determine prefix modifier VKs sent before the gate modifier.
@@ -658,6 +755,43 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
         }
     }
 
+    // ── Special-action lookup (brightness, NA, etc.) ─────────────────────────
+    // Special actions fire on key-down edge only and swallow the source key
+    // (LRESULT(1)). Brightness calls are fast (~10ms DDC/CI) but we still
+    // dispatch on a background thread to avoid blocking the LL hook thread.
+    {
+        let sp_table = SPECIAL_ACTION_TABLE.lock().unwrap();
+        let sp = sp_table.iter().find(|e| e.from_vk == vk).cloned();
+        drop(sp_table);
+        if let Some(entry) = sp {
+            if is_down {
+                if debug {
+                    dbg_log(&format!("  ACT: special {:?}", entry.action));
+                }
+                match entry.action {
+                    SpecialAction::BrightnessDelta(d) => {
+                        std::thread::spawn(move || { crate::brightness::delta_all(d); });
+                    }
+                    SpecialAction::BrightnessAbs(p) => {
+                        std::thread::spawn(move || { crate::brightness::set_all_percent(p); });
+                    }
+                    SpecialAction::BacklightDelta(d) => {
+                        let cur = LAST_BACKLIGHT.load(std::sync::atomic::Ordering::Relaxed) as i32;
+                        let new_val = (cur + d).clamp(0, 255) as u8;
+                        LAST_BACKLIGHT.store(new_val, std::sync::atomic::Ordering::Relaxed);
+                        crate::post_user_event(crate::UserEvent::BacklightSet(new_val));
+                    }
+                    SpecialAction::BacklightAbs(v) => {
+                        LAST_BACKLIGHT.store(v, std::sync::atomic::Ordering::Relaxed);
+                        crate::post_user_event(crate::UserEvent::BacklightSet(v));
+                    }
+                    SpecialAction::NoOp => {}
+                }
+            }
+            return LRESULT(1);
+        }
+    }
+
     // ── Standard single-key remap lookup ─────────────────────────────────────
     let table = REMAP_TABLE.lock().unwrap();
     let found = table.iter().find(|r| r.from_vk == vk).cloned();
@@ -779,7 +913,7 @@ mod tests {
                 matrix_index: None,
             },
         ];
-        let (combos, triggers) = build_remap_tables(&remaps);
+        let (combos, triggers, _special) = build_remap_tables(&remaps);
         assert!(combos.is_empty());
         assert_eq!(triggers.len(), 1);
         assert_eq!(triggers[0].gate_mod_vk, 0x5B); // LWin
@@ -799,7 +933,7 @@ mod tests {
                 matrix_index: Some(30),
             },
         ];
-        let (combos, triggers) = build_remap_tables(&remaps);
+        let (combos, triggers, _special) = build_remap_tables(&remaps);
         assert_eq!(combos.len(), 1);
         assert_eq!(combos[0].from_vk, 0x14); // CapsLock
         assert_eq!(combos[0].modifier_vks, vec![0xA2]); // LCtrl
@@ -817,7 +951,7 @@ mod tests {
                 matrix_index: None,
             },
         ];
-        let (combos, triggers) = build_remap_tables(&remaps);
+        let (combos, triggers, _special) = build_remap_tables(&remaps);
         assert!(combos.is_empty());
         assert_eq!(triggers.len(), 1);
         assert_eq!(triggers[0].gate_mod_vk, 0x5B); // LWin
@@ -841,7 +975,7 @@ mod tests {
                 matrix_index: None,
             },
         ];
-        let (combos, triggers) = build_remap_tables(&remaps);
+        let (combos, triggers, _special) = build_remap_tables(&remaps);
         assert_eq!(combos.len(), 1);
         assert_eq!(combos[0].from_vk, 0x41); // 'A'
         assert!(combos[0].modifier_vks.is_empty());
@@ -859,5 +993,69 @@ mod tests {
     fn test_prefix_mods_lock() {
         let prefix = determine_prefix_mods(0x5B, 0x4C);
         assert!(prefix.is_empty());
+    }
+
+    #[test]
+    fn test_parse_special_action_dsl() {
+        assert!(matches!(parse_special_action("NA"), Some(SpecialAction::NoOp)));
+        assert!(matches!(parse_special_action("noop"), Some(SpecialAction::NoOp)));
+        assert!(matches!(
+            parse_special_action("Brightness+Down"),
+            Some(SpecialAction::BrightnessDelta(-10))
+        ));
+        assert!(matches!(
+            parse_special_action("brightness+up"),
+            Some(SpecialAction::BrightnessDelta(10))
+        ));
+        assert!(matches!(
+            parse_special_action("Brightness+-25"),
+            Some(SpecialAction::BrightnessDelta(-25))
+        ));
+        assert!(matches!(
+            parse_special_action("Brightness=50"),
+            Some(SpecialAction::BrightnessAbs(50))
+        ));
+        assert!(matches!(
+            parse_special_action("Brightness=200"),
+            Some(SpecialAction::BrightnessAbs(100))
+        ));
+        // Plain keys/combos must NOT be matched as special actions
+        assert!(parse_special_action("A").is_none());
+        assert!(parse_special_action("Ctrl+F12").is_none());
+        assert!(parse_special_action("VolumeMute").is_none());
+    }
+
+    #[test]
+    fn test_build_tables_special_actions() {
+        let remaps = vec![
+            RemapConfig {
+                name: "F8 dim".into(),
+                from: "F8".into(),
+                to: "Brightness+Down".into(),
+                matrix_index: None,
+            },
+            RemapConfig {
+                name: "F9 brighten".into(),
+                from: "F9".into(),
+                to: "Brightness+Up".into(),
+                matrix_index: None,
+            },
+            RemapConfig {
+                name: "F10 no-op".into(),
+                from: "F10".into(),
+                to: "NA".into(),
+                matrix_index: None,
+            },
+        ];
+        let (combos, triggers, special) = build_remap_tables(&remaps);
+        assert!(combos.is_empty());
+        assert!(triggers.is_empty());
+        assert_eq!(special.len(), 3);
+        assert_eq!(special[0].from_vk, 0x77); // F8
+        assert_eq!(special[1].from_vk, 0x78); // F9
+        assert_eq!(special[2].from_vk, 0x79); // F10
+        assert!(matches!(special[0].action, SpecialAction::BrightnessDelta(-10)));
+        assert!(matches!(special[1].action, SpecialAction::BrightnessDelta(10)));
+        assert!(matches!(special[2].action, SpecialAction::NoOp));
     }
 }

@@ -1,33 +1,69 @@
 # Razer Joro — Changelog
 
 ## TODO
-> [!tip] Methodical cleanup + BLE keymap RE (in priority order)
->
-> **AUTHORITATIVE FACTS as of 2026-04-13--2257 (do not walk back):**
-> - `class=0x02 cmd=0x0d` with 10-byte args `[0x01, matrix, 0x01, 0x02, 0x02, mod, usage, 0..0]` writes the **Hypershift layer** over USB. VERIFIED by Fn+Left=Home / Fn+Right=End test on both transports.
-> - **Wired and BLE share the same Hypershift storage slot.** One USB write programs both.
-> - **Commit trigger = transport mode switch.** Firmware stores the write immediately but only refreshes the runtime Hypershift table on wired↔BLE transition.
-> - A previous "keymap dead end" session reached wrong conclusions because it tested without cycling transport. Memory `project_hypershift_commit_trigger.md` supersedes `project_joro_keymap_deadend.md`.
->
-> **BLE Hypershift-writes RESOLVED (2026-04-13--2315):** there is no firmware write path over BLE. Prior work already confirmed it — see `_status.md` line 470 (git commit `6b65ffe`): HCI capture of Synapse doing a Hypershift remap over BLE showed **zero class=0x02 traffic**, and killing Synapse instantly broke the remap. Protocol30 `GET keymap` also returns `NOT_SUPPORTED` (line 541). Synapse's "BLE Hypershift" is host-side Windows interception, same pattern it uses for F1/F2/F3 slot-switch translation and mm-primary toggle. Memory: `project_ble_keymap_is_hostside.md`.
->
-> **The architecture we actually have is already correct:**
-> - USB `set_layer_remap` writes the firmware Hypershift slot. Works.
-> - Both wired AND BLE read from that slot. Proven today.
-> - User flow: plug USB once to program, then use BLE. Bindings persist.
-> - BLE no-op in `src/ble.rs:341` for `set_keymap_entry` and the USB guard at `src/main.rs:176` are correct — leave them, but add a clear user-facing message when someone tries to change a Hypershift binding while on BLE.
->
-> **OPEN — in order:**
-> 1. **UI/UX: make the USB-required-for-keymap-changes flow explicit.** When the settings UI tries to save a `[[fn_remap]]` change while the daemon is connected via BLE: (a) daemon should save to config but surface a clear "Connect USB cable once to apply new Fn-layer bindings" message to the user via the webview, (b) on next USB connect, auto-apply pending changes. Current code at `src/main.rs:208 update_fn_remap` already logs a similar note but it's eprintln-only.
-> 2. **Optional: host-side Hypershift interception** (match what Synapse does for BLE). Requires detecting "Fn held" host-side, which is hard because Fn alone doesn't emit a VK. Investigate: (a) does Joro emit a Razer-vendor HID usage on Fn press/release? `src/consumer_hook.rs` already opens the Consumer Control + System Control HID collections and can log unknown usages — run it in discovery mode while pressing Fn. (b) Check the decompiled Synapse source for how it detects Fn host-side — likely in `6886.d85cef2c.chunk.js` (`rzDevice30Layla`) or the keyboard-side webpack module. Synapse source cache path is referenced in `_status.md` line 518. Only pursue if user wants BLE-only Hypershift reprogramming without ever plugging USB.
-> 3. **Base-layer writes over USB** — still unknown what command targets the plain (non-Fn) keymap. Probably `cmd=0x0F` / `set_keymap_entry` with 18-byte args, or `cmd=0x0d` with a different `args[2]` value. Testable: capture Synapse programming a Standard-tab remap, diff against `captures/synapse_hypershift_u3.pcap`. Low priority — we have Hypershift covered and host-side combos cover most base-layer needs.
-> 4. **Cleanup**: strip debug `eprintln!`, remove `fn_detect.rs`, `cargo build --release`.
->
-> **Documentation debt cleaned up 2026-04-13--2310:**
-> - `src/usb.rs::set_layer_remap` doc-comment rewritten (was: "writes base layer" + "KNOWN DEAD END" — both wrong)
-> - `src/main.rs::apply_fn_remaps` doc-comment rewritten (was: "writes base layer" walkback)
-> - `src/keys.rs` matrix-index comment updated (was: asserted cmd=0x0F writes base layer without evidence)
-> - Memory: `project_hypershift_commit_trigger.md` supersedes `project_joro_keymap_deadend.md`; MEMORY.md index updated.
+> [!tip] Queued for next build
+> - **Consumer-hook fallback for F8/F9 brightness in MM mode.** F8/F9 emit Consumer BrightnessDown/Up which never become Win32 VKs, so the LL keyboard hook can't see them. Extend `src/consumer_hook.rs` to intercept these HID reports and dispatch to the `SpecialAction` pipeline so `F8 → Brightness+-25` fires while firmware stays in MM mode.
+> - **Icons polish.** Tray + window title icons still look pixelated from the PIL generator. Replace with hand-drawn multi-resolution ICO.
+> - **Cleanup pass + release build.** Strip `eprintln!`, the unused rzcontrol constants (`F1..F4`, `ESC`, `LALT`), `fn_detect.rs` diagnostic subcommand, then `cargo build --release`.
+> - **Optional / low priority:** base-layer firmware writes over USB (cmd=0x0F?), matrix table gaps (0x3F/0x41..0x45/0x52/0x57/0x58/>0x7B).
+
+## Build 2026-04-15--0453
+
+### Changes
+- **Decoded the fn↔mm toggle mechanism** — single BLE Protocol30 `SET class=0x01 cmd=0x02 sub=00,00 data=[mode, 0]` with mode 0x03 = Fn-primary, 0x00 = MM-primary. GET form `class=0x01 cmd=0x82` returns `[mode, 0]`. Eliminated the prior rzcontrol-filter-driver hunt entirely. Full write-up: `memory/project_fnmm_toggle_solved.md`.
+- **Daemon firmware-mode auto-detect** — new `Config::device_mode` field (default `"auto"` | `"fn"` | `"mm"`). In auto, `App::try_connect` scans `remap[].from` for Win-modified triggers (Win+L, Win+Copilot, etc). If any found → MM (so hardware combos survive). Otherwise → Fn (so F4-F12 emit plain VK_F*). Cached on `App::firmware_fn_primary` and pushed to the webview.
+- **New `src/brightness.rs` module** — DDC/CI external-monitor brightness via `dxva2.dll` Monitor Configuration API (`GetPhysicalMonitorsFromHMONITOR`, `GetVCPFeatureAndVCPFeatureReply`, `SetVCPFeature`). `delta_all(percent)` + `set_all_percent(percent)` work against every DDC/CI-capable monitor, honouring each monitor's reported min/max range.
+- **New CLI subcommands** for diagnostics: `set-mode fn|mm`, `brightness info | caps | vcp [CODE [= VAL]] | +N | -N | N`. Removed the dev-only `fnmm-probe`/`fnmm-sweep`/`c05-sweep`/`class-sweep`/`gatt-dump` scratch subcommands — they served their purpose during the hunt.
+- **Action DSL for remap `to` field.** New `SpecialAction` enum + `SpecialActionEntry` table in `src/remap.rs`. Parser `parse_special_action(&str)` recognises:
+  - `NA` / `NoOp` — swallow the key
+  - `Brightness+Down` / `Brightness+Up` / `Brightness+N` / `Brightness=N` — monitor DDC/CI
+  - `Backlight+Down` / `Backlight+Up` / `Backlight+N` / `Backlight=N` — Joro keyboard backlight
+  - Plain keys/combos and media VKs (`VolumeMute`, `MediaPlayPause`, etc) fall through to the existing combo parser unchanged.
+- **Cross-thread dispatch for backlight.** `UserEvent::BacklightSet(u8)` + `GLOBAL_PROXY: OnceLock<EventLoopProxy<_>>` + `post_user_event()` let the LL-hook thread ask main to run BLE I/O. `LAST_BACKLIGHT: AtomicU8` caches the last-known level so relative deltas compute without locking config.
+- **`BleDevice::set_device_mode(fn_primary)` + `get_device_mode()`** public on the `JoroDevice` trait. USB is a no-op default until we decode the wired-mode variant.
+- **Webview UI updates (`assets/settings.html`):**
+  - Stripped stale `fwMedia`/`fwEmits` "informational only" annotations from F4-F11. Each F-row key now has a `mmEmits` field (VolumeMute, BrightnessDown, BacklightUp, …) + `mmConsumer` / `mmVendor` flags.
+  - F1/F2/F3 gain `bleSlot: true`. New `.key.ble-locked` CSS (solid light grey, no-cursor) renders them as visually locked when `transport === 'BLE'`. Click handler stripped.
+  - `effectiveEmitsOf(k)` returns `k.mmEmits` when firmware is in MM mode, else the plain key name. `findRemapForKey` uses it with precedence: effectiveEmits > emits > fwEmits.
+  - Remap popover default-`From` uses `effectiveEmitsOf(k)` so clicking F5 in MM pre-fills `VolumeMute`. Firmware-mode-aware hint line explains "F5 currently emits VolumeMute (MM firmware mode)" or "switch to MM to restore VolumeMute behaviour".
+  - Default hover tooltip shows `F5 → emits VolumeMute (MM firmware mode)` on unmapped F5-F11 when firmware is MM.
+- **Regression fix**: initial attempt to force firmware Fn-primary on every connect broke hardware Win+L (Lock key) and LShift+LWin+0x86 (Copilot key) combos. Auto-detect now keeps firmware in MM when those trigger remaps exist in the config.
+- **Config state pushed to webview** now includes `firmware_fn_primary` (bool|null) and `device_mode_config` (string) so the UI can show mode-aware labels.
+- **Memory:** new `memory/project_fnmm_toggle_solved.md`, new `memory/project_fn_mm_toggle_semantics.md` (both linked from `MEMORY.md`). Removed stale "F4 = firmware Win+Tab macro" notes — F4 toggles like the rest of F5-F12, verified end-to-end.
+- **New standalone doc:** `ARCHITECTURE.md` at the repo root covers the full daemon + webview + remap stack as it stands after this build.
+
+### Tests
+- 41 unit tests in `cargo test` pass. New tests: `test_parse_special_action_dsl` covers the action DSL parser; `test_build_tables_special_actions` verifies F8/F9/F10 get routed to the `SpecialActionEntry` table instead of the normal combo table.
+
+> [!warning] Testing Checklist
+> - [ ] Settings window: open it, F1/F2/F3 render as solid light-grey with "firmware-locked BLE slot" tooltip; clicking them does nothing.
+>   - Notes:
+> - [ ] Remap popover on F5: `From` field pre-fills `VolumeMute` (not `F5`), hint line mentions `VolumeMute (MM firmware mode)`.
+>   - Notes:
+> - [ ] Remap popover on F8: popover opens, hint explains brightness is a consumer-page usage and will fire once consumer-hook interception lands (or "switch to Fn to make programmable").
+>   - Notes:
+> - [ ] Mapped-key tooltip: hover the F5 key on the keyboard diagram with `VolumeMute → F5` in config — tooltip should show `VolumeMute → F5`, not `F5 → F5`.
+>   - Notes:
+> - [ ] Press physical Lock key → Delete fires (trigger remap Win+L → Delete).
+>   - Notes:
+> - [ ] Press physical Copilot key → Ctrl+F12 fires (trigger remap Win+Copilot → Ctrl+F12).
+>   - Notes:
+> - [ ] Press F10/F11 → Joro keyboard backlight dims/brightens natively (MM-mode stock behaviour).
+>   - Notes:
+> - [ ] Remap F5 → `VolumeMute`: press F5 → system audio mutes.
+>   - Notes:
+> - [ ] Remap F9 → `Brightness+Up`: press F9 → monitor brightness increases via DDC/CI. NOTE: probably does NOT fire yet if firmware is in MM mode (F9 is consumer-page BrightnessUp, LL hook blind to it). Queued for consumer-hook fallback.
+>   - Notes:
+> - [ ] Remap F8 → `Brightness+-25`: press F8 → monitor dims 25% via DDC/CI. Same consumer-page caveat as F9.
+>   - Notes:
+> - [ ] `cargo run -- set-mode mm` then `set-mode fn`: firmware flips live each direction.
+>   - Notes:
+> - [ ] `cargo run -- brightness vcp 10 = 20`: monitor dims visibly (VCP 0x10 = 20 on 0-50 range = ~40%).
+>   - Notes:
+> - [ ] Daemon auto-detect: with Lock+Copilot trigger remaps in config, daemon log shows `firmware mode = MM-primary` on connect.
+>   - Notes:
+> - [ ] Remove Lock+Copilot remaps from config, restart daemon, log shows `firmware mode = Fn-primary`, F5-F12 emit plain VK_F5..VK_F12.
+>   - Notes:
 >
 > **Deferred from earlier (still valid):**
 > - Per-key MM remap UI polish, Function Keys Primary preset button, icons, consumer HID interception (F8/F9 brightness VKs), cleanup pass + release build. These all unblock after the BLE keymap work lands.

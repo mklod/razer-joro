@@ -6,11 +6,13 @@ Lightweight Windows background process to replace Razer Synapse for the Razer Jo
 **Synapse parity target** (user-defined 2026-04-13): full feature parity MINUS gaming features (keyswitch optimization, scroll wheel, macros). In-scope: fn/mm primary toggle, full Hypershift per-key remap UI, per-key MM override UI, lighting, settings persistence.
 
 **Known hard BLE limits** (verified 2026-04-13, not fixable host-side):
-- **F1/F2/F3 = BLE slot selectors**. Firmware-locked. Synapse itself cannot override them in BLE mode (tested with Function Keys Primary on).
+- **F1/F2/F3 = BLE slot selectors**. Firmware-locked. Synapse itself cannot override them in BLE mode (tested with Function Keys Primary on). UI renders them as solid light-grey "locked" keys on BLE transport.
 - In **wired** mode, F1/F2/F3 *do* reach the hook and can be remapped host-side. Synapse's fn-primary uses this same mechanism.
 
-**UNRESOLVED regression (2026-04-13, top priority for next session):**
-- **Copilot → Ctrl+F12 broken over BLE** even though it previously worked. The trigger loads into the daemon correctly, but the physical Copilot key over BLE produces zero events visible to WH_KEYBOARD_LL today. Root cause not yet identified — suspects include `src/consumer_hook.rs` (new this session) draining HID reports Windows needs, or other uncommitted working-tree changes. See `_status.md` task #10 for the investigation plan. **This was briefly misdocumented as a "hard BLE limit" — that was wrong.**
+**Fn↔MM toggle solved (2026-04-15):**
+- Single BLE Protocol30 write: `SET class=0x01 cmd=0x02 sub=00,00 data=[mode, 0]`. `mode=0x03` = Fn-primary, `mode=0x00` = MM-primary. GET form `class=0x01 cmd=0x82`. The daemon auto-selects the mode based on the user's config (MM when Win-modified trigger remaps exist, Fn otherwise). Eliminates the rzcontrol filter-driver path entirely. Full write-up in `memory/project_fnmm_toggle_solved.md`.
+- **Per-key F4-F12 programmability** follows: in Fn mode F4-F12 emit plain VK_F4..VK_F12 scancodes the LL hook swallows; in MM mode F5/F6/F7/F12 still work via their media VK aliases (VolumeMute/VolumeDown/VolumeUp/Snapshot). F8/F9 in MM mode still need a consumer-hook fallback — `src/consumer_hook.rs` interception is queued.
+- **Copilot regression from earlier sessions is gone** — the daemon's auto-detect keeps firmware in MM whenever Lock/Copilot trigger remaps are present, so the hardware combos that Windows needs to generate Win+L / LShift+LWin+0x86 are still emitted by the keyboard.
 
 ## Tech Stack
 - **Prototype:** Python 3, pyusb, libusb, bleak
@@ -99,7 +101,10 @@ Lightweight Windows background process to replace Razer Synapse for the Razer Jo
 - [x] Lighting controls in settings window (color picker + brightness slider + effect dropdown, single row)
 - [x] Battery indicator (icon + percent) in window header, updates every 30s
 - [x] Auto-save (no Save button)
-- [ ] **Hypershift (Fn-layer) view** in settings window — toggle between Default and Hypershift, click a key in Hypershift mode to assign Fn+X → Y at the firmware level (next up)
+- [x] **Hypershift (Fn-layer) view** in settings window — toggle between Default and Hypershift, click a key in Hypershift mode to assign Fn+X → Y at the firmware level
+- [x] **Action DSL for remap `to` field** — `NA`, `Brightness+Down/Up/±N/=N`, `Backlight+Down/Up/±N/=N`, plus existing media VKs. Parser + hook dispatch landed 2026-04-15.
+- [x] **F1/F2/F3 visually locked on BLE** — `.key.ble-locked` CSS + render logic
+- [x] **Firmware mode awareness** — webview reads `firmware_fn_primary` from daemon state, remap popover prefill + tooltips switch between Fn/MM based on current mode
 - [ ] Visual keyboard polish iteration
 
 ### Stage 6: Polish & Packaging — `TODO`
@@ -109,11 +114,12 @@ Lightweight Windows background process to replace Razer Synapse for the Razer Jo
 - [x] Joro matrix index discovery — `scan <batch>` CLI subcommand; ~60 of ~85 keys mapped (2026-04-13)
 - [x] Firmware protocol corrected — `set_fn_layer_remap` → `set_layer_remap`; `args[0]=0x01` is constant, not a layer selector (Synapse capture 2026-04-13)
 - [x] BLE slot selector architecture discovered — firmware-internal handler bypasses matrix; matrix remaps are safe to use
-- [x] **F4 = rename shipped** — discovered F4 is a firmware keyboard macro emitting Win+Tab, intercepted via existing combo-source trigger (`[[remap]] Win+Tab → F2`). User's primary goal complete
-- [x] Consumer HID interception layer built (`src/consumer_hook.rs`) — hidapi reads confirmed non-consuming on Windows, layer used for discovery/logging
-- [x] Synapse mm↔fn primary setting confirmed to be a Synapse host-side feature, not firmware (clean capture showed zero class=0x02 traffic during toggle)
-- [x] `set_fn_key_toggle` experiment removed as dead code after above finding
+- [x] **F4 corrected** — F4 is NOT a firmware macro (earlier "Win+Tab macro" wording was wrong); F4 toggles fn/mm behaviour like F5-F12. Verified 2026-04-15.
+- [x] Consumer HID interception layer built (`src/consumer_hook.rs`) — hidapi reads confirmed non-consuming on Windows, layer used for discovery/logging. Next step: dispatch to `SpecialAction` table for F8/F9 MM-mode brightness.
+- [x] **Synapse mm↔fn primary setting fully decoded** — BLE Protocol30 `SET class=0x01 cmd=0x02 sub=00,00 data=[mode, 0]`. Earlier "purely host-side" claim was wrong — it IS a single firmware write. Memory `project_fnmm_toggle_solved.md` supersedes prior guesses.
+- [x] **DDC/CI monitor brightness backend** — `src/brightness.rs` using `dxva2.dll` Monitor Configuration API works on the user's Falcon 5120x1440 via VCP 0x10.
+- [ ] **Consumer-hook brightness fallback** — route Consumer BrightnessDown/Up from `consumer_hook.rs` into the `SpecialAction` dispatch so F8/F9 brightness remap fires even when firmware stays in MM. Task #10.
 - [ ] Icons redraw — current PIL-generated ICO looks pixelated
 - [ ] Error handling polish
-- [ ] Strip debug `eprintln!` from `ble.rs`, remove `fn_detect.rs` (served its purpose)
+- [ ] Strip debug `eprintln!` from `ble.rs` + unused rzcontrol F1-F4 constants, remove `fn_detect` diagnostic subcommand
 - [ ] Single `.exe` release build via `cargo build --release` (LTO + strip already configured)

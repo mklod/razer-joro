@@ -29,7 +29,31 @@ pub struct Config {
     /// the consumer pipeline.
     #[serde(default)]
     pub consumer_remap: Vec<ConsumerRemapConfig>,
+    /// Fn-keys primary mode over BLE. When true, the daemon opens the
+    /// Razer filter driver (RzDev_02ce) and installs scancode hooks so
+    /// F5..F12 act as plain VK_F5..VK_F12 instead of brightness/volume/
+    /// backlight. Reproduces Razer Synapse's "Function Keys Primary"
+    /// toggle without needing Synapse running. BLE transport only.
+    #[serde(default)]
+    pub ble_fn_primary: bool,
+
+    /// Joro firmware device mode — "auto" (default) | "fn" | "mm".
+    ///
+    /// "fn" = Fn-primary: F4-F12 emit plain VK_F4..VK_F12 scancodes.
+    ///        Best for programming F-keys but disables hardware Win+L
+    ///        and Copilot combos — Lock/Copilot stop working.
+    /// "mm" = MM-primary: F5-F9 emit consumer usages (mute/vol/brightness),
+    ///        Lock/Copilot hardware combos work.
+    /// "auto" = scan `remap` for Win+X trigger entries. If any exist, use
+    ///          MM so those combos survive. Otherwise use Fn.
+    ///
+    /// Controlled via BLE Protocol30 SET class=0x01 cmd=0x02 data=[mode,0].
+    /// See memory/project_fnmm_toggle_solved.md.
+    #[serde(default = "default_device_mode")]
+    pub device_mode: String,
 }
+
+fn default_device_mode() -> String { "auto".to_string() }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct LightingConfig {
