@@ -88,9 +88,10 @@
 > - [x] PoC `SetInputHook(F8, flag=0)` removes filter rule
 > - [x] F8 verified restored to monitor brightness OSD
 > - [x] F1/F2/F3 confirmed firmware-locked (hook installs but slot switching still fires)
-> - [ ] Rust port working in daemon (next session)
+> - [ ] **REGRESSION:** After bulk unhook+rehook of F5-F12, subsequent hook calls no longer intercept. Driver returns OK but filter doesn't activate. Suspected missing init phase via `0x88883020` IOCTL. Unblock next session.
+> - [ ] Rust port working in daemon (blocked on regression)
 > - [ ] Daemon rzcontrol calls coexist with Razer Elevation Service (untested)
-> - [ ] UI toggle wired (next session)
+> - [ ] UI toggle wired (blocked on regression)
 
 ## Build 2026-04-14--1854 — Razer filter driver IOCTL interface decoded (research)
 
