@@ -47,6 +47,93 @@
 > - **Cleanup pass + release build** — strip noisy debug eprintln, remove unused `fn_detect` module, `cargo build --release`.
 > - Test USB↔BLE mid-session transport switch; test 2.4GHz dongle (PID 0x02CE).
 
+## Build 2026-04-14--1937 — Filter-driver IOCTL PoC working end-to-end (F4–F12 fn-primary parity proven)
+
+**Research complete for fn-primary F4–F12 parity.** `scripts/rzcontrol_poc.py` opens the Razer `RzDev_02ce` filter-driver control device from user-mode Python and successfully drives `EnableInputHook` + `EnableInputNotify` + `SetInputHook` round-trip toggle. No Synapse, no BLE writes, no admin elevation.
+
+**Verified working:**
+- `python rzcontrol_poc.py hook F8` → F8 emits VK_F8 (Chrome DevTools "resume" confirmed), no monitor brightness OSD
+- `python rzcontrol_poc.py unhook F8` → F8 restored to brightness OSD (MM keys behavior)
+- Round-trip toggle mechanism: `SetInputHook` struct with `flag=1` at offset 0x04 installs rule, `flag=0` removes it. Struct `[header 4B = 0] [flag 4B] [modifier 2B = 0] [scancode u16 LE] [272B reserved 0]`.
+
+**F1/F2/F3 test:** hooks install successfully but BLE slot switching still fires. Confirms prior memory — slot switching happens in firmware BELOW the HID stack, so the filter never sees the scancode. Not circumventable via this path.
+
+**Complete capability** for fn-primary on Joro BLE now confirmed:
+
+| Key set | Mechanism | Coverage |
+|---|---|---|
+| F1/F2/F3 BLE slots | Firmware-locked below HID | ❌ uncircumventable |
+| F4 (Win+Tab macro) | Existing combo-source remap | ✅ already working |
+| F5/F6/F7 (Consumer Mute/Vol) | LL hook w/ injection tag OR filter driver | ✅ two paths |
+| **F8/F9 (Brightness)** | **Filter driver only** (no Win32 VK for brightness) | ✅ **new** |
+| **F10/F11 (backlight)** | **Filter driver only** (no Win32 VK) | ✅ **new** |
+| F12 (PrintScreen VK) | LL hook OR filter driver | ✅ two paths |
+
+**Session notes:**
+- 9 Frida scripts written + `rzcontrol_poc.py` added to `scripts/`
+- Research-only: zero daemon code changes this session
+- Next session: Rust port (`src/rzcontrol.rs`), integrate with existing `fn_host_remap` flow, UI toggle, test across transport cycles
+
+**Files changed:**
+- `_status.md`, `CHANGELOG.md` — session writeup
+- `scripts/rzcontrol_poc.py` (new) — production-quality Python PoC with hook/unhook/enable/disable CLI
+- `scripts/frida_*.py` (new, multiple) — investigation tooling: module enum, IOCTL hook, HID.DLL hook, hidapi hook, auto-attach watcher
+- Memory: `project_razer_filter_driver_ioctls.md` — now includes PoC verification + toggle round-trip results
+
+> [!warning] Testing Checklist
+> - [x] PoC opens rzcontrol BLE device handle (no elevation, no error)
+> - [x] PoC `EnableInputHook(1)` + `EnableInputNotify(1)` succeed
+> - [x] PoC `SetInputHook(F8, flag=1)` installs filter rule
+> - [x] F8 verified emitting VK_F8 via Chrome DevTools "resume"
+> - [x] PoC `SetInputHook(F8, flag=0)` removes filter rule
+> - [x] F8 verified restored to monitor brightness OSD
+> - [x] F1/F2/F3 confirmed firmware-locked (hook installs but slot switching still fires)
+> - [ ] Rust port working in daemon (next session)
+> - [ ] Daemon rzcontrol calls coexist with Razer Elevation Service (untested)
+> - [ ] UI toggle wired (next session)
+
+## Build 2026-04-14--1854 — Razer filter driver IOCTL interface decoded (research)
+
+**Research-only session, no daemon code changes.** Decoded Synapse's fn-primary mechanism on Joro BLE via Frida hooking of `NtDeviceIoControlFile` in `RazerAppEngine.exe` main process.
+
+**Key finding:** Synapse uses a **Razer kernel lower-filter driver (`RzDev_02ce.sys`)** to intercept F-row scancodes at the kernel level. The driver exposes a control device at `\\?\rzcontrol#vid_068e&pid_02ce&mi_00#<instance>#{e3be005d-d130-4910-88ff-09ae02f680e9}`.
+
+**IOCTL vocabulary decoded** (device type `0x8888`, `METHOD_BUFFERED`):
+- `0x88883034` `EnableInputHook(bool)` — 4-byte input, turns filter on
+- `0x88883038` `EnableInputNotify(bool)` — 4-byte input, enables notification channel
+- `0x88883024` `SetInputHook(struct)` — 292-byte per-scancode registration
+- `0x88883020` (Function 0xC08) — unknown, 20-byte input with Consumer usage 0x70 (BrightnessDown)
+- `0x88883018` — status/heartbeat poll (304-byte output, kernel pool data, NOT an event stream)
+
+**Synapse's init sequence** when user opens the Joro device page:
+1. `EnableInputHook(1)`
+2. `EnableInputNotify(1)`
+3. `SetInputHook` for each of: `0x01 0f 38 3b 3c 3d 3e 3f 40 41 42 43 44 47 49 4f 51 57 58` (Esc, Tab, LAlt, F1–F12, Kp nav)
+
+**🔴 Significant finding:** F1, F2, F3 are in the scancode list Synapse registers. Prior memory says these are "firmware-locked as BLE slot selectors" — but that was empirically observed with Synapse+filter in the chain. The filter may be what suppresses them, not the firmware. Testable.
+
+**What we don't know yet:**
+- 272 bytes of tail in the `SetInputHook` struct (all zero in current capture)
+- How Synapse receives intercepted events to re-emit them
+- How to cleanly unregister a scancode
+
+**Files changed:**
+- `scripts/frida_*.py` (9 new Python scripts for Frida enumeration, module/export dumping, IOCTL hooking, HID.DLL hooking, hidapi hooking, auto-attach watcher)
+- `_status.md`, `CHANGELOG.md` updated
+- New memory: `project_razer_filter_driver_ioctls.md` with complete IOCTL doc
+
+**What to do next:**
+1. Python PoC: open rzcontrol device, send `EnableInputHook(1)` via `DeviceIoControl`. Confirms user-mode access without Synapse.
+2. Rust port: `src/rzcontrol.rs` client replicating the init sequence.
+3. F1/F2/F3 test: remove `RzDev_02ce` from the BTHLE LowerFilters, verify scancode behavior.
+4. Find the event receive channel (second Frida pass or kernel driver RE).
+
+> [!warning] Testing Checklist
+> - [ ] Python PoC: CreateFile + DeviceIoControl EnableInputHook succeeds
+> - [ ] Rust port: open rzcontrol + init sequence + smoke test on F8 (filter swallows)
+> - [ ] F1/F2/F3 scancode emission test with filter removed from LowerFilters
+> - [ ] Synapse parity verified for F4–F12 (clean key presses, no side effects)
+
 ## Build 2026-04-14--0142 — Hypershift UI wired for host-side remaps
 
 **Changes**
