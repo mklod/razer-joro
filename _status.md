@@ -44,10 +44,34 @@
 5. Test that our daemon's rzcontrol calls survive a transport cycle (wired↔BLE) and a full keyboard power-cycle.
 6. Document the final user-facing flow in webview hints.
 
-**Open follow-ups:**
-- 272-byte tail of SetInputHook struct — may encode arbitrary translation output. Uncaptured. Not needed for MVP.
-- `0x88883020` IOCTL (function 0xC08) — captured twice with consumer usage 0x70 (BrightnessDown). Possibly a consumer-usage-level filter that runs before the scancode filter. Not needed for MVP.
-- Rust tests for the IOCTL client — `mockall` or integration tests against a staged device.
+**🔴 Known regression discovered at end of session — BLOCKS clean replication:**
+
+After `rzcontrol_poc.py unhook F5 F6 F7 F8 F9 F10 F11 F12` + `hook F5 F6 F7 F8 F9 F10 F11 F12`, subsequent hook calls return OK from the driver but **no longer actually intercept**. F8/ESC/any scancode all behave normally despite `SetInputHook(flag=1)` succeeding.
+
+**Earlier in the same session the mechanism worked end-to-end** — F8 → VK_F8 was empirically verified via Chrome DevTools "resume" action. That observation is real. Something our later test sequence did (probably the batch unhook) put the filter into a state our fresh hook calls can't recover from.
+
+**Leading theory:** Synapse's init sequence has **two phases**: (1) a consumer-usage-level filter setup via `0x88883020` (Function 0xC08), called ONCE with payload `00 00 00 00  0a 00 00 00  70 00 00 00 ...` where `0x70` = Consumer BrightnessDown, (2) per-scancode rules via `SetInputHook`. Our PoC skipped phase 1 and only worked because Synapse had already done it. After we cleared all rules with flag=0, the filter reverted to "uninitialized" state, and our phase-2-only PoC can't set it up from scratch.
+
+**To unblock:** either (a) launch Synapse fresh once to re-init, kill it, then our PoC can modify the existing initialized state; or (b) capture `0x88883020` payload more precisely and include that call in our PoC before `SetInputHook`.
+
+**🟡 Other remaining unknowns — next-session investigation queue:**
+
+These are NOT blocking the fn-primary MVP (once the regression above is sorted), but matter for deeper Synapse parity and custom remap features:
+
+1. **272-byte tail of `SetInputHook` struct** — possibly encodes arbitrary translation (F8 → Ctrl+F12, F8 → macro, etc.) rather than just "default function-key VK". Synapse users can set custom Hypershift actions; if we want to match that, we need to know this layout. **Capture path:** hook mapping_engine.dll functions that build custom Hypershift mappings, trigger a custom Fn+F8 mapping in Synapse UI, diff the resulting SetInputHook bytes.
+2. **`0x88883020` IOCTL (Function `0xC08`)** — captured twice with 20-byte input containing Consumer usage `0x70` (BrightnessDown). Possibly a consumer-usage-level filter that complements scancode hooks. Uncalled in our working PoC. **Capture path:** trigger the specific UI action that makes Synapse call this (unknown trigger), Frida hook it with expanded args.
+3. **Event receive channel** — `0x88883018` is a heartbeat/stats poll, not an event stream. Synapse must have another way to receive filtered events (to re-emit them or react). Possibly an `IoCompletionPort`, Event object, or a different IOCTL. **Capture path:** run Synapse with Frida hook watching `NtCreateIoCompletion`, `NtWaitForSingleObject`, and any 0x8888xxxx IOCTL we haven't seen; correlate with key-press timing.
+4. **Per-process handle ownership** — when multiple processes (Synapse + our daemon) both try to open rzcontrol, who wins and what happens to the other? Can we share? Does the filter queue events per-client or system-wide? **Test:** run `rzcontrol_poc.py hook F8` while Synapse is running; see if both work or if the second fails.
+5. **Rule persistence across reboots / device re-enum** — empirical: hooks persist across PoC exit (CloseHandle doesn't un-install them). Do they survive a Windows reboot? Keyboard power cycle? BARROT replug? **Test:** install hook, reboot, test F8 immediately on next boot before any daemon runs.
+6. **Rust integration tests** — mockable trait around `CreateFile`+`DeviceIoControl`, plus optional integration test against a staged device.
+
+**Next-session concrete TODO** (in order):
+1. **Unblock the regression** — figure out the phase-1 init. Run Synapse with Frida capturing ALL IOCTLs on rzcontrol (not just type 0x8888 — widen filter). Decode `0x88883020` payload exactly. Add it to PoC before SetInputHook. Verify round-trip from virgin state works.
+2. Port `rzcontrol_poc.py` → `src/rzcontrol.rs` using `windows-rs` crate (`Win32_Devices_DeviceAndDriverInstallation`, `Win32_Storage_FileSystem`, `Win32_System_IO`).
+3. Integrate with `fn_host_remap` config. Add per-key `mode` field: `"host_hook"` (existing LL hook path) vs `"filter"` (new filter-driver path). Default filter mode for F8/F9/F10/F11.
+4. UI: single "Function Keys Primary" toggle in settings webview for enabling the filter hook for all F5-F12 at once, plus per-key override.
+5. Coexistence test: our daemon's rzcontrol calls while Razer Elevation Service is running. If the elevation service holds an exclusive handle, we need to kill it first (like Synapse does) or share.
+6. Transport cycle test: wired↔BLE switches. Does the rzcontrol handle need to be re-opened?
 
 **Related memories updated:** `project_razer_filter_driver_ioctls.md` has the full decoded IOCTL reference + struct layout + PoC verification notes.
 
