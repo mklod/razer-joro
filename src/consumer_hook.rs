@@ -32,8 +32,17 @@ use crate::config::ConsumerRemapConfig;
 use crate::keys;
 use crate::remap::{make_key_input, send_inputs};
 
-const JORO_VID: u16 = 0x1532;
-const JORO_PID_WIRED: u16 = 0x02CD;
+// Joro ships as several VID/PID pairs depending on transport:
+//   VID 0x1532 PID 0x02CD → wired USB
+//   VID 0x1532 PID 0x02CE → 2.4 GHz dongle (untested but same stack)
+//   VID 0x068E PID 0x02CE → BLE (BthHID exposes it under the BT vendor
+//                                 ID for the radio, not Razer's)
+// We accept all three so the consumer hook runs regardless of transport.
+const JORO_VENDORS: &[(u16, u16)] = &[
+    (0x1532, 0x02CD),
+    (0x1532, 0x02CE),
+    (0x068E, 0x02CE),
+];
 const CONSUMER_USAGE_PAGE: u16 = 0x000C;
 const CONSUMER_USAGE: u16 = 0x0001;
 // System Control usage page carries keys Joro routes outside the
@@ -149,10 +158,15 @@ impl ConsumerHook {
     /// Start the hook thread for the given remap config. Returns None if
     /// no Joro consumer interface is found or the config is empty.
     pub fn start(cfg: &[ConsumerRemapConfig]) -> Option<Self> {
+        // Always start the consumer hook — even when the dedicated
+        // `consumer_remap` config list is empty. The loop also checks
+        // `remap::lookup_consumer_action(usage)` against the new shared
+        // consumer-action table, which is populated from base-layer
+        // `[[remap]]` entries whose `from` is a consumer usage name
+        // (e.g. `BrightnessDown`). Without this change, F8/F9 brightness
+        // remaps in MM mode never fired because the hook bailed out on
+        // an empty dedicated `consumer_remap` list.
         let entries = compile_entries(cfg);
-        if entries.is_empty() {
-            return None;
-        }
         let stop = Arc::new(AtomicBool::new(false));
         let stop_thread = stop.clone();
         let entries_map: HashMap<u16, ConsumerRemapEntry> =
@@ -188,7 +202,8 @@ fn open_input_interfaces(api: &HidApi) -> Vec<(String, hidapi::HidDevice)> {
     let mut candidates: Vec<(&hidapi::DeviceInfo, &'static str)> = api
         .device_list()
         .filter_map(|d| {
-            if d.vendor_id() != JORO_VID || d.product_id() != JORO_PID_WIRED {
+            let vp = (d.vendor_id(), d.product_id());
+            if !JORO_VENDORS.iter().any(|(v, p)| *v == vp.0 && *p == vp.1) {
                 return None;
             }
             if d.usage_page() == CONSUMER_USAGE_PAGE && d.usage() == CONSUMER_USAGE {
@@ -284,6 +299,43 @@ fn run_loop(stop: Arc<AtomicBool>, entries: HashMap<u16, ConsumerRemapEntry>) {
                 if let Some(prev) = last_usage.remove(kind) {
                     if let Some(entry) = entries.get(&prev) {
                         emit_combo_up(entry);
+                    }
+                }
+                continue;
+            }
+            // First check the new ConsumerActionEntry table (populated by
+            // build_remap_tables from [[remap]] entries whose `from` is a
+            // consumer-usage name like "BrightnessDown"). This is the
+            // path for brightness/backlight remaps since Windows doesn't
+            // create a VK for those usages and the LL hook never sees
+            // them. Fires on the key-down edge only.
+            if let Some(act_entry) = crate::remap::lookup_consumer_action(usage) {
+                eprintln!(
+                    "joro-consumer-hook: {kind} usage=0x{usage:04x} consumer-action → {}",
+                    act_entry.label
+                );
+                match act_entry.action {
+                    crate::remap::ConsumerActionKind::Special(ref sa) => {
+                        crate::remap::dispatch_special_action(sa);
+                    }
+                    crate::remap::ConsumerActionKind::KeyCombo {
+                        ref modifier_vks,
+                        key_vk,
+                    } => {
+                        // Emit a down+up pair immediately. Consumer HID
+                        // reports don't give us a reliable key-up edge
+                        // for every usage (brightness Fn-key taps fire
+                        // on down only), so we synthesize both.
+                        let mut inputs = Vec::with_capacity(modifier_vks.len() * 2 + 2);
+                        for &m in modifier_vks {
+                            inputs.push(make_key_input(m, false));
+                        }
+                        inputs.push(make_key_input(key_vk, false));
+                        inputs.push(make_key_input(key_vk, true));
+                        for &m in modifier_vks.iter().rev() {
+                            inputs.push(make_key_input(m, true));
+                        }
+                        send_inputs(&inputs);
                     }
                 }
                 continue;

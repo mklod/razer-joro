@@ -22,12 +22,33 @@ use windows::core::PCWSTR;
 // daemon has no file I/O dependency at runtime. If we ever want live icon
 // editing we can switch to Icon::from_path().
 
+// Legacy hand-drawn PIL ICOs — kept as fallback because they contain
+// every size from 16px to 256px and work well for the window title-bar.
 pub const ICON_CONNECTED: &[u8] = include_bytes!("../assets/joro_icon.ico");
 pub const ICON_DISCONNECTED: &[u8] = include_bytes!("../assets/joro_icon_disconnected.ico");
 
+// Authoritative tray icon sources: 32x32 PNGs derived from Microsoft's
+// On-Screen Keyboard (osk.exe) icon. The hand-drawn PIL versions kept
+// looking pixelated at 16px no matter what we tried, so we post-process
+// osk's built-in keyboard glyph into our connected / disconnected
+// variants via `assets/gen_icon.py` + `assets/extract_osk_icon.ps1`.
+// See those scripts for the license note.
+pub const TRAY_PNG_CONNECTED: &[u8] = include_bytes!("../assets/joro_icon_32.png");
+pub const TRAY_PNG_DISCONNECTED: &[u8] = include_bytes!("../assets/joro_icon_disconnected_32.png");
+
 /// Decode the embedded connected icon into raw RGBA + dimensions, for use
 /// as the window title-bar icon (winit::window::Icon::from_rgba).
+/// Prefers the 32x32 osk-derived PNG so the title-bar matches the tray
+/// icon visually; falls back to the legacy multi-size ICO if decode
+/// fails.
 pub fn window_icon_rgba() -> Option<(Vec<u8>, u32, u32)> {
+    if let Ok(img) =
+        image::load_from_memory_with_format(TRAY_PNG_CONNECTED, image::ImageFormat::Png)
+    {
+        let rgba = img.to_rgba8();
+        let (w, h) = rgba.dimensions();
+        return Some((rgba.into_raw(), w, h));
+    }
     let img = image::load_from_memory_with_format(ICON_CONNECTED, image::ImageFormat::Ico)
         .ok()?
         .to_rgba8();
@@ -47,10 +68,21 @@ fn load_icon_from_ico(bytes: &[u8]) -> Option<Icon> {
     Icon::from_rgba(img.into_raw(), w, h).ok()
 }
 
-/// Return a tray icon reflecting the current connection state. Loads from
-/// the pre-rendered .ico file; falls back to a runtime pixel drawing if the
-/// embedded file can't be decoded (shouldn't happen in practice).
+/// Return a tray icon reflecting the current connection state. Loads
+/// the dedicated 32x32 PNG (not the multi-size ICO) so Windows does a
+/// single sharp downscale from a hand-rendered source to whatever the
+/// current tray display size is. Falls back to runtime pixel drawing
+/// if PNG decode fails (shouldn't happen in practice).
 pub fn create_icon(connected: bool) -> Icon {
+    let png_bytes = if connected { TRAY_PNG_CONNECTED } else { TRAY_PNG_DISCONNECTED };
+    if let Ok(img) = image::load_from_memory_with_format(png_bytes, image::ImageFormat::Png) {
+        let rgba = img.to_rgba8();
+        let (w, h) = rgba.dimensions();
+        if let Ok(icon) = Icon::from_rgba(rgba.into_raw(), w, h) {
+            return icon;
+        }
+    }
+    // Legacy fallback path — ICO-based loader, then raw pixel draw.
     let bytes = if connected { ICON_CONNECTED } else { ICON_DISCONNECTED };
     if let Some(icon) = load_icon_from_ico(bytes) {
         return icon;

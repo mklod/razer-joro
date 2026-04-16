@@ -26,7 +26,7 @@ use windows::Win32::Foundation::{BOOL, LPARAM, RECT};
 use windows::Win32::Devices::Display::{
     CapabilitiesRequestAndCapabilitiesReply, DestroyPhysicalMonitors,
     GetCapabilitiesStringLength, GetMonitorBrightness, GetPhysicalMonitorsFromHMONITOR,
-    GetVCPFeatureAndVCPFeatureReply, SetMonitorBrightness, SetVCPFeature, PHYSICAL_MONITOR,
+    GetVCPFeatureAndVCPFeatureReply, SetVCPFeature, PHYSICAL_MONITOR,
 };
 use windows::Win32::Graphics::Gdi::{
     EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFO,
@@ -80,6 +80,12 @@ pub struct PhysicalMonitor {
 impl PhysicalMonitor {
     /// Open every physical monitor for every HMONITOR. Monitors that
     /// don't support DDC/CI brightness are silently skipped.
+    ///
+    /// Uses `GetMonitorBrightness` as the filter because empirically
+    /// that's the sequence the known-working `brightness vcp 10 = N`
+    /// CLI path used when it first dimmed the user's Falcon cleanly.
+    /// An earlier attempt to swap this for `GetVCPFeatureAndVCPFeatureReply`
+    /// caused the Falcon to full-reboot on subsequent writes.
     pub fn enumerate() -> Vec<PhysicalMonitor> {
         let mut out = Vec::new();
         for hm in enum_monitors() {
@@ -99,7 +105,6 @@ impl PhysicalMonitor {
                     let (mut mn, mut cu, mut mx) = (0u32, 0u32, 0u32);
                     let r = GetMonitorBrightness(pm.hPhysicalMonitor, &mut mn, &mut cu, &mut mx);
                     if r == 0 {
-                        // DDC/CI not supported on this monitor — close + skip
                         let _ = DestroyPhysicalMonitors(&[pm]);
                         continue;
                     }
@@ -114,18 +119,6 @@ impl PhysicalMonitor {
             }
         }
         out
-    }
-
-    pub fn set(&mut self, level: u32) -> WinResult<()> {
-        let clamped = level.clamp(self.min, self.max);
-        unsafe {
-            let r = SetMonitorBrightness(self.pm.hPhysicalMonitor, clamped);
-            if r == 0 {
-                return Err(windows::core::Error::from_win32());
-            }
-        }
-        self.cur = clamped;
-        Ok(())
     }
 
     /// Read the MCCS capability string — a parenthesised S-expression the
@@ -203,61 +196,82 @@ impl Drop for PhysicalMonitor {
     }
 }
 
-/// Shift every DDC/CI-capable monitor's brightness by `delta` percent of
-/// its available range, clamped to the monitor's reported min/max. Logs
-/// per-monitor failures and returns the number of monitors successfully
-/// adjusted.
+/// Step VCP 0x10 one unit at a time from `start` to `target` with a
+/// small sleep between each write. Some monitors (Falcon 5120x1440)
+/// full-reboot their scaler if a DDC/CI brightness change exceeds a
+/// few units in a single write, but tolerate rapid single-step writes
+/// just fine. 5ms per step means a full 0-50 sweep takes ~250ms.
+fn stepped_write(m: &PhysicalMonitor, start: u32, target: u32) {
+    let mut v = start as i32;
+    let end = target as i32;
+    let dir: i32 = if end > v { 1 } else if end < v { -1 } else { return };
+    while v != end {
+        v += dir;
+        if let Err(e) = m.vcp_set(0x10, v as u32) {
+            eprintln!("brightness: stepped write {v} failed: {e}");
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+}
+
+/// Global serialization + brightness cache. All brightness adjustments
+/// go through this lock so rapid rebinding taps don't race their own
+/// `enumerate()` reads against each other. The cached `u32` is the
+/// last-applied VCP 0x10 value — chained delta requests compute against
+/// this instead of re-reading from the monitor (DDC/CI reads are slow
+/// and on some monitors destabilize the scaler).
+static BRIGHTNESS_CACHE: std::sync::Mutex<Option<u32>> = std::sync::Mutex::new(None);
+
+/// Shift every DDC/CI-capable monitor's brightness by `delta` percent
+/// of its available range. Serialized via `BRIGHTNESS_CACHE` so rapid
+/// keypresses don't race each other's `enumerate()` reads — each call
+/// starts from the previous call's resolved target, chaining correctly.
 pub fn delta_all(delta: i32) -> usize {
+    let mut cache = BRIGHTNESS_CACHE.lock().unwrap();
     let monitors = PhysicalMonitor::enumerate();
     if monitors.is_empty() {
         eprintln!("brightness: no DDC/CI-capable monitors found");
         return 0;
     }
-    let mut ok = 0usize;
-    for mut m in monitors {
-        let range = m.max as i32 - m.min as i32;
-        if range <= 0 {
-            continue;
-        }
-        let step = (range * delta / 100).abs().max(1);
-        let new_val = if delta >= 0 {
-            (m.cur as i32 + step).clamp(m.min as i32, m.max as i32)
-        } else {
-            (m.cur as i32 - step).clamp(m.min as i32, m.max as i32)
-        } as u32;
-        match m.set(new_val) {
-            Ok(()) => {
-                eprintln!(
-                    "brightness: {} → {} (range {}..{})",
-                    m.friendly, new_val, m.min, m.max
-                );
-                ok += 1;
-            }
-            Err(e) => eprintln!("brightness: set {} failed: {e}", m.friendly),
-        }
-    }
-    ok
+    // Single-monitor cache (sufficient for the user's Falcon setup).
+    // Multi-monitor support would need a per-handle map.
+    let m = &monitors[0];
+    let range = m.max as i32 - m.min as i32;
+    if range <= 0 { return 0; }
+    let start = cache.unwrap_or(m.cur);
+    let step = (range * delta / 100).abs().max(1);
+    let new_val = if delta >= 0 {
+        (start as i32 + step).clamp(m.min as i32, m.max as i32)
+    } else {
+        (start as i32 - step).clamp(m.min as i32, m.max as i32)
+    } as u32;
+    eprintln!("brightness: {} ramping {} -> {} (range {}..{})",
+        m.friendly, start, new_val, m.min, m.max);
+    stepped_write(m, start, new_val);
+    *cache = Some(new_val);
+    1
 }
 
-/// Absolute set: clamp to each monitor's min/max and write.
+/// Absolute set: map `percent` (0-100) onto the monitor's reported
+/// min/max range and ramp VCP 0x10 in single-unit steps. Serialized
+/// via `BRIGHTNESS_CACHE`; the cache is updated to the new target so
+/// subsequent delta calls chain correctly.
 pub fn set_all_percent(percent: u32) -> usize {
+    let mut cache = BRIGHTNESS_CACHE.lock().unwrap();
     let p = percent.min(100);
     let monitors = PhysicalMonitor::enumerate();
     if monitors.is_empty() {
         eprintln!("brightness: no DDC/CI-capable monitors found");
         return 0;
     }
-    let mut ok = 0usize;
-    for mut m in monitors {
-        let range = m.max.saturating_sub(m.min);
-        let target = m.min + (range * p / 100);
-        match m.set(target) {
-            Ok(()) => {
-                eprintln!("brightness: {} → {} ({}%)", m.friendly, target, p);
-                ok += 1;
-            }
-            Err(e) => eprintln!("brightness: set {} failed: {e}", m.friendly),
-        }
-    }
-    ok
+    let m = &monitors[0];
+    let range = m.max.saturating_sub(m.min);
+    let target = m.min + (range * p / 100);
+    let start = cache.unwrap_or(m.cur);
+    eprintln!("brightness: {} ramping {} -> {} ({}%)",
+        m.friendly, start, target, p);
+    stepped_write(m, start, target);
+    *cache = Some(target);
+    1
 }

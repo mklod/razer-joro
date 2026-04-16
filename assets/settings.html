@@ -132,15 +132,22 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
   border: 1px solid #ffffff;        /* solid white outer outline */
 }
+/* Each row is a 64-column grid (16 units × 4 quarter-unit sub-columns).
+   Flex can't make rows with different key counts align because `gap`
+   eats flex space — bottom row (12 keys, 11 gaps) would render `k1`
+   keys ~1px wider than F-row (16 keys, 15 gaps). Grid anchors every
+   key to absolute column positions, so the rightmost column lands at
+   columns 61..64 in every row regardless of how many keys precede it. */
 .row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(64, 1fr);
   gap: 4px;
   margin-bottom: 4px;
 }
 .row:last-child { margin-bottom: 0; }
 
 .key {
-  flex: 1 1 0;
+  grid-column: span 4;  /* default = k1 = 4 quarter-units */
   min-width: 0;
   height: 60px;
   background: linear-gradient(to bottom, #0c0c0c 0%, #040404 100%);
@@ -197,18 +204,35 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
 .key.dead:hover { border-color: rgba(255, 255, 255, 0.55); }
 
 /* BLE slot keys (F1/F2/F3) locked by the firmware when on BLE. Distinct
-   from generic `.dead`: solid light-grey fill so it's obvious these are
-   hardware-locked and unprogrammable, not just visually empty. */
+   from generic `.dead`: solid very-dark-grey fill so they're obviously
+   hardware-locked and unprogrammable, with white BLE icons on top so the
+   slot indicator is still clear. Border matches normal keys so the key
+   shape is still consistent with the rest of the row. */
 .key.ble-locked {
   cursor: not-allowed;
-  background: #8a8a8a;
-  color: #2a2a2a;
-  border-color: #555;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 2px 2px rgba(0, 0, 0, 0.6);
+  background: #242424;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 2px rgba(0, 0, 0, 0.6);
 }
-.key.ble-locked:hover { border-color: #555; }
-.key.ble-locked .top, .key.ble-locked .bot { color: #2a2a2a; }
-.key.ble-locked .top svg, .key.ble-locked .bot svg { fill: #2a2a2a; stroke: #2a2a2a; }
+/* Ensure the bluetooth icon + slot number on ble-locked keys render in
+   solid white on top of the dark background. The f-row .color: #fff rule
+   already applies, but make it explicit here to resist accidental
+   overrides from .dead or other state classes. */
+.key.ble-locked .top, .key.ble-locked .top-num, .key.ble-locked .bot { color: #fff; }
+
+/* Mod keys (Win / Alt / Copilot) use a large top-center icon and a label
+   pinned to the bottom-center of the key ("option" / "cmd"). Without
+   this, the bot label sits just below the icon in the normal flex stack
+   rather than anchored to the key's bottom edge. */
+.key.bot-bottom .bot {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10.5px;
+  color: #c8c8c8;
+}
+.key.bot-bottom .top { margin-top: 4px; }
 
 /* ── Per-key alignment variants ──────────────────────────────── */
 /* Default is top-center. Override with .align-left, -right, or -center. */
@@ -260,13 +284,34 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
   letter-spacing: 0.3px;
 }
 
-/* F-row: noticeably shorter keys, all center-aligned both axes */
+/* F-row: noticeably shorter keys, all center-aligned both axes.
+   Top-row keys use white icons/text because currentColor inherited
+   from the dim default would hide the media/system icons on the dark
+   key background. Lock key intentionally stays at F-row height even
+   though it's visually in the rightmost column — user explicit ask
+   2026-04-15: "lock key same width but f-row ht". */
 .row.f-row .key {
   height: 34px;
   padding: 4px 5px 3px;
   justify-content: center;
+  color: #fff;
 }
 .row.f-row .key .top { font-size: 10.5px; }
+.row.f-row .key .bot { color: #aaa; }
+
+/* Bottom row (Ctrl / Fn / Win / Alt / Space / Copilot / Fn / Ctrl): top
+   labels ("ctrl", "fn", "alt") and top-center icons (windows, copilot)
+   render in white for high contrast. Bottom-center labels ("option",
+   "cmd") and the Fn globe botIcon render in the muted key-text color so
+   the Mac-key hints are clearly secondary. */
+.row.bottom-row .key { color: #fff; }
+.row.bottom-row .key .bot { color: var(--muted); }
+
+/* Arrow keys: Up sits in the row above Left/Down/Right, so the
+   bottom-row selector misses it and Up renders in the default muted
+   key-text colour while its siblings are bright white. Force any key
+   flagged as an arrow to white regardless of row. */
+.key.arrow-key { color: #fff; }
 
 /* CapsLock indicator LED dot */
 .key.caps-led::after {
@@ -298,13 +343,17 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
 .key svg { display: block; }
 
 /* Width helpers */
-.k1    { flex-grow: 1; }
-.k1x25 { flex-grow: 1.25; }
-.k1x5  { flex-grow: 1.5; }
-.k1x75 { flex-grow: 1.75; }
-.k2    { flex-grow: 2; }
-.k2x25 { flex-grow: 2.25; }
-.kSpace { flex-grow: 6.25; }
+/* Width classes express grid-column spans over the 64-col (quarter-unit)
+   grid. k1 = 4 spans = 1 full unit. k1x25 = 5 = 1.25 units. Etc. */
+.k1    { grid-column: span 4; }
+.k1x25 { grid-column: span 5; }
+.k1x5  { grid-column: span 6; }
+.k1x75 { grid-column: span 7; }
+.k2    { grid-column: span 8; }
+.k2x25 { grid-column: span 9; }
+.k4    { grid-column: span 16; }
+.k5    { grid-column: span 20; }
+.kSpace { grid-column: span 25; }
 
 /* ── Popover ─────────────────────────────────────────────────── */
 .popover {
@@ -499,7 +548,6 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
       <option value="spectrum">Spectrum Cycling</option>
     </select>
   </div>
-  <div class="status" id="status-lighting" style="margin-left: auto;"></div>
 </div>
 
 <script>
@@ -512,7 +560,7 @@ const ICONS = {
   bluetooth: `<svg viewBox="0 0 24 24" width="14" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7 L17 17 L12 22 L12 2 L17 7 L7 17"/></svg>`,
 
   // Two overlapping screens (PC/screens mode)
-  screens: `<svg viewBox="0 0 26 20" width="19" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="1.5" y="2" width="14" height="10" rx="1"/><rect x="10" y="8" width="14" height="10" rx="1" fill="#000"/></svg>`,
+  screens: `<svg viewBox="0 0 26 20" width="19" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="1.5" y="2" width="14" height="10" rx="1"/><rect x="10" y="8" width="14" height="10" rx="1" fill="#040404"/></svg>`,
 
   // Speaker icons — solid white fill
   speakerMute: `<svg viewBox="0 0 24 24" width="18" height="15" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 9 L6 13 L3 13 L3 17 L6 17 L10 21 Z" fill="#fff"/><path d="M14 11 L20 17 M20 11 L14 17"/></svg>`,
@@ -544,13 +592,13 @@ const ICONS = {
   arrowRight: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6 L15 12 L9 18"/></svg>`,
 
   // Globe (fn key secondary label) — 2x larger
-  globe: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12 H21"/></svg>`,
+  globe: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12 H21"/></svg>`,
 
   // Windows logo: solid WHITE filled 2x2 grid
-  windows: `<svg viewBox="0 0 22 22" width="14" height="14"><rect x="1" y="1" width="9" height="9" fill="#fff"/><rect x="12" y="1" width="9" height="9" fill="#fff"/><rect x="1" y="12" width="9" height="9" fill="#fff"/><rect x="12" y="12" width="9" height="9" fill="#fff"/></svg>`,
+  windows: `<svg viewBox="0 0 22 22" width="20" height="20"><rect x="1" y="1" width="9" height="9" fill="#fff"/><rect x="12" y="1" width="9" height="9" fill="#fff"/><rect x="1" y="12" width="9" height="9" fill="#fff"/><rect x="12" y="12" width="9" height="9" fill="#fff"/></svg>`,
 
   // Copilot — solid WHITE filled (from icons8-microsoft-copilot.svg)
-  copilot: `<svg viewBox="0 0 50 50" width="16" height="16"><path fill="#fff" d="M25.97 32.13c-.57 1.94-1.13 3.86-1.64 5.6l-1.9 6.41C21.92 45.82 20.35 47 18.59 47h-.12c-2.23 0-4.18-1.47-4.8-3.6l-1.38-4.77C11.67 36.49 9.82 35 7.59 35h13.89C23.42 35 25.16 33.85 25.97 32.13zM45.56 34.42C43.65 40.71 40.8 47 36.04 47h-13c.59-.64 1.04-1.42 1.31-2.29 2.996-10.134 4.332-14.658 7.06-24.22C32 18.42 33.88 17 36.03 17h6.2C50.76 17 47.81 26.97 45.56 34.42zM42.41 15H28.52c-1.94 0-3.68 1.15-4.49 2.87.56-1.93 1.12-3.84 1.64-5.6l1.9-6.41C28.08 4.18 29.65 3 31.41 3h.12c2.23 0 4.18 1.47 4.8 3.6l1.38 4.77C38.33 13.51 40.18 15 42.41 15zM26.96 3c-.59.64-1.04 1.42-1.31 2.29-2.146 7.258-3.943 13.294-7.06 24.22C18 31.58 16.12 33 13.97 33h-6.2c-8.53 0-5.58-9.97-3.33-17.42C6.35 9.29 9.2 3 13.96 3H26.96z"/></svg>`,
+  copilot: `<svg viewBox="0 0 50 50" width="22" height="22"><path fill="#fff" d="M25.97 32.13c-.57 1.94-1.13 3.86-1.64 5.6l-1.9 6.41C21.92 45.82 20.35 47 18.59 47h-.12c-2.23 0-4.18-1.47-4.8-3.6l-1.38-4.77C11.67 36.49 9.82 35 7.59 35h13.89C23.42 35 25.16 33.85 25.97 32.13zM45.56 34.42C43.65 40.71 40.8 47 36.04 47h-13c.59-.64 1.04-1.42 1.31-2.29 2.996-10.134 4.332-14.658 7.06-24.22C32 18.42 33.88 17 36.03 17h6.2C50.76 17 47.81 26.97 45.56 34.42zM42.41 15H28.52c-1.94 0-3.68 1.15-4.49 2.87.56-1.93 1.12-3.84 1.64-5.6l1.9-6.41C28.08 4.18 29.65 3 31.41 3h.12c2.23 0 4.18 1.47 4.8 3.6l1.38 4.77C38.33 13.51 40.18 15 42.41 15zM26.96 3c-.59.64-1.04 1.42-1.31 2.29-2.146 7.258-3.943 13.294-7.06 24.22C18 31.58 16.12 33 13.97 33h-6.2c-8.53 0-5.58-9.97-3.33-17.42C6.35 9.29 9.2 3 13.96 3H26.96z"/></svg>`,
 
   // Media control icons (pg up / pg dn / home / end)
   mediaPrev:      `<svg viewBox="0 0 24 16" width="14" height="10"><rect x="3" y="2" width="2" height="12" rx="0.5" fill="currentColor"/><path d="M22 2 L9 8 L22 14 Z" fill="currentColor"/></svg>`,
@@ -616,7 +664,7 @@ const LAYOUT = [
   ],
   // QWERTY row (15)
   [
-    K('tab', 'Tab',       { width: 'k1x5', align: 'left' }),
+    K('tab', 'Tab',       { width: 'k2', align: 'left' }),
     K('Q', 'q', { letter: true }),
     K('W', 'w', { letter: true }),
     K('E', 'e', { letter: true }),
@@ -663,23 +711,28 @@ const LAYOUT = [
     K('.',  'Period', { bot: '>' }),
     K('/',  'Slash',  { bot: '?' }),
     K('shift', 'RShift',  { width: 'k1x75', emits: 'Shift' }),
-    K('',  'Up',  { icon: 'arrowUp', align: 'center' }),
+    K('',  'Up',  { icon: 'arrowUp', align: 'center', arrowKey: true }),
     K('end', 'End', { botIcon: 'mediaMute' }),
   ],
-  // Bottom row (12) — dual labels stacked (top + bot right below)
+  // Bottom row (12 keys, total flex-grow = 16 units so the rightmost
+  // column aligns with every other row and Up/Down land in the same
+  // column). 9 mods of 1u each + Space 4u + 3 arrows 1u = 16u. Space
+  // is intentionally smaller than a typical k6.25 spacebar so the
+  // arrow cluster can sit under RShift without breaking column
+  // alignment — user explicitly asked for this 2026-04-15.
   [
-    K('ctrl', 'LCtrl',     { width: 'k1x25', emits: 'Ctrl' }),
-    K('fn',   'LFn',       { width: 'k1x25', botIcon: 'globe', emits: 'Fn' }),
-    K('',     'Win',       { width: 'k1x25', icon: 'windows', bot: 'option' }),
-    K('alt',  'LAlt',      { width: 'k1x25', bot: 'cmd', emits: 'Alt' }),
-    K('',     'Space',     { width: 'kSpace' }),
-    K('alt',  'RAlt',      { width: 'k1x25', bot: 'cmd', emits: 'Alt' }),
-    K('',     'CopilotKey',{ width: 'k1x25', icon: 'copilot', bot: 'option', emits: 'Win+Copilot' }),
-    K('fn',   'RFn',       { width: 'k1x25', botIcon: 'globe', emits: 'Fn' }),
-    K('ctrl', 'RCtrl',     { width: 'k1x25', emits: 'Ctrl' }),
-    K('',  'Left',  { icon: 'arrowLeft',  align: 'center' }),
-    K('',  'Down',  { icon: 'arrowDown',  align: 'center' }),
-    K('',  'Right', { icon: 'arrowRight', align: 'center' }),
+    K('ctrl', 'LCtrl',     { emits: 'Ctrl' }),
+    K('fn',   'LFn',       { botIcon: 'globe', emits: 'Fn' }),
+    K('',     'Win',       { icon: 'windows', bot: 'option', botBottom: true }),
+    K('alt',  'LAlt',      { bot: 'cmd', emits: 'Alt', botBottom: true }),
+    K('',     'Space',     { width: 'k5' }),
+    K('alt',  'RAlt',      { bot: 'cmd', emits: 'Alt', botBottom: true }),
+    K('',     'CopilotKey',{ icon: 'copilot', bot: 'option', emits: 'Win+Copilot', botBottom: true }),
+    K('fn',   'RFn',       { botIcon: 'globe', emits: 'Fn' }),
+    K('ctrl', 'RCtrl',     { emits: 'Ctrl' }),
+    K('',  'Left',  { icon: 'arrowLeft',  align: 'center', arrowKey: true }),
+    K('',  'Down',  { icon: 'arrowDown',  align: 'center', arrowKey: true }),
+    K('',  'Right', { icon: 'arrowRight', align: 'center', arrowKey: true }),
   ],
 ];
 
@@ -752,15 +805,15 @@ function saveNow() {
 }
 
 function setStatus(msg, cls) {
-  ['status', 'status-lighting'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.textContent = msg;
-    el.className = 'status ' + (cls || '');
-    if (cls === 'ok') {
-      setTimeout(() => { el.textContent = ''; el.className = 'status'; }, 1500);
-    }
-  });
+  // Single status pill below the keyboard diagram. The 'ok' ("Saved")
+  // variant auto-clears after 1200ms — readable but not lingering.
+  const el = document.getElementById('status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'status ' + (cls || '');
+  if (cls === 'ok') {
+    setTimeout(() => { el.textContent = ''; el.className = 'status'; }, 1200);
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -854,6 +907,7 @@ function renderKeyboard() {
     const rowEl = document.createElement('div');
     rowEl.className = 'row';
     if (idx === 0) rowEl.classList.add('f-row'); // first row uses shorter key height
+    if (idx === LAYOUT.length - 1) rowEl.classList.add('bottom-row'); // mod-key row
     row.forEach(k => {
       const btn = document.createElement('button');
       const classes = ['key', k.width || 'k1'];
@@ -868,6 +922,8 @@ function renderKeyboard() {
       if (isLockedBleSlot) { classes.push('dead'); classes.push('ble-locked'); }
       if (k.capsLed) classes.push('caps-led');
       if (k.btLed && !isLockedBleSlot) classes.push('bt-led');
+      if (k.botBottom) classes.push('bot-bottom');
+      if (k.arrowKey) classes.push('arrow-key');
       if (k.align === 'left')   classes.push('align-left');
       if (k.align === 'right')  classes.push('align-right');
       if (k.align === 'center') classes.push('align-center');
@@ -1173,7 +1229,11 @@ window.joroSetState = function(state) {
   renderLighting();
   renderBattery(state.battery != null ? state.battery : null);
   renderTransport(transport);
-  setStatus('', '');
+  // Previously this called setStatus('', '') which wiped the status pill
+  // unconditionally on every state push. Since the daemon pushes state
+  // right after a save completes, the freshly-set "Saved" message was
+  // getting cleared before the user could read it. Leave the current
+  // status intact — its own setTimeout handles clearing.
 };
 
 window.joroSaveResult = function(result) {

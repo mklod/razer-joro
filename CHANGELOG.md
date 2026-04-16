@@ -2,10 +2,55 @@
 
 ## TODO
 > [!tip] Queued for next build
-> - **Consumer-hook fallback for F8/F9 brightness in MM mode.** F8/F9 emit Consumer BrightnessDown/Up which never become Win32 VKs, so the LL keyboard hook can't see them. Extend `src/consumer_hook.rs` to intercept these HID reports and dispatch to the `SpecialAction` pipeline so `F8 → Brightness+-25` fires while firmware stays in MM mode.
-> - **Icons polish.** Tray + window title icons still look pixelated from the PIL generator. Replace with hand-drawn multi-resolution ICO.
-> - **Cleanup pass + release build.** Strip `eprintln!`, the unused rzcontrol constants (`F1..F4`, `ESC`, `LALT`), `fn_detect.rs` diagnostic subcommand, then `cargo build --release`.
-> - **Optional / low priority:** base-layer firmware writes over USB (cmd=0x0F?), matrix table gaps (0x3F/0x41..0x45/0x52/0x57/0x58/>0x7B).
+> - **Tray icon source (#14).** User browsing `assets/sysicons/<dll>/` dumps to find the Windows touch-keyboard glyph. Fallback plan: render Segoe MDL2 Assets `\uE765` as our PNG.
+> - **Hypershift matrix gap scan (#12).** `cargo run -- scan-gaps` ready; user plugs USB + runs + reports letter→key mapping. I update `keys::JORO_MATRIX_TABLE`.
+> - **Remove Synapse + all Razer services from startup.** User only wants Synapse launched when manually triggered for dev. Put `joro-daemon.exe` on startup instead so the keyboard works at the Windows login screen after reboot.
+> - **Lock→Delete in webview popover (#13, low).** Chromium text input filters our SendInput-injected extended-key VK_DELETE. Try `KEYEVENTF_SCANCODE` path.
+> - **Cleanup pass + release build.** Strip `eprintln!`, unused rzcontrol constants (`F1..F4`, `ESC`, `LALT`), `fn_detect.rs` diagnostic subcommand, then `cargo build --release`.
+
+## Build 2026-04-15--1751
+
+### Changes
+- **Consumer HID → SpecialAction bridge.** New `ConsumerActionEntry` table in `src/remap.rs` + `dispatch_special_action` helper shared between the LL keyboard hook and the HID consumer hook. `build_remap_tables` now routes entries whose `from` is a consumer-usage name (BrightnessDown, Mute, VolumeUp, etc.) into the consumer table. `src/consumer_hook.rs` run_loop checks the new table first and dispatches brightness/backlight actions through the same DDC/CI ramp path as the LL hit path. F8/F9 brightness remaps in firmware MM mode now fire without touching firmware mode.
+- **consumer_hook transport fixes.** `JORO_VENDORS` now lists all three (VID,PID) pairs: `1532:02CD` wired, `1532:02CE` dongle, `068E:02CE` BLE (the BT radio's vendor ID, not Razer's). Previously BLE got filtered out and the hook opened zero interfaces. Also removed the empty-config early-return so the hook starts even when `consumer_remap` is empty — the shared consumer action table populated from base `[[remap]]` entries is the other input source.
+- **Brightness stepped ramp.** Rebuilt `brightness::delta_all` + `set_all_percent` around a new `stepped_write` helper that issues one VCP 0x10 write per unit with a 5ms sleep between. A 0–50 sweep takes ~250ms and never triggers the Falcon monitor's full-reboot bug. Global `BRIGHTNESS_CACHE` mutex serializes concurrent taps and chains relative deltas against the previous call's resolved target, so three rapid `−5` taps land at `start − 15` instead of racing each other's `enumerate()` reads.
+- **Monitor cycle fix.** Iterate `&monitors` (borrow) instead of consuming — `DestroyPhysicalMonitors` now runs after all writes drain at end-of-function rather than firing between each VCP write.
+- **Keyboard grid conversion.** `assets/settings.html` keyboard layout switched from CSS flex to CSS Grid (`grid-template-columns: repeat(64, 1fr)`, widths as integer spans). Eliminates the per-row-gap-offset problem where the bottom row's `k1` keys were ~1px wider than the F-row's because of fewer gaps per row. Rightmost column, Up/Down column, Left-arrow/RShift right-edge are all pixel-aligned now.
+- **Webview polish.** `joroSetState` no longer wipes the `#status` pill on every state push (was clobbering "Saved" within 50ms of appearing). `#status-lighting` duplicate pill deleted. Setting popup auto-clear lowered to 1200ms. Popover `defaultFrom` uses `effectiveEmitsOf(k)` so clicking F5 in MM mode pre-fills `From = VolumeMute`. F1/F2/F3 `.ble-locked` CSS darkened to #242424 with white icons on top. Win/Copilot icons resized (14→20 / 16→22) and `.bot-bottom` CSS pins mod-key bottom labels to the bottom edge. Arrow keys (Left/Down/Right + Up) share a single `.arrow-key` class for white coloring across rows.
+- **F-row colors.** Top labels + icons rendered white; bottom labels `#aaa`. Fixes the invisible sun / screens / bluetooth glyphs that were inheriting the default dark `--key-text` before.
+- **Firmware mode auto-detect.** `App::try_connect` now scans `config.remap` for Win-modified trigger entries (`from` starts with `win+` / `lwin+` / `rwin+`). If any found → MM (so hardware combos survive). Otherwise → Fn. `device_mode = "auto" | "fn" | "mm"` in config overrides. `firmware_fn_primary` is pushed to webview state.
+- **BLE_RECOVERY.md** — new repo-root doc covering post-power-outage recovery (Intel BT conflict fix + pnputil quoting + Razer SDK subservice kill + re-pair workflow + permanent fix options).
+- **Stepped-ramp hot path.** `BRIGHTNESS_CACHE: Mutex<Option<u32>>` shared between delta + absolute paths. Each call updates the cache to its resolved target.
+- **Settings-window foreground.** `SettingsWindow::bring_to_front()` uses SetForegroundWindow + HWND_TOPMOST/HWND_NOTOPMOST bump to steal focus on tray-click open. Windows otherwise opens the window in the background since tray clicks don't grant foreground privilege.
+- **Hypershift matrix scan-gaps CLI.** New `cargo run -- scan-gaps` subcommand programs the 26 known-gap matrix indices to letters a–z on the Fn layer. User plugs USB, runs, transport-cycles, tests Fn+<key> in Notepad, reports the mapping. Actual scan hasn't been run yet.
+- **save_remaps bug fix.** `config::save_remaps` partial writer was truncating `[[fn_host_remap]]` entries on every base-layer save. Deleted the function; all save paths use `config::save_config` full serde writer.
+- **Config auto-reload loop prevention.** `UserEvent::BacklightSet` handler bumps `self.config_modified` after writing config so the 5s config poller doesn't detect our own write as an external change and rebuild tables on every F10/F11 tap.
+- **Keyboard backlight observed sync.** `UserEvent::BacklightObserved(u8)` variant. `fn_detect::run_loop` parses `col05` reports `06 05 08 XX` as "firmware backlight telemetry" and posts the event. Main updates `config.lighting.brightness` + pushes state so the UI slider tracks native F10/F11 presses.
+- **Tray icon attempt (partial).** New `assets/gen_icon.py` renders per-size ICO frames via `append_images` + exports dedicated 32x32 PNGs for tray. First attempt using the hand-drawn design still looked mushy at 16px. Second attempt pulled the icon from `C:\Windows\System32\osk.exe` — wrong glyph, OSK ≠ Windows touch keyboard. Dumped 666 icons from `shell32.dll`, `imageres.dll`, `inputswitch.dll`, `twinui.dll`, `ExplorerFrame.dll`, `ActionCenterCPL.dll` to `assets/sysicons/<dll>/` for user browsing. Task still in progress.
+- **ARCHITECTURE.md, _status.md, WORKPLAN.md** all updated.
+
+### Tests
+- 41 unit tests still pass in `cargo test`. New DSL/consumer tests TODO.
+
+> [!warning] Testing Checklist
+> - [ ] F8 in MM mode remapped to `Brightness+-10` dims the monitor via our DDC/CI ramp (Windows OSD ghost still flashes — expected).
+>   - Notes:
+> - [ ] F9 remapped to `Brightness+10` brightens.
+>   - Notes:
+> - [ ] Three rapid F8 presses land at `start − 30` (chained via lock), no race.
+>   - Notes:
+> - [ ] Monitor no longer full-reboots on any `brightness +N` CLI call.
+>   - Notes:
+> - [ ] Tray-icon click → settings window opens ON TOP of whatever app had focus.
+>   - Notes:
+> - [ ] Save a base-layer remap via the UI → check `config.toml` still has your `[[fn_host_remap]]` entries (regression test for `save_remaps` bug).
+>   - Notes:
+> - [ ] Keyboard visual: rightmost column, Up/Down column, Left/RShift edges all pixel-aligned; F1-F3 dark grey with white icons; Win/Copilot icons larger; option/cmd pinned to bottom.
+>   - Notes:
+> - [ ] Save popup: "Saved" pill visibly stays for ~1.2s after saving; no duplicate pill next to lighting section.
+>   - Notes:
+> - [ ] F10/F11 native backlight presses update the UI brightness slider via `BacklightObserved` telemetry.
+>   - Notes:
 
 ## Build 2026-04-15--0453
 

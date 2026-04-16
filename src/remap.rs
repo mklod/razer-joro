@@ -135,6 +135,102 @@ pub fn set_last_backlight(level: u8) {
     LAST_BACKLIGHT.store(level, std::sync::atomic::Ordering::Relaxed);
 }
 
+/// Consumer-HID action table — bridges the consumer_hook (which reads raw
+/// HID consumer usages via hidapi) to the SpecialAction pipeline. When
+/// firmware is in MM mode, Joro's F8/F9 emit Consumer BrightnessDown/Up
+/// which Windows handles natively without creating a Win32 VK, so the LL
+/// keyboard hook never sees them. consumer_hook reads them directly from
+/// the HID stream and, on match, dispatches the same brightness/backlight
+/// action the LL path would fire.
+#[derive(Debug, Clone)]
+pub struct ConsumerActionEntry {
+    /// HID Consumer Control usage code (e.g. 0x0070 BrightnessDown).
+    pub usage: u16,
+    pub action: ConsumerActionKind,
+    /// Human label for logs.
+    pub label: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum ConsumerActionKind {
+    /// Emit a VK combo via SendInput.
+    KeyCombo {
+        modifier_vks: Vec<VkCode>,
+        key_vk: VkCode,
+    },
+    /// Dispatch one of the SpecialAction variants (brightness, backlight, NoOp).
+    Special(SpecialAction),
+}
+
+static CONSUMER_ACTION_TABLE: Mutex<Vec<ConsumerActionEntry>> = Mutex::new(Vec::new());
+
+pub fn update_consumer_action_table(t: Vec<ConsumerActionEntry>) {
+    *CONSUMER_ACTION_TABLE.lock().unwrap() = t;
+}
+
+/// Lookup a consumer action by usage code. Returns a cloned action so
+/// the caller can drop the mutex before dispatching.
+pub fn lookup_consumer_action(usage: u16) -> Option<ConsumerActionEntry> {
+    CONSUMER_ACTION_TABLE
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|e| e.usage == usage)
+        .cloned()
+}
+
+/// Dispatch a SpecialAction. Shared between the LL keyboard hook and the
+/// consumer HID hook so both paths behave identically. Brightness calls
+/// spawn a background thread (DDC/CI ramp is ~50ms and mustn't block the
+/// hook thread). Backlight posts a UserEvent so main can run BLE I/O.
+pub fn dispatch_special_action(action: &SpecialAction) {
+    match *action {
+        SpecialAction::BrightnessDelta(d) => {
+            std::thread::spawn(move || {
+                crate::brightness::delta_all(d);
+            });
+        }
+        SpecialAction::BrightnessAbs(p) => {
+            std::thread::spawn(move || {
+                crate::brightness::set_all_percent(p);
+            });
+        }
+        SpecialAction::BacklightDelta(d) => {
+            let cur =
+                LAST_BACKLIGHT.load(std::sync::atomic::Ordering::Relaxed) as i32;
+            let new_val = (cur + d).clamp(0, 255) as u8;
+            LAST_BACKLIGHT.store(new_val, std::sync::atomic::Ordering::Relaxed);
+            crate::post_user_event(crate::UserEvent::BacklightSet(new_val));
+        }
+        SpecialAction::BacklightAbs(v) => {
+            LAST_BACKLIGHT.store(v, std::sync::atomic::Ordering::Relaxed);
+            crate::post_user_event(crate::UserEvent::BacklightSet(v));
+        }
+        SpecialAction::NoOp => {}
+    }
+}
+
+/// Consumer usage names recognized as `from` values in base remap entries.
+/// Entries using these names in `[[remap]]` get routed to the consumer HID
+/// hook instead of the LL keyboard hook (since Windows doesn't produce
+/// VKs for consumer-page events like BrightnessDown).
+///
+/// Kept in sync with `consumer_hook::CONSUMER_USAGE_TABLE`.
+fn parse_consumer_usage(name: &str) -> Option<u16> {
+    match name.trim().to_ascii_lowercase().as_str() {
+        "mute" | "volumemute" => Some(0x00E2),
+        "volumeup" => Some(0x00E9),
+        "volumedown" => Some(0x00EA),
+        "brightnessup" => Some(0x006F),
+        "brightnessdown" => Some(0x0070),
+        "playpause" | "mediaplaypause" => Some(0x00CD),
+        "nexttrack" | "medianexttrack" => Some(0x00B5),
+        "prevtrack" | "mediaprevtrack" => Some(0x00B6),
+        "stop" | "mediastop" => Some(0x00B7),
+        _ => None,
+    }
+}
+
 /// Currently-held Fn-layer remap (if any). Set on Fn+key key-down, cleared on
 /// the source-VK key-up. Tracks which output combo we emitted so we release
 /// the same combo even if Fn was released first.
@@ -258,10 +354,16 @@ pub fn parse_special_action(s: &str) -> Option<SpecialAction> {
 
 pub fn build_remap_tables(
     remaps: &[crate::config::RemapConfig],
-) -> (Vec<ComboRemap>, Vec<TriggerRemap>, Vec<SpecialActionEntry>) {
+) -> (
+    Vec<ComboRemap>,
+    Vec<TriggerRemap>,
+    Vec<SpecialActionEntry>,
+    Vec<ConsumerActionEntry>,
+) {
     let mut combo_table = Vec::new();
     let mut trigger_table = Vec::new();
     let mut special_table = Vec::new();
+    let mut consumer_table: Vec<ConsumerActionEntry> = Vec::new();
 
     for entry in remaps {
         if entry.from.contains('+') {
@@ -300,7 +402,41 @@ pub fn build_remap_tables(
                 output_key: to_key,
             });
         } else {
-            // Single-key source
+            // Single-key source. First try to parse `from` as a Consumer
+            // HID usage name (BrightnessDown, Mute, etc.) — those entries
+            // bypass the LL keyboard hook (which never sees consumer-page
+            // events in MM mode) and get routed to consumer_hook via the
+            // ConsumerActionEntry table.
+            if let Some(usage) = parse_consumer_usage(&entry.from) {
+                let kind = if let Some(action) = parse_special_action(&entry.to) {
+                    ConsumerActionKind::Special(action)
+                } else {
+                    match keys::parse_key_combo(&entry.to) {
+                        Some((mods, key)) => ConsumerActionKind::KeyCombo {
+                            modifier_vks: mods,
+                            key_vk: key,
+                        },
+                        None => {
+                            eprintln!(
+                                "remap: cannot parse 'to' '{}' for consumer-usage source '{}', skipping",
+                                entry.to, entry.from
+                            );
+                            continue;
+                        }
+                    }
+                };
+                eprintln!(
+                    "remap: consumer-usage action '{}' (0x{:04x}) -> {:?}",
+                    entry.from, usage, kind
+                );
+                consumer_table.push(ConsumerActionEntry {
+                    usage,
+                    action: kind,
+                    label: format!("{} -> {}", entry.from, entry.to),
+                });
+                continue;
+            }
+
             let from_vk = match keys::key_name_to_vk(&entry.from) {
                 Some(vk) => vk,
                 None => {
@@ -313,6 +449,7 @@ pub fn build_remap_tables(
             // If matched, these go in the special-action table and we skip
             // the normal key-combo parse (which would fail for "Brightness+Down").
             if let Some(action) = parse_special_action(&entry.to) {
+                eprintln!("remap: single-key special action '{}' -> {:?}", entry.from, action);
                 special_table.push(SpecialActionEntry { from_vk, action });
                 continue;
             }
@@ -340,7 +477,7 @@ pub fn build_remap_tables(
         }
     }
 
-    (combo_table, trigger_table, special_table)
+    (combo_table, trigger_table, special_table, consumer_table)
 }
 
 /// Determine prefix modifier VKs sent before the gate modifier.
@@ -768,25 +905,7 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
                 if debug {
                     dbg_log(&format!("  ACT: special {:?}", entry.action));
                 }
-                match entry.action {
-                    SpecialAction::BrightnessDelta(d) => {
-                        std::thread::spawn(move || { crate::brightness::delta_all(d); });
-                    }
-                    SpecialAction::BrightnessAbs(p) => {
-                        std::thread::spawn(move || { crate::brightness::set_all_percent(p); });
-                    }
-                    SpecialAction::BacklightDelta(d) => {
-                        let cur = LAST_BACKLIGHT.load(std::sync::atomic::Ordering::Relaxed) as i32;
-                        let new_val = (cur + d).clamp(0, 255) as u8;
-                        LAST_BACKLIGHT.store(new_val, std::sync::atomic::Ordering::Relaxed);
-                        crate::post_user_event(crate::UserEvent::BacklightSet(new_val));
-                    }
-                    SpecialAction::BacklightAbs(v) => {
-                        LAST_BACKLIGHT.store(v, std::sync::atomic::Ordering::Relaxed);
-                        crate::post_user_event(crate::UserEvent::BacklightSet(v));
-                    }
-                    SpecialAction::NoOp => {}
-                }
+                dispatch_special_action(&entry.action);
             }
             return LRESULT(1);
         }
@@ -913,7 +1032,7 @@ mod tests {
                 matrix_index: None,
             },
         ];
-        let (combos, triggers, _special) = build_remap_tables(&remaps);
+        let (combos, triggers, _special, _consumer) = build_remap_tables(&remaps);
         assert!(combos.is_empty());
         assert_eq!(triggers.len(), 1);
         assert_eq!(triggers[0].gate_mod_vk, 0x5B); // LWin
@@ -933,7 +1052,7 @@ mod tests {
                 matrix_index: Some(30),
             },
         ];
-        let (combos, triggers, _special) = build_remap_tables(&remaps);
+        let (combos, triggers, _special, _consumer) = build_remap_tables(&remaps);
         assert_eq!(combos.len(), 1);
         assert_eq!(combos[0].from_vk, 0x14); // CapsLock
         assert_eq!(combos[0].modifier_vks, vec![0xA2]); // LCtrl
@@ -951,7 +1070,7 @@ mod tests {
                 matrix_index: None,
             },
         ];
-        let (combos, triggers, _special) = build_remap_tables(&remaps);
+        let (combos, triggers, _special, _consumer) = build_remap_tables(&remaps);
         assert!(combos.is_empty());
         assert_eq!(triggers.len(), 1);
         assert_eq!(triggers[0].gate_mod_vk, 0x5B); // LWin
@@ -975,7 +1094,7 @@ mod tests {
                 matrix_index: None,
             },
         ];
-        let (combos, triggers, _special) = build_remap_tables(&remaps);
+        let (combos, triggers, _special, _consumer) = build_remap_tables(&remaps);
         assert_eq!(combos.len(), 1);
         assert_eq!(combos[0].from_vk, 0x41); // 'A'
         assert!(combos[0].modifier_vks.is_empty());
@@ -1047,7 +1166,7 @@ mod tests {
                 matrix_index: None,
             },
         ];
-        let (combos, triggers, special) = build_remap_tables(&remaps);
+        let (combos, triggers, special, _consumer) = build_remap_tables(&remaps);
         assert!(combos.is_empty());
         assert!(triggers.is_empty());
         assert_eq!(special.len(), 3);

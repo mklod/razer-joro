@@ -129,13 +129,30 @@ fn enumerate_and_spawn() -> Result<(), String> {
 
         thread::spawn(move || {
             let mut buf = [0u8; 64];
+            let mut last_held = false;
+            let mut last_backlight: Option<u8> = None;
             loop {
                 match dev.read_timeout(&mut buf, 1000) {
                     Ok(n) if n >= 3 && buf[0] == 0x05 && buf[1] == 0x04 => {
                         let held = buf[2] == 0x01;
+                        if held != last_held {
+                            eprintln!("fn-detect: FN_HELD {} -> {} (report {:02x} {:02x} {:02x})",
+                                last_held, held, buf[0], buf[1], buf[2]);
+                            last_held = held;
+                        }
                         FN_HELD.store(held, Ordering::Release);
                     }
-                    Ok(_) => {} // other reports — ignore
+                    // Backlight-change telemetry — fires from hardware MM F10/F11
+                    // as `06 05 08 XX` where XX is the new firmware backlight
+                    // level in 0..255. Forward to main so the UI slider syncs.
+                    Ok(n) if n >= 4 && buf[0] == 0x06 && buf[1] == 0x05 && buf[2] == 0x08 => {
+                        let level = buf[3];
+                        if last_backlight != Some(level) {
+                            last_backlight = Some(level);
+                            crate::post_user_event(crate::UserEvent::BacklightObserved(level));
+                        }
+                    }
+                    Ok(_) => {}
                     Err(_) => {
                         // Device disconnected, transport change, etc.
                         // Sleep briefly and retry; when the device comes
