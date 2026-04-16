@@ -1,5 +1,18 @@
 # Razer Joro — Status
 
+## Session 2026-04-16--0008 — DDC/CI handle caching, fn_detect BLE reconnect fix
+
+**Late-session fixes (post-commit amendments):**
+
+- **DDC/CI monitor handle caching** — `PhysicalMonitor` handle is now stored in a global `BRIGHTNESS_STATE` mutex and reused across presses. Previously `enumerate()` was called on every keypress, which invoked `GetMonitorBrightness` (a separate dxva2 DDC/CI read transaction) before each stepped write. The Falcon's scaler firmware rebooted under sustained DDC/CI read+write interleaving. With caching, the read happens exactly once; subsequent presses do only `SetVCPFeature` writes. Write failures (stale handle after a monitor reboot/re-enumeration) auto-invalidate the cache so the next press re-enumerates cleanly. Step delay bumped from 5ms → 20ms for additional stability.
+- **fn_detect BLE reconnect fix** — new `fn_detect::reset()` clears the tracked-paths set. Called from `try_connect` before `start()` on every BLE reconnection. Without this, old HID collection handles go stale after a BLE disconnect/reconnect cycle (Windows creates new device paths for the reconnected keyboard) and fn_detect's reader threads spin on dead handles forever. Fn+key Hypershift remaps silently stopped working after any BLE hiccup. Fixed by forcing re-enumeration of all HID collections on each connect.
+
+**Current state:** daemon is stable. All key remaps, brightness, backlight, Hypershift, Lock/Copilot, F4 Win+Tab all working. Monitor brightness dims without rebooting (tested 10+ cycles).
+
+**Next session priorities (unchanged):**
+1. Hypershift matrix gap scan (#12) — USB required
+2. Remaps not firing in webview popover (#13) — WebView2 filtering SendInput
+
 ## Session 2026-04-15--2123 — gate-broken atomic replay, F4/F10/F11 MM-locked, tray icon, startup cleanup
 
 **Bug fixes:**
