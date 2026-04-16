@@ -62,6 +62,16 @@ pub fn start() {
     }
 }
 
+/// Clear the tracked-paths set so the next `start()` re-enumerates
+/// all HID collections from scratch. Call this after a BLE reconnect
+/// — the old handles go stale when the BLE link cycles (Windows
+/// creates new HID collection device paths for the reconnected
+/// keyboard) and the reader threads spin on dead handles forever.
+pub fn reset() {
+    *OPENED_PATHS.lock().unwrap() = None;
+    eprintln!("fn-detect: reset — will re-enumerate on next start()");
+}
+
 fn enumerate_and_spawn() -> Result<(), String> {
     let api = hidapi::HidApi::new().map_err(|e| format!("hidapi init: {e}"))?;
 

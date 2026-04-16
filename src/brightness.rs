@@ -201,77 +201,113 @@ impl Drop for PhysicalMonitor {
 /// full-reboot their scaler if a DDC/CI brightness change exceeds a
 /// few units in a single write, but tolerate rapid single-step writes
 /// just fine. 5ms per step means a full 0-50 sweep takes ~250ms.
-fn stepped_write(m: &PhysicalMonitor, start: u32, target: u32) {
+/// Returns true if all writes succeeded, false if any failed (caller
+/// should invalidate the cached handle on false).
+fn stepped_write(m: &PhysicalMonitor, start: u32, target: u32) -> bool {
     let mut v = start as i32;
     let end = target as i32;
-    let dir: i32 = if end > v { 1 } else if end < v { -1 } else { return };
+    let dir: i32 = if end > v { 1 } else if end < v { -1 } else { return true };
     while v != end {
         v += dir;
         if let Err(e) = m.vcp_set(0x10, v as u32) {
-            eprintln!("brightness: stepped write {v} failed: {e}");
-            return;
+            eprintln!("brightness: stepped write {v} failed: {e} — will re-enumerate next time");
+            return false;
         }
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        std::thread::sleep(std::time::Duration::from_millis(20));
     }
+    true
 }
 
-/// Global serialization + brightness cache. All brightness adjustments
-/// go through this lock so rapid rebinding taps don't race their own
-/// `enumerate()` reads against each other. The cached `u32` is the
-/// last-applied VCP 0x10 value — chained delta requests compute against
-/// this instead of re-reading from the monitor (DDC/CI reads are slow
-/// and on some monitors destabilize the scaler).
-static BRIGHTNESS_CACHE: std::sync::Mutex<Option<u32>> = std::sync::Mutex::new(None);
+/// Global serialization + brightness state. All brightness adjustments
+/// go through this lock so rapid taps don't race. We cache BOTH the
+/// last-applied VCP value AND the PhysicalMonitor handle — reusing the
+/// handle avoids re-calling `GetMonitorBrightness` (which is a separate
+/// dxva2 DDC/CI transaction) on every keypress. The Falcon 5120x1440
+/// reboots its scaler when DDC/CI reads are interleaved with rapid
+/// writes; caching the handle eliminates the reads entirely after the
+/// first enumeration.
+struct BrightnessState {
+    monitor: PhysicalMonitor,
+    last_target: u32,
+}
+// SAFETY: PhysicalMonitor holds a raw HANDLE which is just a kernel
+// object ID — safe to access from any thread. The dxva2 API calls
+// (SetVCPFeature, GetMonitorBrightness) are thread-safe per MSDN.
+unsafe impl Send for BrightnessState {}
+static BRIGHTNESS_STATE: std::sync::Mutex<Option<BrightnessState>> = std::sync::Mutex::new(None);
 
-/// Shift every DDC/CI-capable monitor's brightness by `delta` percent
-/// of its available range. Serialized via `BRIGHTNESS_CACHE` so rapid
-/// keypresses don't race each other's `enumerate()` reads — each call
-/// starts from the previous call's resolved target, chaining correctly.
-pub fn delta_all(delta: i32) -> usize {
-    let mut cache = BRIGHTNESS_CACHE.lock().unwrap();
+/// Ensure the global BrightnessState is initialized. Called under the
+/// lock. Returns false if no DDC/CI monitor is available.
+fn ensure_state(state: &mut Option<BrightnessState>) -> bool {
+    if state.is_some() {
+        return true;
+    }
     let monitors = PhysicalMonitor::enumerate();
     if monitors.is_empty() {
         eprintln!("brightness: no DDC/CI-capable monitors found");
+        return false;
+    }
+    // Take ownership of the first monitor. The rest are dropped
+    // (DestroyPhysicalMonitors runs in their Drop impl).
+    let mut monitors = monitors;
+    let m = monitors.swap_remove(0);
+    let cur = m.cur;
+    *state = Some(BrightnessState {
+        monitor: m,
+        last_target: cur,
+    });
+    true
+}
+
+/// Shift every DDC/CI-capable monitor's brightness by `delta` percent
+/// of its available range. The monitor handle is cached globally so
+/// we don't re-enumerate (and re-call `GetMonitorBrightness`) on
+/// every keypress — that extra DDC/CI transaction was causing the
+/// Falcon to reboot its scaler under rapid repeated presses.
+pub fn delta_all(delta: i32) -> usize {
+    let mut guard = BRIGHTNESS_STATE.lock().unwrap();
+    if !ensure_state(&mut guard) {
         return 0;
     }
-    // Single-monitor cache (sufficient for the user's Falcon setup).
-    // Multi-monitor support would need a per-handle map.
-    let m = &monitors[0];
-    let range = m.max as i32 - m.min as i32;
+    let s = guard.as_mut().unwrap();
+    let range = s.monitor.max as i32 - s.monitor.min as i32;
     if range <= 0 { return 0; }
-    let start = cache.unwrap_or(m.cur);
     let step = (range * delta / 100).abs().max(1);
     let new_val = if delta >= 0 {
-        (start as i32 + step).clamp(m.min as i32, m.max as i32)
+        (s.last_target as i32 + step).clamp(s.monitor.min as i32, s.monitor.max as i32)
     } else {
-        (start as i32 - step).clamp(m.min as i32, m.max as i32)
+        (s.last_target as i32 - step).clamp(s.monitor.min as i32, s.monitor.max as i32)
     } as u32;
     eprintln!("brightness: {} ramping {} -> {} (range {}..{})",
-        m.friendly, start, new_val, m.min, m.max);
-    stepped_write(m, start, new_val);
-    *cache = Some(new_val);
+        s.monitor.friendly, s.last_target, new_val, s.monitor.min, s.monitor.max);
+    if !stepped_write(&s.monitor, s.last_target, new_val) {
+        // Handle went stale (monitor rebooted / re-enumerated).
+        // Drop the cached state so the next press re-enumerates.
+        *guard = None;
+        return 0;
+    }
+    s.last_target = new_val;
     1
 }
 
 /// Absolute set: map `percent` (0-100) onto the monitor's reported
-/// min/max range and ramp VCP 0x10 in single-unit steps. Serialized
-/// via `BRIGHTNESS_CACHE`; the cache is updated to the new target so
-/// subsequent delta calls chain correctly.
+/// min/max range and ramp via stepped writes. Monitor handle is
+/// cached; no re-enumeration.
 pub fn set_all_percent(percent: u32) -> usize {
-    let mut cache = BRIGHTNESS_CACHE.lock().unwrap();
-    let p = percent.min(100);
-    let monitors = PhysicalMonitor::enumerate();
-    if monitors.is_empty() {
-        eprintln!("brightness: no DDC/CI-capable monitors found");
+    let mut guard = BRIGHTNESS_STATE.lock().unwrap();
+    if !ensure_state(&mut guard) {
         return 0;
     }
-    let m = &monitors[0];
-    let range = m.max.saturating_sub(m.min);
-    let target = m.min + (range * p / 100);
-    let start = cache.unwrap_or(m.cur);
+    let s = guard.as_mut().unwrap();
+    let p = percent.min(100);
+    let range = s.monitor.max.saturating_sub(s.monitor.min);
+    let target = s.monitor.min + (range * p / 100);
     eprintln!("brightness: {} ramping {} -> {} ({}%)",
-        m.friendly, start, target, p);
-    stepped_write(m, start, target);
-    *cache = Some(target);
+        s.monitor.friendly, s.last_target, target, p);
+    if !stepped_write(&s.monitor, s.last_target, target) {
+        *guard = None;
+        return 0;
+    }
+    s.last_target = target;
     1
 }
