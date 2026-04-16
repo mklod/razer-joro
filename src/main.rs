@@ -286,9 +286,13 @@ impl App {
                 Err(e) => eprintln!("joro-daemon: set_device_mode failed: {e}"),
             }
         }
-        // Re-run fn_detect enumeration. Idempotent — new HID collections
-        // introduced by this transport (e.g. first BLE connect after
-        // daemon boot) get readers spawned here.
+        // Reset + re-enumerate fn_detect HID readers. After a BLE
+        // disconnect/reconnect cycle, old HID collection handles go
+        // stale (Windows creates new device paths for the reconnected
+        // keyboard). Without reset(), start() skips already-opened
+        // paths and the reader threads spin on dead handles — Fn
+        // detection silently stops working.
+        fn_detect::reset();
         fn_detect::start();
         Self::apply_config(&self.config, &mut *dev);
         let fw = dev.get_firmware().ok();
