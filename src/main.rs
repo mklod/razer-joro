@@ -1,5 +1,9 @@
 // src/main.rs — Joro daemon main event loop
-// Last modified: 2026-04-12
+// Last modified: 2026-04-16
+
+// Release builds run as a Windows GUI subsystem app — no console window.
+// Debug builds (`cargo run`) keep the console so eprintln! output is visible.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod ble;
 mod brightness;
@@ -135,6 +139,10 @@ struct App {
     /// filter-driver init and then kills it — we only need to do it
     /// once per daemon run.
     rzcontrol_bootstrap_done: bool,
+    /// Consecutive battery-read failures. When this hits 3, we force
+    /// a disconnect + reconnect cycle to recover from stale GATT
+    /// sessions after external BLE adapter cycling.
+    battery_fail_count: u32,
     /// Last-applied Joro firmware device mode, cached from try_connect so the
     /// webview can render F-row labels/remap-from defaults based on which
     /// usages the keyboard is currently emitting. None = unknown/no device.
@@ -181,6 +189,7 @@ impl App {
             consumer_hook: None,
             rzcontrol: None,
             rzcontrol_bootstrap_done: false,
+            battery_fail_count: 0,
             firmware_fn_primary: None,
         }
     }
@@ -864,12 +873,17 @@ impl App {
     }
 
     /// Periodic battery poll — called from about_to_wait every ~30s.
-    /// Re-reads battery from the device, updates the cache, and pushes the
-    /// new value to the settings webview if it's open.
+    /// Also serves as a GATT health watchdog: if the read fails
+    /// consecutively, we force-disconnect so check_device triggers a
+    /// full reconnect cycle (including fn_detect::reset). This catches
+    /// the case where the BLE adapter was externally cycled (pnputil
+    /// disable/enable) and the WinRT BluetoothLEDevice still reports
+    /// ConnectionStatus::Connected on a dead GATT session.
     fn poll_battery(&mut self) {
         let Some(ref mut dev) = self.device else { return };
         match dev.get_battery_percent() {
             Ok(pct) => {
+                self.battery_fail_count = 0;
                 let changed = self.cached_battery != Some(pct);
                 self.cached_battery = Some(pct);
                 if changed {
@@ -877,8 +891,26 @@ impl App {
                     self.push_battery_update();
                 }
             }
-            Err(_) => {
-                // Battery read failed — don't zero the cache, just leave stale
+            Err(e) => {
+                self.battery_fail_count += 1;
+                if self.battery_fail_count >= 3 {
+                    eprintln!(
+                        "joro-daemon: {} consecutive battery read failures — forcing disconnect (last: {e})",
+                        self.battery_fail_count
+                    );
+                    // Force the same teardown as check_device's disconnect path
+                    self.device = None;
+                    self.cached_battery = None;
+                    self.consumer_hook = None;
+                    self.rzcontrol = None;
+                    self.battery_fail_count = 0;
+                    if let Some(ref mut tray) = self.tray {
+                        tray.set_connected(false, None, None);
+                    }
+                    if self.settings.is_some() {
+                        self.push_settings_state();
+                    }
+                }
             }
         }
     }
