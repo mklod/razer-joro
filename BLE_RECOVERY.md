@@ -105,30 +105,57 @@ Disabling Intel BT via Device Manager is **not permanent**. Three things can re-
 2. **Major OS updates** resetting `DEVPKEY_Device_IsDisabled`.
 3. **Cold boot after a power outage** — PnP cache gets cleared and Windows re-adds the device from the driver store with `Enabled` as default.
 
-Options from easiest to most aggressive:
+Options from easiest to most aggressive. **All three of options 1–3 are currently active** on this system (belt + suspenders + Group Policy):
 
-1. **BIOS/UEFI disable (recommended)** — reboot into BIOS, find the "Advanced / Onboard Devices / Wireless" or "Integrated Peripherals > Bluetooth" toggle, and disable **Bluetooth** (keep Wi-Fi if you want it). BT and Wi-Fi on Intel cards are the same chip but separate radios, so the BT toggle doesn't break Wi-Fi. Disabled at the hardware level, Windows literally can't see it. **This is the right fix.**
+1. **BIOS/UEFI disable** — reboot into BIOS, find the "Advanced / Onboard Devices / Wireless" or "Integrated Peripherals > Bluetooth" toggle, and disable **Bluetooth** (keep Wi-Fi if you want it). BT and Wi-Fi on Intel cards are the same chip but separate radios, so the BT toggle doesn't break Wi-Fi. **This system's BIOS (Ryzen board) does NOT expose a separate BT toggle** — disabling the WAN antenna didn't help. So we rely on options 2 + 3.
 
-2. **Scheduled task at boot** (if BIOS doesn't expose the toggle):
+2. **Scheduled task at boot** — `C:\Tools\disable-intel-bt.ps1` runs at every boot as SYSTEM via `schtasks /SC ONSTART`. Waits 5s for USB enumeration to settle, disables Intel BT via `pnputil /disable-device`, then cycles BARROT (disable → enable) so it picks up the freed BT slot. Logs to `C:\Tools\disable-intel-bt.log`.
 
-   Create `C:\Tools\disable-intel-bt.ps1`:
+   The script (`C:\Tools\disable-intel-bt.ps1`):
    ```powershell
-   $id = 'USB\VID_8087&PID_0AA7\6&363B4CA8&0&10'
-   pnputil /disable-device $id
+   $intel = 'USB\VID_8087&PID_0AA7\6&363B4CA8&0&10'
+   $barrot = 'USB\VID_33FA&PID_0010\6&363B4CA8&0&5'
+   Start-Sleep 5
+   $dev = Get-PnpDevice -InstanceId $intel -ErrorAction SilentlyContinue
+   if ($dev -and $dev.Status -eq 'OK') {
+       pnputil /disable-device $intel | Out-Null
+       Start-Sleep 2
+       pnputil /disable-device $barrot 2>$null | Out-Null
+       Start-Sleep 2
+       pnputil /enable-device $barrot 2>$null | Out-Null
+   }
    ```
 
-   Register it to run at boot as SYSTEM:
-   ```powershell
-   $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
-     -Argument '-NoProfile -ExecutionPolicy Bypass -File C:\Tools\disable-intel-bt.ps1'
-   $trigger = New-ScheduledTaskTrigger -AtStartup
-   $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest
-   Register-ScheduledTask -TaskName 'DisableIntelBT' -Action $action -Trigger $trigger -Principal $principal
+   Registered via `schtasks.exe` (NOT `Register-ScheduledTask` PowerShell cmdlet — the latter silently drops SYSTEM AtStartup triggers when run non-elevated):
+   ```
+   schtasks /Create /TN "DisableIntelBT" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File C:\Tools\disable-intel-bt.ps1" /SC ONSTART /RU SYSTEM /RL HIGHEST /F
    ```
 
-   Intel BT briefly wins the PnP race at boot; by the time you're logged in, the task has fired and Intel BT is disabled. BARROT claims the BT slot on next scan. Slightly racy but works.
+3. **Group Policy driver installation block** ← **THE NUCLEAR OPTION, CURRENTLY ACTIVE.** Tells Windows to NEVER load any driver for `USB\VID_8087` (all Intel Bluetooth hardware). The device still APPEARS in Device Manager (the hardware is physically on the motherboard) but its Status is permanently `Error` because Windows refuses to bind a driver. Survives Windows Updates, reboots, driver reinstalls — everything. The Intel BT adapter is a zombie: visible but non-functional.
 
-3. **Nuclear option**: `pnputil /delete-driver oem<N>.inf /uninstall /force` on the Intel Wireless driver. Windows Update will re-push it at some point. Not recommended unless you're desperate.
+   Set via registry:
+   ```powershell
+   $basePath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Restrictions'
+   $denyPath = "$basePath\DenyDeviceIDs"
+   New-Item -Path $basePath -Force | Out-Null
+   New-Item -Path $denyPath -Force | Out-Null
+   Set-ItemProperty -Path $basePath -Name 'DenyDeviceIDs' -Value 1 -Type DWord
+   Set-ItemProperty -Path $denyPath -Name '1' -Value 'USB\VID_8087&PID_0AA7' -Type String
+   Set-ItemProperty -Path $denyPath -Name '2' -Value 'USB\VID_8087' -Type String
+   ```
+
+   **To reverse** (if you ever need Intel BT back):
+   ```powershell
+   Remove-Item -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Restrictions' -Recurse
+   ```
+
+   **Verified 2026-04-16:** after reboot with GP block active, Intel BT shows `Status: Error` (driver blocked), BARROT shows `Status: OK`, Joro connects at the Windows login screen, daemon starts silently via HKCU Run key. Full success.
+
+4. **Last resort: physical hardware mod.** The Intel Wireless card is soldered to the motherboard on this system. Desoldering or cutting the BT antenna trace would permanently disable it. Only consider if all software approaches fail AND the BARROT dongle becomes the primary reliability bottleneck.
+
+**Daemon-side defense (in addition to the above):**
+
+5. **GATT health watchdog (built into daemon 2026-04-16).** The daemon's `poll_battery` (every 30s) tracks consecutive GATT read failures. After 3 failures, it force-disconnects the stale BLE session, triggering a full reconnect cycle including `fn_detect::reset()` (fresh HID handles). This catches the case where the BLE adapter is externally cycled and the daemon's WinRT `BluetoothLEDevice` still reports `ConnectionStatus::Connected` on a dead GATT session. Without this, Hypershift and brightness silently stop working after any BLE hiccup until the daemon is manually restarted.
 
 ---
 
@@ -256,7 +283,10 @@ If `set-mode` prints `current = Fn` and exits cleanly, the full BLE GATT path is
 
 | Date | Cause | Fix | Memory |
 |---|---|---|---|
+| 2026-04-16 | Intel BT re-enabled after reboot despite Device Manager uninstall | Group Policy driver block (`DenyDeviceIDs` for `USB\VID_8087`) + scheduled task + BARROT cycle. BIOS has no BT toggle. | §1.4 option 3 |
+| 2026-04-16 | Hypershift/brightness silently broken after external BLE adapter cycle | GATT health watchdog in daemon (`poll_battery` → 3 failures → force disconnect → reconnect with fn_detect::reset). Daemon no longer needs manual restart. | §1.4 option 5 |
 | 2026-04-15 | Post-power-outage cold boot, Intel BT won the PnP race | Disable Intel BT via pnputil | §1.3 |
+| 2026-04-15 | fn_detect HID handles stale after BLE disconnect/reconnect | `fn_detect::reset()` called from `try_connect` on every BLE reconnect | §1.4 option 5 |
 | 2026-04-14 | Stale pairing after Synapse killed mid-write | Re-pair Joro | §3, `project_joro_pairing_requirement.md` |
 | 2026-04-13 | btleplug on Windows dropped GATT session after ~1s | Switched to direct WinRT in `src/ble.rs` | `project_btleplug_winrt_fix.md` |
 | 2026-04-10 | Synapse Razer Chroma SDK holding Joro GATT session | Stop Chroma SDK services | §2 |

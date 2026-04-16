@@ -7,7 +7,16 @@
 - **DDC/CI monitor handle caching** — `PhysicalMonitor` handle is now stored in a global `BRIGHTNESS_STATE` mutex and reused across presses. Previously `enumerate()` was called on every keypress, which invoked `GetMonitorBrightness` (a separate dxva2 DDC/CI read transaction) before each stepped write. The Falcon's scaler firmware rebooted under sustained DDC/CI read+write interleaving. With caching, the read happens exactly once; subsequent presses do only `SetVCPFeature` writes. Write failures (stale handle after a monitor reboot/re-enumeration) auto-invalidate the cache so the next press re-enumerates cleanly. Step delay bumped from 5ms → 20ms for additional stability.
 - **fn_detect BLE reconnect fix** — new `fn_detect::reset()` clears the tracked-paths set. Called from `try_connect` before `start()` on every BLE reconnection. Without this, old HID collection handles go stale after a BLE disconnect/reconnect cycle (Windows creates new device paths for the reconnected keyboard) and fn_detect's reader threads spin on dead handles forever. Fn+key Hypershift remaps silently stopped working after any BLE hiccup. Fixed by forcing re-enumeration of all HID collections on each connect.
 
-**Current state:** daemon is stable. All key remaps, brightness, backlight, Hypershift, Lock/Copilot, F4 Win+Tab all working. Monitor brightness dims without rebooting (tested 10+ cycles).
+**Intel BT permanent fix (2026-04-16--0113):**
+- BIOS has no BT-specific toggle (Ryzen board, WAN antenna disable didn't help)
+- Group Policy driver block active: `HKLM\...\DeviceInstall\Restrictions\DenyDeviceIDs` blocks `USB\VID_8087`. Intel BT appears as `Error` (zombie) — visible but driver can't load.
+- Scheduled task `DisableIntelBT` (schtasks ONSTART SYSTEM) as backup: disables Intel via pnputil + cycles BARROT. Script at `C:\Tools\disable-intel-bt.ps1`.
+- Verified after reboot: Intel=Error, BARROT=OK, Joro connects at login screen, daemon starts silently (no terminal — `windows_subsystem = "windows"` in release build).
+
+**Daemon resilience (2026-04-16--0113):**
+- GATT health watchdog: `poll_battery` tracks consecutive read failures. After 3 → force disconnect → full reconnect cycle including `fn_detect::reset()`. Daemon auto-recovers from external BLE adapter cycling without manual restart.
+
+**Current state:** daemon is stable. All key remaps, brightness, backlight, Hypershift, Lock/Copilot, F4 Win+Tab all working. Monitor brightness dims without rebooting. Daemon starts silently at login. Intel BT permanently blocked.
 
 **Next session priorities (unchanged):**
 1. Hypershift matrix gap scan (#12) — USB required
