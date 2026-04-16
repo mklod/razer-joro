@@ -5,6 +5,7 @@
 > - **Hypershift matrix gap scan (#12).** `cargo run -- scan-gaps` ready; user plugs USB + runs + reports letter→key mapping. I update `keys::JORO_MATRIX_TABLE`. Several Hypershift keys can't be programmed until their matrix indices are discovered.
 > - **Remaps not firing in webview popover text inputs (#13).** Lock→Delete doesn't work inside the settings UI remap popover, and other key remaps also fail in the webview. Chromium/WebView2 text inputs appear to filter SendInput-injected events. Try `KEYEVENTF_SCANCODE` path or investigate WebView2-specific input handling.
 > - **Cleanup pass + release build.** Strip `eprintln!`, unused rzcontrol constants (`F1..F4`, `ESC`, `LALT`), `fn_detect.rs` diagnostic subcommand, then `cargo build --release`. Update the installed release binary at `C:\Users\mklod\AppData\Local\razer-joro\joro-daemon.exe`.
+> - **Tray icon sizing.** Current icons8-keyboard-96.png looks clean but smaller than native Windows touch-keyboard tray icon. Cropping the transparent padding didn't help (made it worse). Investigate passing a larger icon to tray-icon crate or using a different scaling approach.
 
 ## Build 2026-04-15--1751
 
