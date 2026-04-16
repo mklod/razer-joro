@@ -631,14 +631,14 @@ const LAYOUT = [
     // Win+Copilot trigger remaps), the UI swaps the remap source to this
     // name and shows it in the key tooltip. In Fn mode, F4-F12 emit their
     // plain VK_F* name and `mmEmits` is ignored.
-    K('',     'F4',  { icon: 'screens',       bot: 'F4',  fSub: true }),
+    K('',     'F4',  { icon: 'screens',       bot: 'F4',  fSub: true, mmEmits: 'Win+Tab', mmMacro: true, fwNote: 'Firmware macro Win+Tab in MM mode — not individually remappable without switching to Fn mode' }),
     K('',     'F5',  { icon: 'speakerMute',   bot: 'F5',  fSub: true, mmEmits: 'VolumeMute' }),
     K('',     'F6',  { icon: 'speakerLow',    bot: 'F6',  fSub: true, mmEmits: 'VolumeDown' }),
     K('',     'F7',  { icon: 'speakerHigh',   bot: 'F7',  fSub: true, mmEmits: 'VolumeUp' }),
     K('',     'F8',  { icon: 'sunSmall',      bot: 'F8',  fSub: true, mmEmits: 'BrightnessDown', mmConsumer: true }),
     K('',     'F9',  { icon: 'sunLarge',      bot: 'F9',  fSub: true, mmEmits: 'BrightnessUp',   mmConsumer: true }),
-    K('',     'F10', { icon: 'backlightDown', bot: 'F10', fSub: true, mmEmits: 'BacklightDown', mmVendor: true }),
-    K('',     'F11', { icon: 'backlightUp',   bot: 'F11', fSub: true, mmEmits: 'BacklightUp',   mmVendor: true }),
+    K('',     'F10', { icon: 'backlightDown', bot: 'F10', fSub: true, mmEmits: 'BacklightDown', mmVendor: true, mmMacro: true, fwNote: 'Vendor backlight control in MM mode — not remappable without switching to Fn mode' }),
+    K('',     'F11', { icon: 'backlightUp',   bot: 'F11', fSub: true, mmEmits: 'BacklightUp',   mmVendor: true, mmMacro: true, fwNote: 'Vendor backlight control in MM mode — not remappable without switching to Fn mode' }),
     K('prt sc', 'PrintScreen', { bot: 'F12', fSub: true }),
     K('ins',  'Insert'),
     K('del',  'Delete'),
@@ -918,8 +918,10 @@ function renderKeyboard() {
       // failing remaps. Styled distinctly via `.ble-locked` (solid light
       // grey) so the user can tell "hardware lock" from "unused key".
       const isLockedBleSlot = k.bleSlot && transport === 'BLE';
+      const isLockedMmMacro = k.mmMacro && firmwareFnPrimary === false;
       if (k.dead) classes.push('dead');
       if (isLockedBleSlot) { classes.push('dead'); classes.push('ble-locked'); }
+      if (isLockedMmMacro) { classes.push('dead'); classes.push('ble-locked'); }
       if (k.capsLed) classes.push('caps-led');
       if (k.btLed && !isLockedBleSlot) classes.push('bt-led');
       if (k.botBottom) classes.push('bot-bottom');
@@ -938,6 +940,8 @@ function renderKeyboard() {
       const mapped = findRemapForKey(k);
       if (isLockedBleSlot) {
         btn.title = `${k.key} — firmware-locked as ${k.fwNote || 'BLE slot selector'}. Remapping is blocked while on BLE.`;
+      } else if (isLockedMmMacro) {
+        btn.title = `${k.key} emits ${k.mmEmits} (firmware macro). ${k.fwNote || 'Not remappable in MM mode.'}`;
       } else if (mapped) {
         btn.classList.add('mapped');
         // Include firmware-behavior context in the tooltip so it's clear
@@ -963,7 +967,7 @@ function renderKeyboard() {
       const bot = makeBotLabel(k);
       if (bot) btn.appendChild(bot);
 
-      if (!k.dead && !isLockedBleSlot) {
+      if (!k.dead && !isLockedBleSlot && !isLockedMmMacro) {
         btn.addEventListener('click', (e) => onKeyClick(k, btn, e));
       }
       rowEl.appendChild(btn);

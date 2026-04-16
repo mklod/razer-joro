@@ -1445,6 +1445,27 @@ fn main() {
         run_gap_scan();
         return;
     }
+
+    // Autostart toggle CLI — lets scripts / the user enable or disable the
+    // daemon's HKCU\...\Run\JoroDaemon entry without opening the tray menu.
+    // The value is set to the path of THIS binary, so build release and
+    // invoke from the release target directory if you want a stable
+    // autostart path that survives `cargo clean`.
+    if args.len() >= 2 && args[1] == "enable-autostart" {
+        tray::enable_autostart();
+        if tray::is_autostart_enabled() {
+            eprintln!("autostart: enabled (JoroDaemon in HKCU\\...\\Run)");
+        } else {
+            eprintln!("autostart: FAILED to enable");
+            std::process::exit(1);
+        }
+        return;
+    }
+    if args.len() >= 2 && args[1] == "disable-autostart" {
+        tray::disable_autostart();
+        eprintln!("autostart: disabled");
+        return;
+    }
     // HID report discovery: spawn fn_detect, run until Ctrl+C. Use this to
     // find which HID collection / report byte carries Joro's Fn state
     // (especially over BLE where Windows owns the keyboard HID collection

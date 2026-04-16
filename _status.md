@@ -1,5 +1,27 @@
 # Razer Joro — Status
 
+## Session 2026-04-15--2123 — gate-broken atomic replay, F4/F10/F11 MM-locked, tray icon, startup cleanup
+
+**Bug fixes:**
+- **Gate-broken atomic replay** — when a non-trigger key (e.g. Tab from F4's firmware Win+Tab macro) breaks a gated modifier (Win), the gate now replays modifier+key as a **single atomic SendInput batch** and suppresses the original event. Previously the gate replayed Win as a separate injection then fell through for Tab — but Win↑ from the firmware arrived before Tab reached the shell, so Windows saw a Win-tap → Start Menu instead of Win+Tab → Task View. Fixed by sending both in one batch.
+- **Injection filter dwExtraInfo-only** — `hook_proc` now checks `kb.dwExtraInfo == OUR_INJECTION_TAG` alone, not `injected && dwExtraInfo`. When `SendInput` is called reentrantly from inside a WH_KEYBOARD_LL callback, Windows doesn't set `LLKHF_INJECTED` on the delivered events. Our combo-source Win+Tab injection was processed as a "physical" Win press, getting gated by the trigger system.
+- **Alt+Tab fixed** — root cause was a stale `Tab → Brightness+Up` remap in config that intercepted Tab before it could reach the Alt+Tab handler. User deleted it, Alt+Tab works. The injection filter + gate-broken fixes also contribute to reliability.
+
+**UI changes:**
+- **F4, F10, F11 greyed out in MM mode** — firmware-locked to their native functions (Win+Tab macro, backlight down/up vendor reports). Same visual treatment as F1/F2/F3 BLE slots: `.ble-locked` CSS, unclickable, tooltip explains the limitation. In Fn mode they would ungrey and become fully programmable.
+- **Tray icon replaced** — icons8-keyboard-96.png source, downscaled to 32×32 PNG for tray, multi-size ICO for window title-bar. Disconnected variant: desaturated grey + red LED dot. Clean and legible at all tray DPI scales.
+
+**Startup cleanup (task #15):**
+- All 5 Razer services (Chroma SDK Server/Service/Diagnostic/Stream, Game Manager 3) set to **Manual** start — no longer auto-launch at boot.
+- `HKCU\Run\RazerAppEngine` deleted — Synapse won't autostart.
+- Release binary installed at `C:\Users\mklod\AppData\Local\razer-joro\joro-daemon.exe`.
+- `HKCU\Run\JoroDaemon` registered via new `cargo run -- enable-autostart` CLI. Daemon starts at login.
+- Elevation Service left as Manual (our Copilot combo depends on it starting on-demand).
+
+**Next session priorities:**
+1. **Hypershift matrix gap scan (#12)** — `cargo run -- scan-gaps` infrastructure ready, needs USB + user test
+2. **Remaps not firing in webview popover (#13)** — Lock→Delete AND other remaps don't work inside the settings UI text inputs. WebView2/Chromium appears to filter SendInput-injected events in form fields.
+
 ## Session 2026-04-15--1751 — brightness ramp smoothing, consumer-hook brightness, BLE recovery doc, osk-icon attempt
 
 **Feature land:**
