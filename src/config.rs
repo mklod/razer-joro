@@ -206,55 +206,10 @@ pub fn save_config(path: &Path, cfg: &Config) -> Result<(), String> {
         .map_err(|e| format!("write {}: {}", path.display(), e))
 }
 
-/// Rewrite the `[[remap]]` section of the TOML file in place. Everything
-/// before the first `[[remap]]` line is preserved verbatim (keeps the header
-/// comments and the `[lighting]` section). The remap section is regenerated
-/// from the given Vec.
-pub fn save_remaps(path: &Path, remaps: &[RemapConfig]) -> Result<(), String> {
-    let contents = std::fs::read_to_string(path)
-        .map_err(|e| format!("read {}: {}", path.display(), e))?;
-
-    // Find the first `[[remap]]` line (preserving everything before it)
-    let mut header = String::new();
-    let mut found_remap_start = false;
-    for line in contents.lines() {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with("[[remap]]") {
-            found_remap_start = true;
-            break;
-        }
-        header.push_str(line);
-        header.push('\n');
-    }
-
-    // If no [[remap]] in the file, keep the entire original contents as header
-    // (minus trailing newline, which we'll re-add).
-    if !found_remap_start {
-        header = contents.clone();
-        if !header.ends_with('\n') {
-            header.push('\n');
-        }
-    }
-
-    // Build the new remap section via toml::to_string on a wrapper struct
-    #[derive(Serialize)]
-    struct RemapWrapper<'a> {
-        remap: &'a [RemapConfig],
-    }
-    let wrapper = RemapWrapper { remap: remaps };
-    let remap_toml = toml::to_string(&wrapper)
-        .map_err(|e| format!("serialize remaps: {e}"))?;
-
-    // Ensure a blank line between header and remaps if the header doesn't end with one
-    let mut out = header;
-    if !out.ends_with("\n\n") && !out.is_empty() {
-        out.push('\n');
-    }
-    out.push_str(&remap_toml);
-
-    std::fs::write(path, out)
-        .map_err(|e| format!("write {}: {}", path.display(), e))
-}
+// NOTE: a previous `save_remaps` partial-writer lived here. It truncated
+// the file at the first `[[remap]]` line which silently wiped the user's
+// [[fn_host_remap]] Hypershift entries on every base-layer save. Removed
+// 2026-04-15; all save paths now use the full `save_config` serde writer.
 
 impl LightingConfig {
     pub fn parse_color(&self) -> Result<(u8, u8, u8), String> {

@@ -83,6 +83,12 @@ pub enum UserEvent {
     /// we can dispatch BLE I/O on the main thread (BleDevice isn't Send).
     /// Value is an absolute 0-255 brightness level.
     BacklightSet(u8),
+    /// Keyboard backlight changed at the hardware level (user pressed the
+    /// Joro's native F10/F11 MM keys while firmware is in MM mode). The
+    /// daemon doesn't initiate this; it's reported via col05 HID telemetry
+    /// `06 05 08 XX`. We update config + push state to the webview but
+    /// do NOT write back to the device (that would fight the keyboard).
+    BacklightObserved(u8),
 }
 
 use std::time::{Duration, Instant};
@@ -568,11 +574,13 @@ impl App {
         }
 
         // Rebuild remap tables
-        let (combo_table, trigger_table, special_table) = remap::build_remap_tables(&self.config.remap);
+        let (combo_table, trigger_table, special_table, consumer_table) =
+            remap::build_remap_tables(&self.config.remap);
         let fn_host_table = remap::build_fn_host_remap_table(&self.config.fn_host_remap);
         remap::update_remap_table(combo_table);
         remap::update_trigger_table(trigger_table);
         remap::update_special_action_table(special_table);
+        remap::update_consumer_action_table(consumer_table);
         remap::update_fn_host_remap_table(fn_host_table);
 
         // Reapply to device if connected
@@ -798,6 +806,10 @@ impl App {
         match settings_window::SettingsWindow::new(event_loop, self.proxy.clone()) {
             Ok(w) => {
                 eprintln!("joro-daemon: settings window opened");
+                // Force foreground/topmost-bump immediately on first open so
+                // the window doesn't render behind whatever had focus when
+                // the user clicked the tray icon.
+                w.bring_to_front();
                 self.settings = Some(w);
                 // The HTML will request initial state via IPC on DOMContentLoaded,
                 // so we don't need to push state here. `handle_settings_ipc` will
@@ -911,26 +923,34 @@ impl App {
                 // Update in-memory config
                 self.config.remap = new_remaps;
 
-                // Save to disk (preserves header + [lighting])
-                if let Err(e) = config::save_remaps(&self.config_path, &self.config.remap) {
+                // Full-serde write — preserves every field (fn_host_remap,
+                // fn_remap, lighting, device_mode, etc.). Previously used
+                // `save_remaps` which was a partial writer that truncated
+                // everything after the first [[remap]] line, silently
+                // wiping the user's [[fn_host_remap]] Hypershift prefs on
+                // every base-layer save. Fixed 2026-04-15.
+                if let Err(e) = config::save_config(&self.config_path, &self.config) {
                     self.push_save_result(false, Some(&e));
                     return;
                 }
 
                 // Rebuild host-side remap tables
-                let (combo_table, trigger_table, special_table) =
+                let (combo_table, trigger_table, special_table, consumer_table) =
                     remap::build_remap_tables(&self.config.remap);
                 let fn_host_table =
                     remap::build_fn_host_remap_table(&self.config.fn_host_remap);
                 remap::update_remap_table(combo_table);
                 remap::update_trigger_table(trigger_table);
                 remap::update_special_action_table(special_table);
+                remap::update_consumer_action_table(consumer_table);
                 remap::update_fn_host_remap_table(fn_host_table);
 
-                // Reapply to device (firmware keymap entries, if any)
-                if let Some(ref mut dev) = self.device {
-                    Self::apply_config(&self.config, &mut **dev);
-                }
+                // NOTE: do NOT call apply_config here. The remap save path
+                // only touches `self.config.remap` — re-sending lighting +
+                // firmware state would clobber e.g. a user-adjusted backlight
+                // set via F10/F11 since the daemon doesn't yet poll keyboard
+                // state. Any firmware-level remap changes are handled through
+                // the separate `update_fn_remap` path.
 
                 // Bump mtime watermark so the config poller doesn't double-reload
                 self.config_modified = std::fs::metadata(&self.config_path)
@@ -1103,14 +1123,16 @@ impl ApplicationHandler<UserEvent> for App {
         }
 
         // Build initial remap tables
-        let (combo_table, trigger_table, special_table) = remap::build_remap_tables(&self.config.remap);
+        let (combo_table, trigger_table, special_table, consumer_table) =
+            remap::build_remap_tables(&self.config.remap);
         let fn_host_table = remap::build_fn_host_remap_table(&self.config.fn_host_remap);
         eprintln!(
-            "joro-daemon: {} combo remaps, {} trigger remaps, {} fn-host remaps, {} special actions",
+            "joro-daemon: {} combo remaps, {} trigger remaps, {} fn-host remaps, {} special actions, {} consumer actions",
             combo_table.len(),
             trigger_table.len(),
             fn_host_table.len(),
             special_table.len(),
+            consumer_table.len(),
         );
         for t in &trigger_table {
             eprintln!("  trigger: gate=0x{:04X} trigger=0x{:04X} prefix={:?} -> mods={:?} key=0x{:04X}",
@@ -1125,8 +1147,12 @@ impl ApplicationHandler<UserEvent> for App {
         for s in &special_table {
             eprintln!("  special: from=0x{:04X} -> {:?}", s.from_vk, s.action);
         }
+        for c in &consumer_table {
+            eprintln!("  consumer: usage=0x{:04x} -> {}", c.usage, c.label);
+        }
         remap::update_remap_table(combo_table);
         remap::update_trigger_table(trigger_table);
+        remap::update_consumer_action_table(consumer_table);
         remap::update_special_action_table(special_table);
         remap::update_fn_host_remap_table(fn_host_table);
         // Seed last-known keyboard backlight level so relative Backlight±
@@ -1191,19 +1217,41 @@ impl ApplicationHandler<UserEvent> for App {
                 eprintln!("joro-daemon: Ctrl+C received, shutting down cleanly");
                 self.shutdown_and_exit(event_loop);
             }
+            UserEvent::BacklightObserved(level) => {
+                if self.config.lighting.brightness == level { return; }
+                eprintln!("joro-daemon: backlight observed {level} (hardware MM key)");
+                self.config.lighting.brightness = level;
+                remap::set_last_backlight(level);
+                if let Err(e) = config::save_config(&self.config_path, &self.config) {
+                    eprintln!("Warning: save_config failed: {e}");
+                }
+                self.config_modified = std::fs::metadata(&self.config_path)
+                    .ok()
+                    .and_then(|m| m.modified().ok());
+                if self.settings.is_some() { self.push_settings_state(); }
+            }
             UserEvent::BacklightSet(level) => {
+                eprintln!("joro-daemon: BacklightSet({level}) event received");
                 if let Some(ref mut dev) = self.device {
                     match dev.set_brightness(level) {
                         Ok(()) => {
+                            eprintln!("joro-daemon: backlight -> {level} applied");
                             self.config.lighting.brightness = level;
-                            // Persist so the new value survives daemon restart
+                            // Persist so the new value survives daemon restart.
+                            // Bump the config-poller mtime watermark so our own
+                            // write doesn't trigger a reload-and-rebuild loop.
                             if let Err(e) = config::save_config(&self.config_path, &self.config) {
                                 eprintln!("Warning: save_config failed: {e}");
                             }
+                            self.config_modified = std::fs::metadata(&self.config_path)
+                                .ok()
+                                .and_then(|m| m.modified().ok());
                             if self.settings.is_some() { self.push_settings_state(); }
                         }
-                        Err(e) => eprintln!("backlight set failed: {e}"),
+                        Err(e) => eprintln!("joro-daemon: backlight set({level}) failed: {e}"),
                     }
+                } else {
+                    eprintln!("joro-daemon: BacklightSet dropped -- no device connected");
                 }
             }
         }
@@ -1259,6 +1307,78 @@ impl ApplicationHandler<UserEvent> for App {
 /// Run `cargo run -- scan <batch>`. After scanning, use Synapse "Reset
 /// Profile" to restore factory Fn-layer defaults, or re-run the daemon
 /// normally to reapply your configured fn_remaps.
+/// Targeted scan of the KNOWN GAP indices in `JORO_MATRIX_TABLE`.
+/// Programs each gap matrix slot to a consecutive letter a..z on the
+/// Fn layer so the user can identify which physical key each gap
+/// corresponds to by pressing Fn+<key> and watching which letter
+/// appears in a text field. 26 slots max — fits the alphabet.
+fn run_gap_scan() {
+    // Indices that are *between* known-mapped indices in the matrix —
+    // candidates for physical keys we haven't identified yet. Ordered
+    // by likelihood of being a user-programmable key. Max 26 so a..z
+    // cover them 1:1.
+    let gaps: [u8; 26] = [
+        // Bottom row / Fn-area (between Copilot 0x3E and RCtrl 0x40,
+        // and between RCtrl 0x40 and LShift 0x46)
+        0x3F, 0x41, 0x42, 0x43, 0x44, 0x45,
+        // Arrow/nav cluster gaps
+        0x52, 0x57, 0x58,
+        // Between Right (0x59) and Insert (0x65) — likely PrintScreen
+        // + any other 75% extras
+        0x5A, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, 0x60, 0x61, 0x62, 0x63, 0x64,
+        // Between Delete (0x66) and Escape (0x6E)
+        0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C,
+    ];
+
+    let mut dev = match usb::RazerDevice::open() {
+        Some(d) => d,
+        None => {
+            eprintln!("scan-gaps: no USB Joro found — scan requires a wired connection.");
+            eprintln!("Make sure the daemon isn't already running (it holds USB exclusively).");
+            std::process::exit(1);
+        }
+    };
+
+    println!("\n=== Joro matrix gap scan ===");
+    println!("Programming {} known-gap Fn-layer indices to letters a..z", gaps.len());
+    println!("(Fn-layer only — base layer NOT modified, normal typing is unaffected)\n");
+
+    for (i, &matrix_idx) in gaps.iter().enumerate() {
+        let letter = (b'a' + i as u8) as char;
+        let hid_usage = 0x04 + i as u8; // HID usage for 'a'=0x04 .. 'z'=0x1D
+        match dev.set_layer_remap(matrix_idx, 0x00, hid_usage) {
+            Ok(()) => println!("  matrix 0x{matrix_idx:02x}  →  Fn+<key> emits '{letter}'"),
+            Err(e) => eprintln!("  matrix 0x{matrix_idx:02x} program FAILED: {e}"),
+        }
+    }
+
+    println!("\n── Instructions ──");
+    println!("1. IMPORTANT: cycle the Joro transport wired↔BLE↔wired once — the");
+    println!("   firmware stores our writes but only refreshes the runtime");
+    println!("   Hypershift table on a transport change (see memory");
+    println!("   project_hypershift_commit_trigger.md).");
+    println!("2. Open Notepad (or any text field).");
+    println!("3. Hold Fn and press EVERY physical key on the keyboard you can");
+    println!("   find, including ones you haven't identified yet. Note which");
+    println!("   letter appears for each key.");
+    println!("4. Tell Claude the letter→key mapping. Example:");
+    println!("     'a = LAlt, b = Fn, c = nothing, d = PrintScreen, ...'");
+    println!("5. Keys NOT in this scan's range will emit their normal Hypershift");
+    println!("   output (the user's existing fn_remap bindings or media keys).\n");
+
+    println!("Matrix index lookup:");
+    for (i, &matrix_idx) in gaps.iter().enumerate() {
+        let letter = (b'a' + i as u8) as char;
+        println!("  '{letter}' = 0x{matrix_idx:02x}");
+    }
+
+    println!("\nPress Enter here when done. Daemon will release USB and you can");
+    println!("re-run it normally (which reapplies your configured fn_remap).");
+    let mut s = String::new();
+    let _ = std::io::stdin().read_line(&mut s);
+    println!("scan-gaps: done. Device released.");
+}
+
 fn run_matrix_scan(batch: u8) {
     let start: u16 = 1 + (batch as u16) * 26;
     let end: u16 = start + 25;
@@ -1319,6 +1439,10 @@ fn main() {
     if args.len() >= 2 && args[1] == "scan" {
         let batch: u8 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
         run_matrix_scan(batch);
+        return;
+    }
+    if args.len() >= 2 && args[1] == "scan-gaps" {
+        run_gap_scan();
         return;
     }
     // HID report discovery: spawn fn_detect, run until Ctrl+C. Use this to

@@ -84,9 +84,41 @@ impl SettingsWindow {
     }
 
     /// Focus the existing window (called when user clicks "Settings" again
-    /// and we already have a window open).
+    /// and we already have a window open). Uses a Win32 topmost-bump
+    /// because winit's `focus_window()` alone doesn't steal foreground
+    /// from a background (tray-initiated) click on Windows. The bump
+    /// sequence is: SetForegroundWindow → SetWindowPos(TOPMOST) →
+    /// SetWindowPos(NOTOPMOST). Briefly going topmost is the documented
+    /// workaround for the "only the foreground thread can call
+    /// SetForegroundWindow" restriction.
     pub fn focus(&self) {
         self.window.focus_window();
+        self.bring_to_front();
+    }
+
+    /// Force the window to the top of the Z order and into the foreground.
+    /// Call after creation (tray click) to prevent opening behind other
+    /// windows, and again via `focus()` for repeat Settings clicks.
+    pub fn bring_to_front(&self) {
+        use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+        use windows::Win32::Foundation::HWND;
+        use windows::Win32::UI::WindowsAndMessaging::{
+            SetForegroundWindow, SetWindowPos, ShowWindow, HWND_NOTOPMOST, HWND_TOPMOST,
+            SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SW_RESTORE, SW_SHOW,
+        };
+        let Ok(handle) = self.window.window_handle() else { return };
+        let raw = handle.as_raw();
+        let RawWindowHandle::Win32(h) = raw else { return };
+        let hwnd = HWND(h.hwnd.get() as *mut _);
+        unsafe {
+            let _ = ShowWindow(hwnd, SW_RESTORE);
+            let _ = ShowWindow(hwnd, SW_SHOW);
+            let _ = SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+            let _ = SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+            let _ = SetForegroundWindow(hwnd);
+        }
     }
 
     /// Evaluate JavaScript in the webview — used to push state from Rust.
