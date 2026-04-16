@@ -605,11 +605,16 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
         dbg_log(&format!("{dir} vk=0x{vk:04X} scan=0x{:04X}{inj}", kb.scanCode));
     }
 
-    // Skip ONLY our own injected events (tagged via dwExtraInfo) to prevent
-    // recursion. Windows-native injections (media VKs generated from HID
-    // Consumer Control reports) leave dwExtraInfo=0 and MUST be processed
-    // normally so media-to-function-key remaps can fire.
-    if injected && kb.dwExtraInfo == OUR_INJECTION_TAG {
+    // Skip our own injected events (tagged via dwExtraInfo) to prevent
+    // recursion. We check dwExtraInfo ALONE — not requiring LLKHF_INJECTED
+    // — because when SendInput is called reentrantly from inside this hook
+    // callback, some Windows versions don't set LLKHF_INJECTED on the
+    // delivered events. Without this fix, our Win+Tab combo from F4 remap
+    // gets processed as a "physical" LWin press, the trigger gate captures
+    // it, and Start Menu opens instead of Task View. Windows-native
+    // injections (media VKs from HID Consumer Control reports) always
+    // leave dwExtraInfo=0, so they still get processed normally.
+    if kb.dwExtraInfo == OUR_INJECTION_TAG {
         return CallNextHookEx(None, code, wparam, lparam);
     }
 
@@ -807,18 +812,27 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
                     return LRESULT(1);
                 }
 
-                // NON-TRIGGER KEY — replay gated modifier and pass key through
+                // NON-TRIGGER KEY — replay gated modifier AND the breaking key
+                // as a single atomic SendInput batch so Windows sees them
+                // simultaneously. The original breaking-key event is
+                // suppressed (LRESULT(1)). Without this, firmware macros
+                // like F4's Win+Tab fail: the gate replays Win as a
+                // separate injection, then Win↑ (already queued by the
+                // firmware) arrives before Tab reaches the shell, and
+                // Windows interprets Win↓→Win↑ as a tap → Start Menu.
                 if debug {
-                    dbg_log(&format!("  ACT: gate broken by 0x{vk:04X}, replay mod 0x{:04X}", g.gate_vk));
+                    dbg_log(&format!("  ACT: gate broken by 0x{vk:04X}, replay mod+key 0x{:04X}+0x{vk:04X}",
+                        g.gate_vk));
                 }
-                // Replay any suppressed prefix mods first, then the gate mod
                 let mut replay: Vec<INPUT> = Vec::new();
                 for &prefix in &g.suppressed_prefix {
                     replay.push(make_key_input(prefix, false));
                 }
                 replay.push(make_key_input(g.gate_vk, false));
+                replay.push(make_key_input(vk, false));
                 send_inputs(&replay);
-                // Fall through — let this key be processed normally
+                *GATE.lock().unwrap() = None;
+                return LRESULT(1); // suppress the original breaking key
             } else if is_up && vk == g.gate_vk {
                 // GATE MOD KEY-UP — user just tapped Win. Replay full tap.
                 if debug { dbg_log("  ACT: gate mod released, replay tap"); }
