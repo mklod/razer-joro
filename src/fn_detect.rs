@@ -37,6 +37,13 @@ const RAZER_VID: u16 = 0x1532;
 /// reader thread, read by the WH_KEYBOARD_LL hook callback.
 pub static FN_HELD: AtomicBool = AtomicBool::new(false);
 
+/// Set by any HID-reader thread (consumer_hook, fn_detect) whenever a Joro
+/// HID report is received. Main thread reads + clears it to detect that
+/// the keyboard is actively responding (faster than waiting for the
+/// dongle's bridged battery query to return a real value, which can lag
+/// by minutes after a wake).
+pub static JORO_HID_ACTIVITY: AtomicBool = AtomicBool::new(false);
+
 /// Track which HID collection paths we've already spawned a reader for.
 /// `start()` is idempotent: new readers are spawned only for paths we
 /// haven't seen, so calling it on each device connect handles transport
@@ -135,15 +142,47 @@ fn enumerate_and_spawn() -> Result<(), String> {
             info.usage_page(),
             info.usage()
         );
-        opened.insert(path);
+        opened.insert(path.clone());
 
+        // Clone the path for the thread so it can remove itself from
+        // OPENED_PATHS on exit (self-heal path).
+        let thread_path = path;
+        let usage_page_log = info.usage_page();
+        let usage_log = info.usage();
         thread::spawn(move || {
             let mut buf = [0u8; 64];
             let mut last_held = false;
             let mut last_backlight: Option<u8> = None;
+            // Self-heal: HID interface paths can go stale across BLE
+            // sleep/wake cycles (Windows closes the path, our handle
+            // keeps erroring forever). After N consecutive read errors,
+            // drop our slot from OPENED_PATHS and exit. The main
+            // daemon's periodic `fn_detect::start()` call will then
+            // re-open a fresh handle and spawn a new thread.
+            const ERROR_THRESHOLD: u32 = 20;
+            let mut error_streak: u32 = 0;
             loop {
                 match dev.read_timeout(&mut buf, 1000) {
+                    // Wired USB Fn-state: report `04 XX` (no 0x05 prefix — the
+                    // report ID is stripped by hidapi on Windows when a
+                    // collection has a single report).
+                    Ok(n) if n >= 2 && buf[0] == 0x04 => {
+                        error_streak = 0;
+                        JORO_HID_ACTIVITY.store(true, Ordering::Release);
+                        let held = buf[1] == 0x01;
+                        if held != last_held {
+                            eprintln!(
+                                "fn-detect: FN_HELD {} -> {} (wired report {:02x} {:02x})",
+                                last_held, held, buf[0], buf[1]
+                            );
+                            last_held = held;
+                            FN_HELD.store(held, Ordering::Release);
+                        }
+                    }
+                    // BLE/dongle Fn-state: report `05 04 XX` (col05 wrapped).
                     Ok(n) if n >= 3 && buf[0] == 0x05 && buf[1] == 0x04 => {
+                        error_streak = 0;
+                        JORO_HID_ACTIVITY.store(true, Ordering::Release);
                         let held = buf[2] == 0x01;
                         if held != last_held {
                             eprintln!("fn-detect: FN_HELD {} -> {} (report {:02x} {:02x} {:02x})",
@@ -152,23 +191,75 @@ fn enumerate_and_spawn() -> Result<(), String> {
                         }
                         FN_HELD.store(held, Ordering::Release);
                     }
-                    // Backlight-change telemetry — fires from hardware MM F10/F11
-                    // as `06 05 08 XX` where XX is the new firmware backlight
-                    // level in 0..255. Forward to main so the UI slider syncs.
+                    // Wired USB backlight telemetry: report `05 08 XX` (no
+                    // leading 0x06 wrapper). VERIFIED via spawn_diagnostic
+                    // 2026-05-21: brightness press emits a 22-byte report
+                    // starting `05 08 XX 00 00 …` on a 0x0001/0x0000 vendor
+                    // collection on iface 1 of PID 0x02CD. Without this
+                    // match the daemon never saw hardware F10/F11 events
+                    // on wired and the UI slider never updated.
+                    Ok(n) if n >= 3 && buf[0] == 0x05 && buf[1] == 0x08 => {
+                        error_streak = 0;
+                        JORO_HID_ACTIVITY.store(true, Ordering::Release);
+                        let level = buf[2];
+                        if last_backlight != Some(level) {
+                            last_backlight = Some(level);
+                            crate::post_user_event(crate::UserEvent::BacklightObserved(level));
+                        }
+                    }
+                    // BLE/dongle backlight telemetry — `06 05 08 XX` (col05 wrapped).
+                    // XX is the new firmware backlight level in 0..255.
                     Ok(n) if n >= 4 && buf[0] == 0x06 && buf[1] == 0x05 && buf[2] == 0x08 => {
+                        error_streak = 0;
+                        JORO_HID_ACTIVITY.store(true, Ordering::Release);
                         let level = buf[3];
                         if last_backlight != Some(level) {
                             last_backlight = Some(level);
                             crate::post_user_event(crate::UserEvent::BacklightObserved(level));
                         }
                     }
-                    Ok(_) => {}
+                    // Dongle battery telemetry — the keyboard PUSHES a
+                    // periodic heartbeat `09 31 <raw> <mode> <mode> 02 ...`
+                    // on MI01.Col08 while awake. byte[2] is the battery
+                    // level 0..255 (0x31 = the same battery marker BLE uses
+                    // in `06 05 31 <raw>`). Reading it here is fully passive
+                    // — no solicited Protocol30 query, hence no USB control
+                    // traffic and no input lag. This is how Synapse gets a
+                    // reliable battery readout over the dongle.
+                    Ok(n) if n >= 3 && buf[0] == 0x09 && buf[1] == 0x31 => {
+                        error_streak = 0;
+                        JORO_HID_ACTIVITY.store(true, Ordering::Release);
+                        let raw = buf[2] as u32;
+                        let pct = ((raw * 100 + 127) / 255).min(100) as u8;
+                        crate::post_user_event(crate::UserEvent::BatteryObserved(pct));
+                    }
+                    Ok(n) => {
+                        // Timeout (n=0) or uninteresting report — reader path
+                        // is alive even if no payload. Reset error streak.
+                        // n > 0 means the keyboard is responsive — signal
+                        // HID activity for wake detection.
+                        if n > 0 {
+                            JORO_HID_ACTIVITY.store(true, Ordering::Release);
+                        }
+                        error_streak = 0;
+                    }
                     Err(_) => {
-                        // Device disconnected, transport change, etc.
-                        // Sleep briefly and retry; when the device comes
-                        // back the next read will succeed. If the handle
-                        // is permanently dead, read will keep erroring
-                        // and we just spin — daemon restart fixes it.
+                        error_streak += 1;
+                        if error_streak >= ERROR_THRESHOLD {
+                            eprintln!(
+                                "fn-detect: {} consecutive read errors on usage=0x{:04X}/0x{:04X} — exiting reader (main will respawn)",
+                                error_streak, usage_page_log, usage_log
+                            );
+                            // Remove our path from OPENED_PATHS so the
+                            // next start() call re-opens it with a fresh
+                            // handle.
+                            if let Ok(mut guard) = OPENED_PATHS.lock() {
+                                if let Some(paths) = guard.as_mut() {
+                                    paths.remove(&thread_path);
+                                }
+                            }
+                            return;
+                        }
                         thread::sleep(Duration::from_millis(500));
                     }
                 }

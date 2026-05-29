@@ -230,6 +230,49 @@ impl RazerDevice {
         Ok(())
     }
 
+    /// Set firmware key mode (MM-primary vs Fn-primary). Same Protocol30
+    /// packet as BLE / dongle (per memory project_fnmm_toggle_solved):
+    ///   `SET class=0x01 cmd=0x02 sub=00,00 data=[mode, 0]`
+    ///   mode: 0 = MM-primary (F-row emits multimedia / firmware combos)
+    ///         3 = Fn-primary (F-row emits plain VK_F4..VK_F12)
+    ///
+    /// Previously the trait default (no-op) was used here, so the daemon's
+    /// MM/Fn UI toggle silently failed on wired USB — the keyboard always
+    /// stayed in whatever mode its firmware booted with. Verified empirically
+    /// 2026-05-21 (user reported toggle had no effect on wired).
+    pub fn set_device_mode(&mut self, fn_primary: bool) -> Result<(), String> {
+        let mode_byte: u8 = if fn_primary { 3 } else { 0 };
+        let args = [mode_byte, 0];
+        let pkt = build_packet(0x01, 0x02, 2, &args);
+        let response = self.send_receive(&pkt)?;
+        let parsed = parse_packet(&response);
+        if !parsed.crc_valid {
+            return Err("set_device_mode: bad CRC".into());
+        }
+        // Status 0x05 = NOT_SUPPORTED. Wired Joro firmware returns this for
+        // class=0x01 cmd=0x02 — the mode toggle is wireless-only (the wired
+        // firmware seems to hardcode F-row behavior to emit brightness/MM
+        // directly regardless of mode; runtime switching just isn't exposed).
+        // Treat as silent no-op so the user-facing UI toggle doesn't error;
+        // the preference still persists in config and applies when they go
+        // back to BLE / dongle. Verified empirically 2026-05-21.
+        if parsed.status == 0x05 {
+            eprintln!(
+                "joro-daemon: set_device_mode (wired) returned NOT_SUPPORTED — \
+                 wired firmware doesn't honor runtime mode switching; preference \
+                 still saved for the next wireless transport"
+            );
+            return Ok(());
+        }
+        if parsed.status != 0x02 {
+            return Err(format!(
+                "set_device_mode: device returned status 0x{:02x}",
+                parsed.status
+            ));
+        }
+        Ok(())
+    }
+
     /// Set backlight brightness (0-255).
     pub fn set_brightness(&mut self, level: u8) -> Result<(), String> {
         let args = [VARSTORE, BACKLIGHT_LED, level];
@@ -381,6 +424,73 @@ impl RazerDevice {
 
         Ok(())
     }
+
+    /// PHASE 3 RISK GATE — re-flash the captured STOCK firmware by
+    /// faithfully replaying Razer's exact DFU transaction
+    /// (`assets/fwupdate_stock_replay.bin`, 4952 × 90-byte frames, byte-
+    /// identical to the `Joro_02CD_FirmwareUpdater_v1.02.02` session the
+    /// keyboard already accepted). Proves the flasher + recovery path
+    /// before any MODIFIED image (Phase 4). Stock→stock needs no CRC
+    /// reproduction — every chunk's captured CRC is replayed verbatim.
+    ///
+    /// WIRED ONLY (PID 0x02CD). DFU over the dongle bridge is unproven
+    /// and refused. This WRITES KEYBOARD FIRMWARE — caller must confirm
+    /// user intent + wired connection. If interrupted, the bootloader
+    /// stays in DFU mode; just re-run this. `dry_run` sends nothing and
+    /// only validates/structurally walks the blob.
+    pub fn dfu_replay_stock(&self, dry_run: bool) -> Result<(), String> {
+        const STOCK: &[u8] = include_bytes!("../assets/fwupdate_stock_replay.bin");
+        if STOCK.len() % PACKET_SIZE != 0 {
+            return Err(format!("stock blob not /{PACKET_SIZE}: {}", STOCK.len()));
+        }
+        if self.pid != JORO_PID_WIRED {
+            return Err(format!(
+                "refusing DFU: device is PID 0x{:04x}, need WIRED 0x{:04x}. \
+                 Set the keyboard switch to WIRED and unplug the dongle.",
+                self.pid, JORO_PID_WIRED
+            ));
+        }
+        let total = STOCK.len() / PACKET_SIZE;
+        eprintln!(
+            "dfu_replay_stock: {total} frames, dry_run={dry_run} (WIRED pid=0x{:04x})",
+            self.pid
+        );
+        for (i, frame) in STOCK.chunks_exact(PACKET_SIZE).enumerate() {
+            let (class, cmd) = (frame[0x06], frame[0x07]);
+            let mut pkt = [0u8; PACKET_SIZE];
+            pkt.copy_from_slice(frame);
+            if dry_run {
+                if i < 3 || i >= total - 3 || cmd == 0x80 || cmd == 0x01 {
+                    eprintln!("  [dry {i:4}/{total}] {class:02x}:{cmd:02x}");
+                }
+                continue;
+            }
+            if cmd == 0x80 {
+                // status checkpoint — Synapse read the response here;
+                // mirror that (drains + gives the device think time).
+                let _ = self.send_receive(&pkt);
+            } else if class == 0x00 && cmd == 0x0b {
+                // reboot-into-new-firmware: the device resets and the
+                // transport drops — a write error here is EXPECTED.
+                let _ = self.send_only(&pkt);
+                eprintln!("dfu_replay_stock: sent reboot (00:0b) — device resetting");
+            } else {
+                self.send_only(&pkt)
+                    .map_err(|e| format!("frame {i} ({class:02x}:{cmd:02x}): {e}"))?;
+                // 10:01 = init/erase trigger — give the flash controller
+                // real settle time before streaming chunks.
+                if class == 0x10 && cmd == 0x01 {
+                    eprintln!("dfu_replay_stock: init/erase sent — settling 2s");
+                    std::thread::sleep(Duration::from_millis(2000));
+                }
+            }
+            if i % 256 == 0 {
+                eprintln!("dfu_replay_stock: {i}/{total}");
+            }
+        }
+        eprintln!("dfu_replay_stock: COMPLETE — {total} frames replayed");
+        Ok(())
+    }
 }
 
 impl crate::device::JoroDevice for RazerDevice {
@@ -391,6 +501,9 @@ impl crate::device::JoroDevice for RazerDevice {
     }
     fn set_brightness(&mut self, level: u8) -> Result<(), String> {
         RazerDevice::set_brightness(self, level)
+    }
+    fn set_device_mode(&mut self, fn_primary: bool) -> Result<(), String> {
+        RazerDevice::set_device_mode(self, fn_primary)
     }
     fn set_keymap_entry(&mut self, index: u8, usage: u8) -> Result<(), String> {
         RazerDevice::set_keymap_entry(self, index, usage)

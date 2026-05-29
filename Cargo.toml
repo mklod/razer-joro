@@ -11,6 +11,7 @@ winit = { version = "0.30", features = ["rwh_06"] }
 wry = "0.55"
 windows = { version = "0.58", features = [
     "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Input",
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_Foundation",
     "Win32_System_LibraryLoader",
@@ -20,6 +21,7 @@ windows = { version = "0.58", features = [
     "Win32_Devices_Display",
     "Win32_Graphics_Gdi",
     "Win32_Storage_FileSystem",
+    "Win32_System_Console",
     "Win32_System_IO",
     "Devices_Bluetooth",
     "Devices_Bluetooth_Advertisement",

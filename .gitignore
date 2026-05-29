@@ -5,3 +5,13 @@ proto/.venv/
 proto/__pycache__/
 proto/captures/
 openrazer-ref/
+
+# RE scratch — large binary captures + logs (283MB+). Reference evidence,
+# not source. Kept locally; not in git history. See DONGLE_RE.md / FIRMWARE_RE.md
+# for which captures back which findings.
+captures/
+*.pcap
+*.err
+*.log
+# Harness scratch
+.claude/scheduled_tasks.lock
