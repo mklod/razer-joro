@@ -262,43 +262,22 @@ impl BleDevice {
     /// Protocol30 encoding is opaque and gives wrong values; we only use it
     /// as a last-resort fallback).
     pub fn get_battery_percent(&mut self) -> Result<u8, String> {
-        if let Some(ref char_bat) = self.char_battery {
-            let result = char_bat
-                .ReadValueAsync()
-                .map_err(|e| format!("battery ReadValue: {e}"))?
-                .get()
-                .map_err(|e| format!("battery ReadValue get: {e}"))?;
-            if result.Status().map_err(|e| format!("battery status: {e}"))?
-                != GattCommunicationStatus::Success
-            {
-                return Err("battery read: GATT communication failure".into());
-            }
-            let buf = result
-                .Value()
-                .map_err(|e| format!("battery Value: {e}"))?;
-            let reader = DataReader::FromBuffer(&buf)
-                .map_err(|e| format!("battery DataReader: {e}"))?;
-            let len = reader
-                .UnconsumedBufferLength()
-                .map_err(|e| format!("battery len: {e}"))? as usize;
-            if len == 0 {
-                return Err("battery read: empty response".into());
-            }
-            let mut data = vec![0u8; len];
-            reader
-                .ReadBytes(&mut data)
-                .map_err(|e| format!("battery ReadBytes: {e}"))?;
-            let pct = data[0].min(100);
-            eprintln!("joro-ble: battery (std BLE svc) = {pct}%");
-            return Ok(pct);
-        }
-
-        // Fallback: Razer Protocol30 (encoding is opaque on BLE; may be wrong)
+        // PRIMARY: Razer Protocol30 `class=0x07 cmd=0x80`, battery in arg[1]
+        // (openrazer-confirmed; this is the path that historically showed
+        // real BLE battery — see _status 2026-04-13). It reads the SAME
+        // value the dongle heartbeat `09 31 <raw>` carries.
+        //
+        // The standard BLE Battery Service char (0x2A19) is NOT used: on this
+        // Joro firmware it is FROZEN at the last-charged value (returned 100%
+        // all day while the dongle heartbeat showed the real level draining
+        // 100→79). Razer never updates the standard GATT battery service;
+        // they only maintain their own vendor telemetry. Preferring 0x2A19
+        // was a regression that made the UI show a permanent fake 100%.
         let data = self.send_get(0x07, 0x80, 0, 0)?;
         let hex: String = data.iter().take(8).map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ");
-        eprintln!("joro-ble: battery fallback Protocol30 raw = [{hex}]");
         let raw = *data.get(1).ok_or("get_battery: response too short")?;
         let pct = ((raw as u32) * 100 / 255) as u8;
+        eprintln!("joro-ble: battery (Protocol30 0x07:80) raw=[{hex}] -> {pct}%");
         Ok(pct)
     }
 

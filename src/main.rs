@@ -158,6 +158,14 @@ struct App {
     last_config_poll: Instant,
     last_reconnect_attempt: Option<Instant>,
     last_fn_detect_check: Option<Instant>,
+    /// Last time we did a solicited battery read on BLE/USB. The dongle is
+    /// EXCLUDED — it reads battery passively from the `09 31` heartbeat
+    /// (solicited dongle polling floods the RF control pipe and starves
+    /// input, see project_dongle_battery_passive). On direct BLE/USB a
+    /// solicited Protocol30 read is cheap and safe, and is the ONLY battery
+    /// source there (BLE pushes no readable HID heartbeat). Refreshed every
+    /// ~60s so the UI doesn't sit on a stale connect-time value.
+    last_battery_poll: Option<Instant>,
     cached_battery: Option<u8>,
     _window: Option<winit::window::Window>, // hidden window to keep event loop alive
     proxy: EventLoopProxy<UserEvent>,
@@ -321,6 +329,7 @@ impl App {
             last_config_poll: now,
             last_reconnect_attempt: None,
             last_fn_detect_check: None,
+            last_battery_poll: None,
             cached_battery: None,
             _window: None,
             proxy,
@@ -1937,12 +1946,36 @@ impl ApplicationHandler<UserEvent> for App {
             self.check_config_changed();
         }
 
-        // Battery is read PASSIVELY from the dongle's heartbeat HID report
-        // (handled in fn_detect -> UserEvent::BatteryObserved). NO solicited
-        // Protocol30 query here — that's what flooded the dongle control
-        // pipe and caused input lag. Drain the activity flag so it doesn't
-        // accumulate (no longer used for state, kept only as the wake hint
-        // fn_detect sets on every heartbeat/keystroke).
+        // Battery:
+        //  - DONGLE: read PASSIVELY from the `09 31` heartbeat (fn_detect ->
+        //    UserEvent::BatteryObserved). NEVER solicited — that floods the
+        //    dongle RF control pipe and starves input (project_dongle_battery_passive).
+        //  - BLE/USB: solicited Protocol30 read every ~60s. BLE pushes no
+        //    readable HID heartbeat (verified — no HID reports over BLE), and
+        //    a direct BLE/USB control read is cheap + safe (no RF bridge).
+        //    Without this the UI sat on the stale connect-time value.
+        if let Some(ref mut dev) = self.device {
+            let t = dev.transport_name();
+            if t == "BLE" || t == "USB" {
+                let due = match self.last_battery_poll {
+                    Some(last) => now.duration_since(last) >= Duration::from_secs(60),
+                    None => true,
+                };
+                if due {
+                    self.last_battery_poll = Some(now);
+                    match dev.get_battery_percent() {
+                        Ok(0) => {}
+                        Ok(pct) => {
+                            if self.cached_battery != Some(pct) {
+                                self.cached_battery = Some(pct);
+                                self.push_battery_update();
+                            }
+                        }
+                        Err(e) => eprintln!("joro-daemon: BLE/USB battery poll failed: {e}"),
+                    }
+                }
+            }
+        }
         fn_detect::JORO_HID_ACTIVITY.store(false, std::sync::atomic::Ordering::Relaxed);
 
         // Periodic fn_detect self-heal check. When a reader thread
