@@ -1,0 +1,38 @@
+
+
+
+can we skip BLE stack? 
+
+what can daemon mod while USB disconnected / BLE connected
+
+
+
+JORO
+can we wipe BLE pair memory on keyboard? YES:
+
+holding down BLE slot button for 5+ seconds resets the pairing slot
+fast blink = connect w existing pair
+slow blink = new pair
+
+
+
+
+No BLE devices paired anymore — you already removed Joro. The issue is on the keyboard side — it still remembers the
+  bonds.
+
+  The Joro keyboard stores bonds in firmware. Unpairing from the PC only removes the PC's side of the bond. The keyboard
+   still has the bond info and will only accept connections from the bonded central's MAC.
+
+  The way to clear keyboard-side bonds is usually:
+  1. Factory reset the keyboard — usually a key combination (often Fn+Esc held for 5+ seconds, or a pinhole reset)
+  2. Long-press the BLE pairing button — many keyboards enter "re-pair" mode if you hold the BLE slot key for 3-5
+  seconds, which clears the bond for that slot and makes it discoverable
+
+  For Razer keyboards, the typical method is: hold the BLE slot key (Fn+1, Fn+2, or Fn+3) for 5+ seconds until the LED
+  blinks fast, indicating pairing mode.
+
+  Can you try holding one of the BLE slot keys (whichever one you want to use) for 5+ seconds to force it into pairing
+  mode? The RTT logger should immediately show a successful connection if the bond is cleared.
+  
+  
+  

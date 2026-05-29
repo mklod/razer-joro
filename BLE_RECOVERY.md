@@ -279,12 +279,56 @@ If `set-mode` prints `current = Fn` and exits cleanly, the full BLE GATT path is
 
 ---
 
-## §6. Known causes we've hit
+## §6. Post-login reconnect storm (fixed 2026-04-17)
+
+### Symptom
+After Windows login/autostart, the tray icon shows **disconnected** for 30–90 seconds even though the keyboard is powered on and paired. During this "dragging" period nothing works — the daemon is stuck in a reconnect loop.
+
+### What the log looks like
+Tail of `%LOCALAPPDATA%\razer-joro\daemon.log` shows a pattern like:
+```
+joro-ble: connected and GATT ready
+joro-daemon: BLE device connected
+joro-daemon: firmware mode = MM-primary
+Warning: set_static_color failed: WriteValueWithResult get: Operation aborted (0x80004004)
+joro-ble: transient disconnect (1/3)
+joro-consumer-hook: read error: The device is not connected. (0x0000048F)
+joro-ble: transient disconnect (2/3)
+joro-daemon: BLE device disconnected
+joro-ble: Drop — releasing GATT session
+joro-ble: enumerated 1 paired BLE device(s)
+joro-ble: paired attach failed: Error { code: HRESULT(0x00000000), message: "The operation completed successfully." }
+joro-ble: no Joro advertisements received in 1.5s
+  ...[loop repeats 3-5 times, each cycle ~12s with the reconnect rate-limit]...
+joro-ble: connected and GATT ready   ← finally stabilizes
+```
+
+### Root cause
+WinRT reports `connected and GATT ready` before the BLE link is actually ready for writes. The daemon's first config push (`set_static_color` / `set_brightness`) races the not-quite-ready link and fails with `0x80004004` (E_FAIL). Windows then flags the session as momentarily disconnected, our `is_connected()` counts the transient-disconnect strikes, we hit the threshold and tear down. Reconnection attempts enter a limbo where `BluetoothLEDevice.FromBluetoothAddressAsync` returns the bizarre `HRESULT(0x00000000) "The operation completed successfully."` error — a known WinRT pattern when the device is momentarily in a between-states condition.
+
+### Fix (already in daemon)
+Two changes in `src/main.rs` / `App::apply_config`:
+
+1. **500 ms grace sleep in `try_connect`** between "GATT ready" and the first config write. Gives the BLE link time to settle before any writes hit it.
+2. **Skip lighting writes when unchanged.** App tracks `last_applied_lighting: Option<(mode, color, brightness)>`. When the next `apply_config` would send the same values, the writes are skipped entirely. The Joro firmware persists lighting state across reboots, so re-sending on every reconnect is redundant. This also means that if the storm does recur for some reason, we only burn the risky-first-write slot once per daemon process — subsequent reconnects skip.
+
+### How to tell if the fix is working
+On a clean login, the log should show a single successful connect sequence with no `set_static_color failed` warning. If the warning still appears:
+- Check that the installed binary is the post-2026-04-17 build (`ls -la C:\Users\mklod\AppData\Local\razer-joro\joro-daemon.exe` — mtime should be 2026-04-17 or later).
+- If the storm persists despite the grace period, bump the sleep from 500ms to 1s in `src/main.rs` around the `Duration::from_millis(500)` line in `try_connect`.
+
+### What if it needs more?
+If writes still fail after the 500ms grace — and retries don't help — the next step is to retry the individual config writes once on E_FAIL with a short delay, instead of letting the failure propagate. That's intentionally NOT done yet: the skip-if-unchanged behavior already makes retry unnecessary in the common case (config writes only happen on a genuinely new config, at which point the link should be warm).
+
+---
+
+## §7. Known causes we've hit
 
 | Date | Cause | Fix | Memory |
 |---|---|---|---|
+| 2026-04-17 | Post-login reconnect storm caused by set_static_color E_FAIL on not-quite-ready GATT link | 500 ms grace period + skip-lighting-when-unchanged in `App::apply_config` | §6 above |
 | 2026-04-16 | Intel BT re-enabled after reboot despite Device Manager uninstall | Group Policy driver block (`DenyDeviceIDs` for `USB\VID_8087`) + scheduled task + BARROT cycle. BIOS has no BT toggle. | §1.4 option 3 |
-| 2026-04-16 | Hypershift/brightness silently broken after external BLE adapter cycle | GATT health watchdog in daemon (`poll_battery` → 3 failures → force disconnect → reconnect with fn_detect::reset). Daemon no longer needs manual restart. | §1.4 option 5 |
+| 2026-04-16 | Hypershift/brightness silently broken after external BLE adapter cycle | GATT health watchdog in daemon (`poll_battery` → single failure → force disconnect → reconnect with fn_detect::reset). Daemon no longer needs manual restart. | §1.4 option 5 |
 | 2026-04-15 | Post-power-outage cold boot, Intel BT won the PnP race | Disable Intel BT via pnputil | §1.3 |
 | 2026-04-15 | fn_detect HID handles stale after BLE disconnect/reconnect | `fn_detect::reset()` called from `try_connect` on every BLE reconnect | §1.4 option 5 |
 | 2026-04-14 | Stale pairing after Synapse killed mid-write | Re-pair Joro | §3, `project_joro_pairing_requirement.md` |

@@ -1,7 +1,20 @@
 #!/usr/bin/env python3
 """Test: hold the rzcontrol handle OPEN and keep rules installed.
-Opens device, installs hook on F8, waits for Ctrl+C, then unhooks and closes."""
+Opens device, installs hook on each key in argv (defaults to F5..F12),
+waits for Ctrl+C, then unhooks and closes.
+
+Usage:
+  python rzcontrol_hold.py            # default: F5..F12
+  python rzcontrol_hold.py F8 F12     # just F8 and F12
+"""
 import ctypes, ctypes.wintypes as wt, time, sys
+
+# PS/2 Set 1 scancodes
+SCANCODES = {
+    'ESC': 0x01, 'TAB': 0x0f, 'LALT': 0x38,
+    'F1': 0x3b, 'F2': 0x3c, 'F3': 0x3d, 'F4': 0x3e, 'F5': 0x3f, 'F6': 0x40,
+    'F7': 0x41, 'F8': 0x42, 'F9': 0x43, 'F10': 0x44, 'F11': 0x57, 'F12': 0x58,
+}
 
 k = ctypes.WinDLL('kernel32', use_last_error=True)
 s = ctypes.WinDLL('setupapi', use_last_error=True)
@@ -43,21 +56,33 @@ print(f"EnableInputHook(1): r={r}")
 r = k.DeviceIoControl(h, 0x88883038, one, 4, None, 0, ctypes.byref(br), None)
 print(f"EnableInputNotify(1): r={r}")
 
-# Hook F8
-buf = (ctypes.c_uint8 * 292)()
-buf[4] = 1
-buf[0x0a] = 0x42
-r = k.DeviceIoControl(h, 0x88883024, buf, 292, None, 0, ctypes.byref(br), None)
-print(f"SetInputHook(F8): r={r}")
+keys_arg = sys.argv[1:] if len(sys.argv) > 1 else ['F5','F6','F7','F8','F9','F10','F11','F12']
+hooked = []
+for name in keys_arg:
+    sc = SCANCODES.get(name.upper())
+    if sc is None:
+        print(f"unknown key: {name}"); continue
+    buf = (ctypes.c_uint8 * 292)()
+    buf[4] = 1
+    buf[0x0a] = sc & 0xff
+    buf[0x0b] = (sc >> 8) & 0xff
+    r = k.DeviceIoControl(h, 0x88883024, buf, 292, None, 0, ctypes.byref(br), None)
+    print(f"SetInputHook({name.upper()} sc=0x{sc:02x}): r={r}")
+    if r:
+        hooked.append((name.upper(), sc))
 
-print("\n*** Handle is OPEN. Press F8 in a text editor or Chrome DevTools.")
-print("*** Is F8 hooked? Ctrl+C when done testing.")
+print(f"\n*** Handle OPEN. Hooked: {[n for n,_ in hooked]}")
+print("*** Press each key to verify. Ctrl+C when done.", flush=True)
 try:
     while True:
         time.sleep(1)
 except KeyboardInterrupt:
     print("\nUnhooking...")
-    buf[4] = 0
-    k.DeviceIoControl(h, 0x88883024, buf, 292, None, 0, ctypes.byref(br), None)
+    for _, sc in hooked:
+        buf = (ctypes.c_uint8 * 292)()
+        buf[4] = 0
+        buf[0x0a] = sc & 0xff
+        buf[0x0b] = (sc >> 8) & 0xff
+        k.DeviceIoControl(h, 0x88883024, buf, 292, None, 0, ctypes.byref(br), None)
     k.CloseHandle(h)
     print("Done.")

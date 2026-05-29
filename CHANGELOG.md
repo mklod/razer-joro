@@ -2,10 +2,217 @@
 
 ## TODO
 > [!tip] Queued for next build
+> - **Meter dongle firmware sleep/wake timing (discrete test, NOT daemon code).** `scripts/meter_dongle_sleep.py` is ready: stops daemon, timestamps heartbeat HID reports + WH_KEYBOARD_LL keystrokes on one clock. Operator protocol = ~3 cycles of [type 10s → hands off 90s → hold 'a' 3s]. Extracts: awake-tail (input-stop → heartbeat-stop = firmware idle-before-sleep timeout), sleep-gap, wake-latency (heartbeat-resume → first OS keystroke ≈ the ~1s annoyance). Run when user has a quiet 6-min window. Data feeds FW reverse-engineering (understanding the firmware sleep state machine).
+> - **Real-world test of brightness rewrite.** The cache-removed read-then-write design is in. Watch for any recurrence of "brightness broken" after long monitor idle / DPMS wake. Empirical testing showed zero drops in 51 writes, but production behavior is the real test.
 > - **Hypershift matrix gap scan (#12).** `cargo run -- scan-gaps` ready; user plugs USB + runs + reports letter→key mapping. I update `keys::JORO_MATRIX_TABLE`. Several Hypershift keys can't be programmed until their matrix indices are discovered.
 > - **Remaps not firing in webview popover text inputs (#13).** Lock→Delete doesn't work inside the settings UI remap popover, and other key remaps also fail in the webview. Chromium/WebView2 text inputs appear to filter SendInput-injected events. Try `KEYEVENTF_SCANCODE` path or investigate WebView2-specific input handling.
 > - **Cleanup pass + release build.** Strip `eprintln!`, unused rzcontrol constants (`F1..F4`, `ESC`, `LALT`), `fn_detect.rs` diagnostic subcommand, then `cargo build --release`. Update the installed release binary at `C:\Users\mklod\AppData\Local\razer-joro\joro-daemon.exe`.
 > - **Tray icon sizing.** Current icons8-keyboard-96.png looks clean but smaller than native Windows touch-keyboard tray icon. Cropping the transparent padding didn't help (made it worse). Investigate passing a larger icon to tray-icon crate or using a different scaling approach.
+> - **Mouse-pair sequence capture.** The standalone `RazerUSBHyperspeedDongleUtility_v1.00.16_r1.exe` talks to the dongle on a non-HID USB path (raw bulk?) that our USBPcap+scapy parser missed. Worth catching if anyone wants OSS mouse pairing too.
+> - **Dongle control-channel dormancy (task #22) — UNRESOLVED.** After a long keyboard-idle pause, all dongle host→keyboard control (0x0F lighting + 0x01 mode) dies (status 0x04); input survives. Daemon lighting frames proven byte-identical to Synapse's via USBPcap diff. Synapse does dongle lighting fine → solvable. Next: meter what re-wakes the control RF channel (sustained poll burst? wake frame? physical typing?). See memory `project_dongle_lighting_dead.md`.
+
+## Build 2026-05-22--0221 — Daemon UI integration of dongle pairing + transport hardening
+
+### Changes
+- **`src/dongle_pair.rs`** (new) — pair/unpair logic shared by the daemon and the `joro-dongle-pair` CLI via `#[path]`.
+- **Connection-options modal** — "click for options" green link under the transport indicator opens a modal: Pair to dongle / Unpair (switch to Bluetooth), contextual to current transport. Pair/unpair run on a background thread (`UserEvent::DonglePairResult` / `DongleUnpairResult`) — no UI freeze during the ~6 s replay.
+- **Threaded reconnect** — `spawn_reconnect_probe` + `open_any_device` run off the main event-loop thread; added `JoroDevice: Send`. Fixes the white-screen "not responding" webview freeze (the BLE WinRT scan + dongle heartbeat probe were blocking the loop).
+- **Background transport monitor** — detects Joro hardware-switch flips (wired↔wireless) via wired-USB HID enumeration → `UserEvent::TransportChanged` → drop + re-probe. The earlier inline auto-hop (HidApi on the main thread) was reverted — it froze the UI.
+- **MM/Fn mode toggle** — Synapse-style, placed below the Lighting section. Two buttons (Multimedia keys / Function keys); Auto removed. Locks to Multimedia (disabled + green note) when transport is wired (firmware returns `0x05 NOT_SUPPORTED` for runtime mode switch on wired) or when config has any Win+X remap.
+- **Custom color picker** — replaced `<input type=color>` whose native Chromium popup mis-anchored to screen-center on first open in WebView2. Canvas SV-gradient + hue slider, `position:fixed` anchored to the swatch.
+- **`fn_detect.rs`** — now matches BOTH wired-USB report form (`04 XX` Fn, `05 08 XX` backlight) and BLE/dongle wrapped form (`05 04 XX`, `06 05 08 XX`). Wired hardware F10/F11 → UI slider sync was silently dead before.
+- **`usb.rs`** — implemented `set_device_mode` for wired (was trait-default no-op); wired firmware returns `0x05` → treated as silent no-op, preference persists for the next wireless connect.
+- `open_any_device` skips the BLE probe when a dongle is physically present (a Joro paired-in-Windows-BT but actually on the dongle made `BleDevice::open()` hang the probe thread on a WinRT GATT `.get()` → stuck `reconnecting` flag, daemon never reconnected).
+- `check_device` poll 10 s → 3 s, reconnect cadence 10 s → 5 s. Settings window 740 → 820 px.
+- **Dongle lighting** — `usb_dongle.rs` `set_static_color`/`set_brightness` rewritten to Synapse's captured command set (`0f:80/84/90/10/02/03/04`, SET+GET-drain). Does NOT fix the dongle-lighting wall (see TODO + task #22) — but it's the correct command set for when the control channel is alive.
+- Memory: `project_hid_report_format_wired_vs_ble.md`, `project_wired_mode_locked.md`, `project_dongle_usb3_rfi.md`, `project_dongle_lighting_dead.md`, `project_dongle_pair_protocol_decoded.md`.
+
+> [!warning] Testing Checklist
+> - [ ] Open settings → "click for options" → modal shows correct Pair/Unpair per transport; pair runs without freezing the UI
+>   - Notes:
+> - [ ] Flip Joro switch wired↔wireless — daemon detects within ~3 s, transport indicator updates, no white-screen freeze
+>   - Notes:
+> - [ ] MM/Fn toggle: greyed + green lock note on wired; live-switches F-row behavior on BLE/dongle
+>   - Notes:
+> - [ ] Custom color picker opens anchored to the swatch on the FIRST click (not screen-center)
+>   - Notes:
+> - [ ] Wired hardware F10/F11 brightness keys move the UI slider
+>   - Notes:
+> - [ ] Lighting on wired + BLE works; persists onto dongle after a transport switch
+>   - Notes:
+> - [ ] Dongle lighting — KNOWN BROKEN (task #22); confirm wired/BLE workaround is acceptable
+>   - Notes:
+
+## Build 2026-05-21--0122 — Synapse-free dongle pair PROVEN end-to-end (Phase 5 ✅)
+
+### Changes
+- **Decoded the Razer HyperSpeed dongle ↔ Joro pair protocol** by 3-way USBPcap diff (`captures/dongle_setup_full_u1.pcap`, `dongle_pair2_u1.pcap`, `dongle3_u1.pcap`) across **two physical dongles** and three pair events. Minimum protocol = 3 commands:
+  - `0b:03 args=00 04 00` — discovery on slot 4 (= keyboard, 6400 µs poll bucket)
+  - `00:41 args=01 02 da` — bond write (slot=01, device_type=02=kbd, model_id=0xda)
+  - `00:42 args=02 da` — unpair (device_type, model_id)
+- **`0xda` proven byte-identical across both dongles + 3 pair events** → Joro-universal model id constant, not a session token. Cross-validated.
+- `04:06` slot/poll-rate table decoded: 5 slots × 6 bytes; rates 400/800/1600/3200/6400 µs; slot 4 = keyboard.
+- New class `0x10` (FW-update probe) surfaced in cap #3 — Synapse FW-version-checks new dongles on first encounter.
+- **`src/bin/joro-dongle-pair.rs`** (new) — standalone Rust CLI. Subcommands `pair` / `unpair` / `wipe`. Open-loop; no daemon coupling.
+- **`assets/dongle_pair_replay.bin`** (new) — 70 × 90B verbatim Synapse-captured pair sequence (cap #1 frames 0..69), built by `scripts/build_pair_replay_blob.py`. Embedded into the CLI via `include_bytes!`.
+- Per-frame 20 ms pacing; **2500 ms wait specifically after `0b:03` discovery** so the dongle radio finds the Joro before the bond write hits. 3-command minimum alone is INSUFFICIENT — dongle ignores discovery without the full Synapse pre-flight (handshake / slot config / slot queries / lighting / keymap-prep).
+- **EMPIRICAL VALIDATION**: ran `joro-dongle-pair unpair`, switched Joro to BLE/dongle position (3 lights blinking = pair-ready), ran `joro-dongle-pair pair` → typed `asdf` successfully. Zero Razer software. Zero mouse anchor. Capture record: `captures/our_pair_replay_u1.pcap` (25.7 KB).
+- **`DONGLE_RE.md`** (new) — standalone replication doc, parallel to `FIRMWARE_RE.md`. Covers UI flow, capture rig, 484-frame transaction skeleton, decoded protocol, replay-tool strategy, status.
+- New scripts: `start_dongle_setup_capture.ps1`, `triage_dongle_setup.py`, `extract_dongle_setup_seq.py`, `dongle_pair_deep.py`, `dongle_pair2_windows.py`, `diff_dongle_pairs.py`, `diff3_dongle_pairs.py`, `build_pair_replay_blob.py`.
+- Memory: `project_dongle_pair_protocol_decoded.md`.
+- Convenience: created desktop shortcut `C:\Users\mklod\Desktop\Razer Synapse.lnk` (target = `RazerAppEngine.exe --url-params=apps=synapse`).
+
+### Side observations
+- Dongle #2 came with a **ghost Joro bond** from a previous owner — explains why the standalone HyperSpeed Pairing Utility's mouse-pair "failed" (slot partially occupied). The `wipe` subcommand handles this case.
+- User reported **dropped keystrokes on dongle #2** during normal use — almost certainly hardware-side (older/worn radio); the pair protocol itself is sound (proven by successful pair + initial-typing confirmation).
+- The standalone HyperSpeed Pairing Utility runs in-Synapse-only as a modal — gated behind the mouse tab; not a separate exe. Synapse's only requirement that a mouse be paired first is a **UI gate**, not a protocol one (we paired with no mouse anchor whatsoever).
+
+> [!warning] Testing Checklist
+> - [ ] `joro-dongle-pair pair` on a truly fresh dongle (e.g. dongle #1 if Joro gets unpaired from it). Verify the 70-frame replay works without Synapse ever running.
+>   - Notes:
+> - [ ] `joro-dongle-pair wipe` on a dongle with a ghost bond. Verify the double `00:42` clears it and a subsequent `pair` succeeds.
+>   - Notes:
+> - [ ] Plug Joro into a Razer Joro owner who has only BLE — give them the CLI, verify they can pair a $5 used dongle without Synapse or a mouse. (External validation; nice-to-have.)
+>   - Notes:
+> - [ ] Daemon transport auto-selects dongle on first boot after pair (heartbeat probe), no manual restart.
+>   - Notes:
+> - [ ] Drop-keys observation on dongle #2 — repro and characterize (consistent? distance-dependent? mouse-contention-dependent?). If reproducible only on dongle #2, it's hardware; if it spreads to dongle #1, it's protocol.
+>   - Notes:
+
+## Build 2026-05-18--1443 — Firmware DECRYPTED (RE only; no daemon code change)
+
+> TODO queue above intentionally preserved — this is a firmware-RE pass; none of the queued daemon items were touched.
+
+### Changes
+- **Joro firmware is plaintext ARM Thumb-2 — it was NEVER encrypted.** The whole prior "encrypted / software-exhausted / hardware-only (SWD/glitch, sacrificial keyboard)" conclusion was a **single off-by-one** in `scripts/extract_regions.py`: it sliced chunk data at `args[8:]` (D=8); the real per-chunk header is 9 bytes (5-byte size/tag/page/offset + 4-byte CRC), data at `args[9:]` (**D=9**). One byte of misalignment per 64-byte chunk shredded Thumb-2 alignment → looked like noise/ciphertext.
+- **`scripts/extract_regions.py`** — corrected to D=9; regenerated canonical region files + combined `joro_firmware.bin` (158068 B, sha256 `3dae1cd1e40de623`).
+- **`scripts/find_data_offset.py`** (new) — brute-forces the DFU data offset against a hard invariant (valid Cortex-M vector / prologue density). D=9 unique winner (SP `0x2000f9c8`, 30× prologue-density jump).
+- **`scripts/prove_plaintext.py`** (new) — 274 coherent functions in region 03; 649/1480 (44%) of `bl` targets land exactly on detected prologues.
+- **`scripts/decisive_verdict.py`**, **`scripts/verify_reconstruction.py`**, **`scripts/verify_plaintext.py`** (new) — entropy/chi-sq/serial-corr + reconstruction audit that ruled out real encryption (entropy 6.6 not 7.99).
+- Artifacts: regions 02 (36864 B, ~140 funcs), 03 (65536 B, ~260 funcs, main app), 04 (55668 B, ~90 funcs + data). ~156 KB / ~490 plaintext functions ready for Ghidra/IDA.
+- Memory `project_joro_firmware_captured.md` rewritten; new `feedback_verify_before_deadend.md`.
+
+> [!warning] Testing Checklist
+> - [ ] Spot-check: open `captures/joro_region_03_at_0x0000.bin` in Ghidra/IDA as ARM LE Cortex-M (Thumb-2); confirm coherent functions at the prologues `prove_plaintext.py` reports
+>   - Notes:
+> - [ ] Confirm `scripts/extract_regions.py` (D=9) reproduces the same three region files + sha256 `3dae1cd1e40de623` for the combined blob
+>   - Notes:
+> - [ ] Sanity: ASCII strings `Razer Joro` / 60-char token still present in the regenerated regions
+>   - Notes:
+
+## Build 2026-05-15--1448
+
+### Changes
+- **Dongle battery is now read passively from the heartbeat HID report** (`09 31 <raw>` on MI01.Col08) instead of solicited `class=0x07` queries. `byte[2]/255*100` = %. Eliminates the USB-control-pipe flooding that caused severe intermittent keyboard input lag. Same mechanism Synapse uses. (`src/fn_detect.rs` match arm + `UserEvent::BatteryObserved` + `src/main.rs` handler.)
+- **Connection status = HID device enumeration**, not battery-query success. `RazerDongle::is_connected()` walks `HidApi::device_list()` — zero Protocol30 traffic. Fixes the tray showing red ~99% of the time. `check_device` cadence 2s→10s.
+- **Removed dead/broken machinery:** `poll_battery()`, `last_battery_poll`, `keyboard_asleep`, `battery_transient_count`, `last_hid_activity`, and all asleep/wake/hysteresis logic in `about_to_wait` (was the red-flapping source).
+- **Killed Razer autostart:** removed `HKCU\…\Run\RazerAppEngine` (`--autoStart=1`). Synapse no longer launches on boot.
+- Removed then restored `HKCU\…\Policies\System\DisableLockWorkstation` (it blocks ALL lock methods incl. the API); created desktop `Lock.lnk`.
+
+> [!warning] Testing Checklist
+> - [ ] Type continuously for several minutes — zero input lag / dropped keys
+>   - Notes: user confirmed typing continuously while changes deployed
+> - [ ] Webview battery shows a real % and refreshes while typing
+>   - Notes: confirmed 53% live
+> - [ ] Tray indicator stays green/connected (no red flapping) over a long idle+active cycle
+>   - Notes:
+> - [ ] Reboot → Synapse does NOT auto-start; joro-daemon DOES
+>   - Notes:
+> - [ ] Desktop Lock.lnk locks the PC; Joro Lock key still → Delete (with daemon running)
+>   - Notes:
+> - [ ] Battery still shows on BLE/USB transports (solicited connect-time read path unchanged there)
+>   - Notes:
+
+## Build 2026-04-27--1441
+
+### Changes
+- **Hypershift Fn+arrow → Home/End/PgUp/PgDn through dongle, daemon-only.** Closes the last parity gap with BLE.
+- **`src/fn_detect_rawinput.rs`** (new) — Win32 RawInput-based Fn-state detection. Spawns one background thread that creates a hidden top-level window, calls `RegisterRawInputDevices` for consumer page (0x000C/0x0001) + vendor page (0xFF00) with `RIDEV_INPUTSINK`, parses WM_INPUT messages for HID report 0x02 byte 1-2 = u16 usage. Usage 0x029D → `FN_HELD = true`; usage 0 → `FN_HELD = false`. Writes the same atomic the BLE-side `fn_detect.rs` reader uses, so the existing WH_KEYBOARD_LL hook + `[[fn_host_remap]]` config rules in `src/remap.rs` are now transport-agnostic.
+- **Why RawInput, not hidapi:** the consumer 0x02 / 0x029D Fn signal routes to a kbdhid-locked HID collection through the dongle; `hidapi::read()` can't open it. RawInput hooks lower in the HID stack and DOES see the report. Verified via USBPcap of the dongle's USB endpoint and a Python RawInput diagnostic.
+- **`Cargo.toml`** — added `Win32_UI_Input` feature on the `windows` crate.
+- **`src/main.rs`** — `mod fn_detect_rawinput;` + `fn_detect_rawinput::start()` call alongside the existing `fn_detect::start()` at daemon boot.
+- **Diagnostic CLI subcommands** added (kept for future RE work, NOT in production path): `clear-hypershift`, `read-hypershift`, `test-hypershift-write`. They DO write firmware Hypershift through dongle via `cmd=0xa4 + cmd=0x8d × N + cmd=0x0d`, but writes only land in RAM (not flash) AND `cmd=0xa4` puts the firmware in "edit mode" that disables MM-mode Win+L composition (Lock+Copilot stop working until a keyboard power-cycle resets RAM).
+- **`src/usb_dongle.rs`** — added `read_keymap_entry` (cmd=0x8d) and `keymap_transaction` (class=0x03 cmd=0x00 begin/commit wrapper) helpers used by the diagnostic CLI subcommands.
+- **Reverse-engineering scripts added** under `scripts/`:
+  - `sniff_dongle_reports.py` — passive `hidapi::read()` on every readable PID_009C HID collection
+  - `poll_fn_dongle.py` / `poll_fn_dongle_ctypes.py` — solicited `HidD_GetInputReport` polls across report IDs
+  - `rawinput_fn_test.py` — RawInput diagnostic that found the consumer 0x029D Fn signal
+  - `frida_find_fn_channel.py` — Frida hooks for RegisterRawInputDevices, GetRawInputData, HidD_GetInputReport, NtReadFile, NtDeviceIoControlFile (filtered to dongle/rzcontrol path)
+  - `frida_attach_diag.py` — confirmed 9 of 13 RazerAppEngine procs refuse Frida attach (Chromium renderer sandbox)
+  - `decode_hypershift_pcap.py` — scapy parser for USBPcap dumps; extracts every Razer Protocol30 packet with class/cmd/dsize/args
+  - `monitor_keys.py` — fixed a `CallNextHookExA` typo that was crashing the WH_KEYBOARD_LL hook diagnostic
+- **Setup note** for any Joro that has had Synapse Hypershift mappings written: if firmware has persisted Hypershift entries (e.g. Fn+Left → 'a' from a prior debug session), the daemon's `[[fn_host_remap]] from="Left" to="Home"` rule won't match because firmware emits 'a' not Left. One-time fix: open Synapse, clear the Fn+key entries you want the daemon to handle, save, kill all Razer procs, power-cycle the keyboard. Daemon then operates without Synapse.
+
+> [!warning] Testing Checklist
+> - [ ] Fn+Left → Home in any text field through dongle
+>   - Notes:
+> - [ ] Fn+Right → End through dongle
+>   - Notes:
+> - [ ] Fn+Up / Fn+Down behave per existing `[[fn_host_remap]]` config (PgUp/PgDn if configured)
+>   - Notes:
+> - [ ] Lock key → Delete still works
+>   - Notes:
+> - [ ] Copilot key → Greenshot still works
+>   - Notes:
+> - [ ] BLE transport unaffected (RawInput thread is harmless when Joro is on BLE — both readers update the same atomic)
+>   - Notes:
+> - [ ] Restart daemon → all features still work without re-running setup
+>   - Notes:
+
+## Build 2026-04-21--1414
+
+### Changes
+- **Brightness rewrite — cache removed entirely.** `src/brightness.rs` simplified from 464 lines to ~210. `delta_all` and `set_all_percent` now do `EnumDisplayMonitors → GetMonitorBrightness → SetVCPFeature(0x10, target) → DestroyPhysicalMonitors` per call. No global state, no cache, no stepping, no warm-up, no transition windows.
+- **Removed:** `BRIGHTNESS_STATE` cache, `BrightnessState` struct, `stepped_write` 1-unit-with-20ms-delay loop, `verify_and_resync` post-write readback, `consecutive_verify_fails` counter, `TRANSITION_DEADLINE` + `set_transition_deadline` + `in_transition_window`, `on_display_wake`, `src/power_events.rs` (entire module — `WM_POWERBROADCAST` listener), `Win32_System_Power` + `Win32_System_SystemServices` Cargo features.
+- **Why this is correct:** characterization session today proved per-press read-then-write is bulletproof at every tested rate (1s pauses down to back-to-back) and every tested delta (1 unit to full 46-unit range). 51 successful writes, zero drops, zero reboots. The cache was the root cause of every "brightness broken" report — when it drifted from monitor reality, `stepped_write` issued streams of absolute values far from current state, which is what crashed/locked the G91SD scaler.
+- **`MONITOR_DEBUG_NOTES.md`** (new) — debug journal with the empirical characterization, dead-end attempts (verify-read causing reboots, `WM_POWERBROADCAST` firing too early, picture-mode-lock theory, contrast-warm-up theory), and CLI test recipes for future debugging.
+- **`MONITOR_BRIGHTNESS.md`** updated — first sections rewritten to reflect post-rewrite state. Old "Fix layer 1–4" sections kept below as historical record so we don't re-attempt them.
+
+### Tests
+- `cargo build --release` clean (8 pre-existing unused-constant warnings in `rzcontrol.rs`).
+- Daemon restarted with new binary; clean BLE connect, no `power-events:` lines, no warm-up logs.
+- 51 manual VCP 0x10 writes via CLI prior to the refactor: zero drops, zero reboots.
+
+> [!warning] Testing Checklist
+> - [ ] After a long AFK / monitor sleep cycle, F8/F9 still work cleanly without "broken" state. (The actual point of the rewrite — needs production observation.)
+>   - Notes:
+> - [ ] Rapid F8/F9 spam doesn't crash the monitor.
+>   - Notes:
+> - [ ] Brightness via tray slider (set absolute %) works.
+>   - Notes:
+> - [ ] Tail `%LOCALAPPDATA%\razer-joro\daemon.log` after a session: no `WRITE DROPPED`, no `transition window`, no `power-events:`, no `display wake warm-up`, no `cold-path warm-up` lines (those code paths are gone). Brightness lines should look like `brightness: HMONITOR ... cur -> target (range 0..50)`.
+>   - Notes:
+
+## Build 2026-04-17--1930
+
+### Changes
+- **Daemon log file** — `src/logfile.rs` redirects stderr/stdout to `%LOCALAPPDATA%\razer-joro\daemon.log` via `SetStdHandle` at startup (release builds only). 1 MB rotation to `daemon.log.1`. Release binary is a Windows GUI subsystem app so prior sessions had no diagnostic trail; now every `eprintln!` in the codebase lands in the file with no refactor.
+- **GATT watchdog tightened** — `App::poll_battery` forces a disconnect on a single failed battery read (was 3 consecutive). Clears `last_reconnect_attempt` so the next tick rebuilds the session immediately. Detection window ≤ 10 s after external BLE adapter cycling.
+- **Post-login reconnect storm fix** — two changes in `App::apply_config` (now a `&mut self` method):
+  - 500 ms grace sleep in `try_connect` between GATT-ready and the first config write. Addresses the race where WinRT reports "connected" before the link can accept writes, causing `set_static_color` to fail with `0x80004004` and triggering a 30–90 s reconnect cascade.
+  - `last_applied_lighting: Option<(mode, color, brightness)>` cache. Skip lighting writes when values match the last successful apply — firmware persists lighting across reboots, so re-sending is redundant. Limits the risky first-write slot to at most once per daemon process.
+- **Brightness verify-read** — `src/brightness.rs` `verify_cur` reads `GetMonitorBrightness` 50 ms after each ramp completes. If `cur != wrote`, logs `WRITE DROPPED wrote=N monitor=M — resyncing cache` and auto-syncs `last_target`. Diagnostic for the post-DPMS-wake "writes silently drop" hypothesis on the Samsung G91SD.
+- **Monitor identity corrected.** The device previously called "Falcon 5120×1440" in comments is actually the **Samsung 49" Odyssey OLED G9 (S49DG91DSN)**. Full design/history/hypothesis writeup added: `MONITOR_BRIGHTNESS.md`.
+- **BLE_RECOVERY.md §6** — new section documenting the post-login reconnect storm symptom, root cause, fix, and verification.
+- **Cargo.toml** — added `Win32_System_Console` feature for `SetStdHandle`.
+
+### Tests
+- `cargo build --release` clean (8 pre-existing unused-constant warnings in `rzcontrol.rs`).
+- Daemon restarted with fresh binary; single clean connect verified in log (no `set_static_color failed` warning).
+
+> [!warning] Testing Checklist
+> - [ ] Reboot Windows. Log in. Confirm Joro tray icon goes connected within ~10 s with no disconnect/reconnect cycles visible.
+>   - Notes:
+> - [ ] Tail `%LOCALAPPDATA%\razer-joro\daemon.log` after the login test. No `set_static_color failed` warnings, no `transient disconnect` spam.
+>   - Notes:
+> - [ ] Next time "display brightness broken" recurs post-monitor-wake, grep the log for `WRITE DROPPED`. Capture the sequence of `wrote=N monitor=M` values and share them.
+>   - Notes:
+> - [ ] Normal brightness ramping still works (no regression from the verify-read addition). Press F9 a few times, watch the monitor respond.
+>   - Notes:
+> - [ ] Change lighting mode / color via tray menu → confirm it applies to the keyboard immediately (skip-when-unchanged shouldn't kick in for real config changes).
+>   - Notes:
+> - [ ] Force a BLE disconnect (e.g. disable/enable BARROT via pnputil) while the daemon is running. Daemon should reconnect within ~10 s with no lighting write on the reconnect side (unchanged config), no storm.
+>   - Notes:
 
 ## Build 2026-04-15--1751
 
