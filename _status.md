@@ -1,5 +1,22 @@
 # Razer Joro — Status
 
+## Session 2026-05-29--1620 — Daemon triage (Razer contention) + JORO_FUNCTION.md + host-side MM/Fn toggle
+
+**User report: "daemon fucked up" — wrong battery, shows disconnected while on BLE, MM/Fn toggle dead, F-keys stuck. All fixed or correctly re-architected this session.**
+
+**Root cause of the regressions: 8 `RazerAppEngine` processes** (re-added autostart Run key) contending for the BLE GATT session → connection flapping, mode/LED writes silently no-op, battery stale. Killed all Razer procs, removed the `RazerAppEngine` Run key. Clean daemon restart → connects first try, battery 76% (Protocol30 0x07:80), stays connected.
+
+**Done this session:**
+- **Battery fix** (`f8cef0b`) — BLE/USB read via Protocol30 `0x07:80` arg[1] on a 60s poll; std GATT `0x2A19` is FROZEN (was showing fake 100%). Dongle stays passive (`09 31` heartbeat). Verified 76% live.
+- **`JORO_FUNCTION.md`** (`2df622d`) — NEW single authoritative arch doc. Part A = how it works (firmware vs host-side, per-transport capability matrix, impossible-and-why). Part B = what the daemon implements + test status. Adjudicates the long-standing contradictions. Memory `reference_joro_function_doc` points to it; `project_fnmm_toggle_solved` corrected.
+- **MM/Fn toggle re-architected HOST-SIDE** (`432c8ce`, `8c6a900`) — GROUND TRUTH (daemon off, register=MM, read-back=MM): keyboard STILL emits plain VK F-keys over BLE. The `class=0x01 cmd=0x02` register is a NO-OP for F-row behavior over BLE. So the old toggle (write register only) did nothing. New: `remap::build_remap_tables_for_mode(remaps, mm_mode)` injects an MM-primary F-row default layer (F4=Win+Tab, F5=Mute, F6/F7=Vol, F8/F9=monitor brightness, F10/F11=keyboard backlight, F12=PrtSc) UNDER user remaps (user wins; default skipped if user mapped that key). Wired into all 3 build sites + rebuilt LIVE in the `set_device_mode_pref` handler so the toggle flips behavior with no restart. Firmware register still written (no-op BLE, needed on dongle for Win+X combos). **User-confirmed working 2026-05-29.**
+- **Deploy reconciled** — `cargo build --release` → `…\razer-joro-target\release\joro-daemon.exe`, copied over the autostart path `…\razer-joro\joro-daemon.exe` (the old running binary was a 5/19 build with no toggle). `JoroDaemon` Run key launches the current build now.
+- **Config cleanup** (user-approved) — removed the scratch `F4 → a` remap so the MM F4=Win+Tab default applies.
+
+**Battery charge status — researched, OPEN.** % is solid. Charge status (charging/plugged) is NOT known on any transport: openrazer's `0x07/0x84`=charging does NOT apply (on Joro 0x07/0x83/84 = idle/power cmd, NOT_SUPPORTED over BLE). No charge capture exists. Leads: undecoded bytes of the BLE `0x07:80` 4-byte response (`40 ?? c5 86`) + dongle heartbeat bytes 3-7. Cheapest test: daemon logs `raw=[…]` every 60s — plug power on BLE, watch for byte change (caveat: USB-C plug may switch to wired). Gated before any daemon charge-status work.
+
+**Next immediate task:** battery charge-status A/B capture (when user wants it). Other open items: dongle lighting keep-warm (control channel dormancy), Fn+arrow on dongle (narrow RawInput subscription). See `JORO_FUNCTION.md` Part B.
+
 ## Session 2026-05-22--0221 — Daemon UI integration of dongle pairing + transport handling; dongle lighting WALL
 
 **Folded the dongle work into the daemon and hardened transport handling. One unresolved wall: dongle lighting control.**
