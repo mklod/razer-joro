@@ -434,6 +434,25 @@ pub fn build_remap_tables(
                     action: kind,
                     label: format!("{} -> {}", entry.from, entry.to),
                 });
+
+                // Also suppress the corresponding VK at WH_KEYBOARD_LL level.
+                // Windows kbdhid injects a VK (e.g. VK_VOLUME_MUTE 0xAD) when
+                // it processes a Consumer Control HID report — without this
+                // suppression, the system audio handler still fires (mute
+                // gets actioned by the OS) on top of our consumer_hook
+                // injection of the user's mapped output. NoOp special action
+                // = swallow the key, no output. We've already emitted the
+                // user's chosen output via consumer_hook.
+                if let Some(vk) = keys::key_name_to_vk(&entry.from) {
+                    eprintln!(
+                        "remap: also suppressing LL VK 0x{:02x} for consumer-source '{}'",
+                        vk, entry.from
+                    );
+                    special_table.push(SpecialActionEntry {
+                        from_vk: vk,
+                        action: SpecialAction::NoOp,
+                    });
+                }
                 continue;
             }
 
@@ -595,6 +614,18 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
     let is_up = msg == WM_KEYUP || msg == WM_SYSKEYUP;
     let debug = DEBUG_LOG.load(std::sync::atomic::Ordering::Relaxed);
     let injected = kb.flags.0 & 0x10 != 0;
+
+    // Any non-injected key event means a real keyboard is active. Use this
+    // as a wake-detection signal — main loop checks JORO_HID_ACTIVITY and
+    // clears the keyboard_asleep flag without waiting for the dongle's
+    // bridged battery query (which can lag minutes after a wake).
+    // We assume the user's keyboard is mostly Joro; if they have another
+    // keyboard we get false positives, which is fine — the worst case is
+    // "wake UI from asleep when typing on a non-Joro keyboard".
+    if !injected && (is_down || is_up) {
+        crate::fn_detect::JORO_HID_ACTIVITY
+            .store(true, std::sync::atomic::Ordering::Release);
+    }
 
     // Log ALL events (including injected) before any processing
     if debug && (is_down || is_up) {
@@ -784,6 +815,18 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
                             all_prefix.push(pm);
                         }
                     }
+
+                    // Release the gate modifier at kernel level. WH_KEYBOARD_LL
+                    // with LRESULT(1) suppresses delivery to apps, but Windows
+                    // updates kernel modifier state BEFORE the hook runs — so
+                    // RegisterHotKey-based receivers (Greenshot's Ctrl+F12 etc.)
+                    // would otherwise see "Win+Ctrl+F12" instead of plain
+                    // "Ctrl+F12" and fail to match. The user's physical gate-up
+                    // arriving later is benign (kernel sees a second up on an
+                    // already-up key — no-op). Verified 2026-04-24 via dongle
+                    // trace where Ctrl+F12 emission did not trigger Greenshot
+                    // until LWin was explicitly released.
+                    send_inputs(&[make_key_input(g.gate_vk, true)]);
 
                     send_combo_down(&remap.output_mods, remap.output_key);
                     *ACTIVE_TRIGGER.lock().unwrap() = Some(ActiveTrigger {

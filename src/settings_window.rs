@@ -11,7 +11,7 @@ use crate::UserEvent;
 
 const SETTINGS_HTML: &str = include_str!("../assets/settings.html");
 const WINDOW_WIDTH: u32 = 1100;
-const WINDOW_HEIGHT: u32 = 680;
+const WINDOW_HEIGHT: u32 = 820;
 
 pub struct SettingsWindow {
     // Field order matters for Drop: the webview must be dropped BEFORE the

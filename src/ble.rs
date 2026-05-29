@@ -357,6 +357,19 @@ impl BleDevice {
         self.send_set(0x01, 0x02, 0x00, 0x00, &[mode_byte, 0x00])
     }
 
+    /// Idle/sleep timeout: Protocol30 SET class=0x07 cmd=0x83 (the cmd
+    /// Synapse uses for Joro — NOT the daemon's old 0x03). `data` is the
+    /// raw idle parameter (semantics empirical: try 00 00 = disable/never,
+    /// or a u16 seconds value). Reversible runtime command, zero flash.
+    pub fn set_idle_raw(&mut self, data: &[u8]) -> Result<(), String> {
+        self.send_set(0x07, 0x83, 0x00, 0x00, data)
+    }
+
+    /// Read current idle/power state: GET class=0x07 cmd=0x84.
+    pub fn get_idle_raw(&mut self) -> Result<Vec<u8>, String> {
+        self.send_get(0x07, 0x84, 0x00, 0x00)
+    }
+
     /// Read the current firmware mode. Returns true if Fn-primary (mode 3),
     /// false if MM-primary (mode 0).
     pub fn get_device_mode(&mut self) -> Result<bool, String> {

@@ -31,7 +31,7 @@ html, body {
   -webkit-user-select: none;
   overflow: hidden;
 }
-body { padding: 14px 28px 14px; }
+body { padding: 14px 28px 32px; }
 h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
 .sub { color: var(--muted); font-size: 11px; }
 .header {
@@ -80,6 +80,152 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
 .transport-indicator.connected .dot { background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
 .transport-indicator.disconnected { color: var(--muted); }
 .transport-indicator.disconnected .dot { background: #555; }
+
+.transport-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.transport-options-link {
+  background: none;
+  border: 0;
+  padding: 0 2px;
+  font: 500 10px var(--font-ui);
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  letter-spacing: 0.2px;
+}
+.transport-options-link:hover { color: var(--accent); }
+
+/* Connection-options modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal-backdrop.open { display: flex; }
+.modal-card {
+  background: #0d0d0d;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 20px 16px;
+  width: 360px;
+  max-width: 92vw;
+  color: var(--fg);
+  font-size: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+.modal-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.modal-line {
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 12px;
+  line-height: 1.45;
+}
+.modal-line strong { color: var(--fg); font-weight: 600; }
+.modal-line .accent { color: var(--accent); }
+.modal-line .err { color: var(--danger); }
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.modal-btn {
+  background: #1a1a1a;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 8px 12px;
+  font: 500 12px var(--font-ui);
+  cursor: pointer;
+  border-radius: 4px;
+  text-align: left;
+  transition: background .12s, border-color .12s;
+}
+.modal-btn:hover { background: #232323; border-color: #2a2a2a; }
+.modal-btn:disabled { opacity: .5; cursor: not-allowed; }
+.modal-btn.primary {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: #fff;
+}
+.modal-btn.primary:hover { background: var(--accent); color: #000; }
+.modal-btn .subtle {
+  display: block;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 10px;
+  margin-top: 2px;
+}
+.modal-btn.primary .subtle { color: rgba(255, 255, 255, 0.7); }
+.modal-btn:hover .subtle { color: inherit; opacity: 0.85; }
+.modal-status {
+  font-size: 11px;
+  color: var(--muted);
+  min-height: 14px;
+  margin-top: 4px;
+}
+.modal-status.ok { color: var(--accent); }
+.modal-status.err { color: var(--danger); }
+.modal-status.busy { color: var(--fg); }
+.modal-close {
+  margin-top: 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 6px 10px;
+  font: 500 11px var(--font-ui);
+  cursor: pointer;
+  border-radius: 3px;
+  width: 100%;
+}
+.modal-close:hover { color: var(--fg); border-color: #2a2a2a; }
+
+/* Pair-prep callout shown to the user before they click Pair. Designed
+   to be impossible to miss — yellow/amber border + bold title. */
+.pair-callout {
+  background: rgba(255, 200, 0, 0.06);
+  border: 1px solid rgba(255, 200, 0, 0.45);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.pair-callout-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffd24a;
+  margin-bottom: 5px;
+  letter-spacing: 0.3px;
+}
+.pair-callout-body {
+  font-size: 11px;
+  color: var(--fg);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.pair-callout-body strong { color: var(--accent); font-weight: 600; }
+.pair-ready {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.pair-ready input { margin: 0; cursor: pointer; accent-color: var(--accent); }
+.pair-ready:hover { color: var(--fg); }
 
 /* Section heading between keyboard and lighting */
 .section-title {
@@ -448,14 +594,42 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
   letter-spacing: 0.6px;
   white-space: nowrap;
 }
-.lighting input[type="color"] {
+/* Custom color picker — replaces <input type="color"> whose native
+   Chromium popup mis-anchors to screen-center on first open in WebView2. */
+.color-swatch {
   width: 40px; height: 32px;
-  background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 5px;
-  cursor: pointer; padding: 2px;
+  cursor: pointer;
 }
-.lighting input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
+.color-popup {
+  position: fixed;
+  display: none;
+  z-index: 200;
+  background: #0d0d0d;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65);
+}
+.color-popup.open { display: block; }
+#color-sv {
+  display: block;
+  border-radius: 3px;
+  cursor: crosshair;
+}
+#color-hue {
+  width: 200px; margin-top: 8px;
+  -webkit-appearance: none; appearance: none;
+  height: 12px; border-radius: 6px; cursor: pointer; outline: none;
+  background: linear-gradient(to right,
+    #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
+}
+#color-hue::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 16px; border-radius: 3px;
+  background: #fff; border: 1px solid #000; cursor: pointer;
+}
 .lighting .hex {
   font-family: "Consolas", monospace; font-size: 12px;
   color: #ccc; background: #0a0a0a;
@@ -491,6 +665,17 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
   font: inherit; font-size: 12px; cursor: pointer;
 }
 .lighting select:focus { outline: none; border-color: var(--accent); }
+.lighting-hint {
+  font-size: 10px;
+  color: var(--muted);
+  margin: 8px 0 0 4px;
+  line-height: 1.4;
+  cursor: help;
+  border-bottom: 1px dotted #888;
+  display: inline-block;
+  padding-bottom: 1px;
+}
+.lighting-hint:hover { color: var(--fg); border-bottom-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -500,9 +685,12 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
     <div class="sub">Click a key to set a remap. Changes save automatically.</div>
   </div>
   <div class="header-right">
-    <div class="transport-indicator disconnected" id="transport">
-      <span class="dot"></span>
-      <span id="transport-label">Disconnected</span>
+    <div class="transport-wrap">
+      <div class="transport-indicator disconnected" id="transport">
+        <span class="dot"></span>
+        <span id="transport-label">Disconnected</span>
+      </div>
+      <button class="transport-options-link" id="transport-options-link" type="button" title="Connection options">click for options</button>
     </div>
     <div class="battery" id="battery">
       <svg viewBox="0 0 28 14" width="26" height="13" fill="none" stroke="currentColor" stroke-width="1.2">
@@ -514,6 +702,45 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
       </svg>
       <span class="pct" id="battery-pct">—</span>
     </div>
+  </div>
+</div>
+
+<!-- Custom color-picker popup (positioned next to the swatch by JS). -->
+<div class="color-popup" id="color-popup">
+  <canvas id="color-sv" width="200" height="130"></canvas>
+  <input type="range" id="color-hue" min="0" max="359" value="140">
+</div>
+
+<!-- Connection-options modal — opened by the "click for options" link under the transport indicator.
+     Contents are context-rebuilt by renderModalState() based on current transport. -->
+<div class="modal-backdrop" id="conn-modal">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="conn-modal-title">
+    <div class="modal-title" id="conn-modal-title">Connection options</div>
+    <div class="modal-line" id="modal-blurb">—</div>
+    <!-- Pair-prep callout, shown when the user is on BLE or disconnected
+         (i.e. about to pair to a dongle). -->
+    <div class="pair-callout" id="pair-callout" style="display:none;">
+      <div class="pair-callout-title">⚡ Before clicking Pair</div>
+      <div class="pair-callout-body">
+        On the Joro, <strong>press &amp; hold F1 + F3</strong> until the lights blink white — that's <strong>dongle pair mode</strong>.
+        The hardware switch must be on the <strong>BLE / dongle</strong> position.
+      </div>
+    </div>
+    <div class="modal-actions" id="modal-actions">
+      <!-- Buttons shown contextually by renderModalState() -->
+      <button id="dongle-pair-btn" class="modal-btn primary"
+              title="Press and hold F1 + F3 on the Joro until the lights blink white (dongle pair mode), then click this.">
+        Pair Joro to dongle
+        <span class="subtle">Hold F1+F3 on the Joro until lights blink white, then click. ~6 s.</span>
+      </button>
+      <button id="dongle-unpair-btn" class="modal-btn"
+              title="Removes the Joro bond from the dongle. Then tap F1, F2, or F3 on the Joro to activate a Bluetooth host slot.">
+        Unpair (switch to Bluetooth)
+        <span class="subtle">Removes the Joro bond. <strong style="color:var(--accent);">Then tap F1, F2, or F3</strong> on the Joro to activate a Bluetooth host slot.</span>
+      </button>
+    </div>
+    <div class="modal-status" id="dongle-status"></div>
+    <button id="conn-modal-close" class="modal-close">Close</button>
   </div>
 </div>
 
@@ -532,7 +759,7 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
 <div class="lighting">
   <div class="lighting-group">
     <label>Color</label>
-    <input type="color" id="lighting-color" value="#00cc44">
+    <div class="color-swatch" id="lighting-color-swatch"></div>
     <div class="hex" id="lighting-hex">#00CC44</div>
   </div>
   <div class="lighting-group brightness-group">
@@ -549,6 +776,21 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
     </select>
   </div>
 </div>
+
+<div class="section-title">Function key settings</div>
+<div class="mode-toggle layer-toggle" id="mode-toggle">
+  <button data-mode="mm" title="Top row emits media keys (vol, brightness, play). Hold Fn for F1–F12.">Multimedia keys</button>
+  <button data-mode="fn" title="Top row emits F1–F12. Hold Fn for media keys.">Function keys</button>
+</div>
+<div id="mode-lock-note" class="mode-lock-note" style="display:none;"></div>
+<style>
+.mode-lock-note {
+  font-size: 11px;
+  color: var(--accent);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+</style>
 
 <script>
 // ──────────────────────────────────────────────────────────────────────────
@@ -820,13 +1062,13 @@ function setStatus(msg, cls) {
 // Lighting
 // ──────────────────────────────────────────────────────────────────────────
 function renderLighting() {
-  const colorEl = document.getElementById('lighting-color');
+  const swatchEl = document.getElementById('lighting-color-swatch');
   const hexEl = document.getElementById('lighting-hex');
   const brEl = document.getElementById('lighting-brightness');
   const brValEl = document.getElementById('lighting-brightness-val');
   const modeEl = document.getElementById('lighting-mode');
-  if (!colorEl) return;
-  colorEl.value = lighting.color.toLowerCase();
+  if (!swatchEl) return;
+  swatchEl.style.background = lighting.color.toLowerCase();
   hexEl.textContent = lighting.color.toUpperCase();
   brEl.value = lighting.brightness;
   brValEl.textContent = lighting.brightness;
@@ -848,12 +1090,117 @@ function sendLightingDebounced() {
   lightingDebounceTimer = setTimeout(sendLighting, 180);
 }
 
-function wireLightingControls() {
-  document.getElementById('lighting-color').addEventListener('input', e => {
-    lighting.color = e.target.value;
-    document.getElementById('lighting-hex').textContent = lighting.color.toUpperCase();
-    sendLightingDebounced();
+// ── Custom color picker (replaces native <input type=color>) ──────────────
+let cpHue = 140, cpSat = 1, cpVal = 0.8;
+
+function hsvToRgb(h, s, v) {
+  const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c;
+  let r, g, b;
+  if (h < 60) { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else { r = c; g = 0; b = x; }
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d) {
+    if (mx === r) h = 60 * (((g - b) / d) % 6);
+    else if (mx === g) h = 60 * ((b - r) / d + 2);
+    else h = 60 * ((r - g) / d + 4);
+  }
+  if (h < 0) h += 360;
+  return [h, mx ? d / mx : 0, mx];
+}
+function cpHex() {
+  const [r, g, b] = hsvToRgb(cpHue, cpSat, cpVal);
+  return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+function drawSV() {
+  const cv = document.getElementById('color-sv');
+  if (!cv) return;
+  const ctx = cv.getContext('2d'), w = cv.width, h = cv.height;
+  const [br, bg, bb] = hsvToRgb(cpHue, 1, 1);
+  ctx.fillStyle = `rgb(${br},${bg},${bb})`;
+  ctx.fillRect(0, 0, w, h);
+  let g1 = ctx.createLinearGradient(0, 0, w, 0);
+  g1.addColorStop(0, 'rgba(255,255,255,1)'); g1.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g1; ctx.fillRect(0, 0, w, h);
+  let g2 = ctx.createLinearGradient(0, 0, 0, h);
+  g2.addColorStop(0, 'rgba(0,0,0,0)'); g2.addColorStop(1, 'rgba(0,0,0,1)');
+  ctx.fillStyle = g2; ctx.fillRect(0, 0, w, h);
+  const cx = cpSat * w, cy = (1 - cpVal) * h;
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, 7); ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, 7); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+}
+function cpApply() {
+  const hex = cpHex();
+  lighting.color = hex;
+  const hexEl = document.getElementById('lighting-hex');
+  if (hexEl) hexEl.textContent = hex.toUpperCase();
+  const sw = document.getElementById('lighting-color-swatch');
+  if (sw) sw.style.background = hex;
+  drawSV();
+  sendLightingDebounced();
+}
+function openColorPopup() {
+  const sw = document.getElementById('lighting-color-swatch');
+  const pop = document.getElementById('color-popup');
+  if (!sw || !pop) return;
+  const m = (lighting.color || '#00cc44').replace('#', '');
+  const r = parseInt(m.slice(0, 2), 16), g = parseInt(m.slice(2, 4), 16), b = parseInt(m.slice(4, 6), 16);
+  const [h, s, v] = rgbToHsv(r, g, b);
+  cpHue = h; cpSat = s; cpVal = v;
+  const hueEl = document.getElementById('color-hue');
+  if (hueEl) hueEl.value = Math.round(h);
+  // Anchor the popup to the swatch — position:fixed + viewport coords, so
+  // it always lands next to the swatch (no first-open center-screen bug).
+  const rect = sw.getBoundingClientRect();
+  pop.style.left = rect.left + 'px';
+  pop.style.top = (rect.bottom + 6) + 'px';
+  pop.classList.add('open');
+  drawSV();
+}
+function closeColorPopup() {
+  const pop = document.getElementById('color-popup');
+  if (pop) pop.classList.remove('open');
+}
+function wireColorPicker() {
+  const sw = document.getElementById('lighting-color-swatch');
+  const cv = document.getElementById('color-sv');
+  const hue = document.getElementById('color-hue');
+  if (sw) sw.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const pop = document.getElementById('color-popup');
+    if (pop && pop.classList.contains('open')) closeColorPopup();
+    else openColorPopup();
   });
+  if (hue) hue.addEventListener('input', () => { cpHue = +hue.value; cpApply(); });
+  let dragging = false;
+  function pickSV(e) {
+    const r = cv.getBoundingClientRect();
+    let x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    x = Math.max(0, Math.min(1, x)); y = Math.max(0, Math.min(1, y));
+    cpSat = x; cpVal = 1 - y; cpApply();
+  }
+  if (cv) {
+    cv.addEventListener('mousedown', (e) => { dragging = true; pickSV(e); });
+    window.addEventListener('mousemove', (e) => { if (dragging) pickSV(e); });
+    window.addEventListener('mouseup', () => { dragging = false; });
+  }
+  document.addEventListener('click', (e) => {
+    const pop = document.getElementById('color-popup');
+    if (pop && pop.classList.contains('open') && !pop.contains(e.target) && e.target !== sw) {
+      closeColorPopup();
+    }
+  });
+}
+
+function wireLightingControls() {
   document.getElementById('lighting-brightness').addEventListener('input', e => {
     lighting.brightness = +e.target.value;
     document.getElementById('lighting-brightness-val').textContent = lighting.brightness;
@@ -1194,6 +1541,10 @@ function renderTransport(t) {
     el.className = 'transport-indicator connected';
     label.textContent = 'Bluetooth';
     if (bolt) bolt.style.display = 'none';
+  } else if (t === 'DONGLE') {
+    el.className = 'transport-indicator connected';
+    label.textContent = '2.4 GHz Dongle';
+    if (bolt) bolt.style.display = 'none';
   } else {
     el.className = 'transport-indicator disconnected';
     label.textContent = 'Disconnected';
@@ -1222,6 +1573,10 @@ window.joroSetState = function(state) {
   );
   transport = state.transport || null;
   firmwareFnPrimary = (state.firmware_fn_primary === undefined) ? null : state.firmware_fn_primary;
+  if (state.device_mode_config) {
+    deviceModePref = state.device_mode_config;
+    renderModeToggle();
+  }
   if (state.lighting) {
     lighting = {
       color: state.lighting.color || '#00cc44',
@@ -1233,6 +1588,9 @@ window.joroSetState = function(state) {
   renderLighting();
   renderBattery(state.battery != null ? state.battery : null);
   renderTransport(transport);
+  // Refresh modal text if it's currently visible.
+  const modal = document.getElementById('conn-modal');
+  if (modal && modal.classList.contains('open')) renderModalState();
   // Previously this called setStatus('', '') which wiped the status pill
   // unconditionally on every state push. Since the daemon pushes state
   // right after a save completes, the freshly-set "Saved" message was
@@ -1244,6 +1602,133 @@ window.joroSaveResult = function(result) {
   if (result.ok) setStatus('Saved', 'ok');
   else setStatus('Error: ' + (result.error || 'unknown'), 'err');
 };
+
+// Posted by the Rust side when a dongle pair / unpair operation finishes
+// (background thread → UserEvent::DonglePairResult → push_dongle_result).
+window.joroDongleResult = function(result) {
+  setDongleStatusClass(result.ok ? 'ok' : 'err');
+  const label = result.op === 'pair' ? 'Pair' : (result.op === 'unpair' ? 'Unpair' : result.op);
+  const el = document.getElementById('dongle-status');
+  if (el) {
+    if (result.ok && result.op === 'unpair') {
+      // Special-case unpair: the keyboard does NOT auto-fall to BLE on
+      // unpair — Razer FW puts it into 3-light pair-advertise mode.
+      // User must press F1, F2, or F3 to activate a BLE host slot.
+      el.innerHTML = `Unpair ✔ — now <strong style="color:var(--accent);">tap F1, F2, or F3 on the Joro</strong> to activate a Bluetooth slot.`;
+    } else if (result.ok && result.op === 'pair') {
+      el.innerHTML = `Pair ✔ — keyboard now bridging through the dongle. ${result.message || ''}`;
+    } else {
+      el.textContent = `${label}: ${result.ok ? '✔' : '✖'} ${result.message || ''}`;
+    }
+  }
+  setBusy(false);
+  // Re-render contextual actions (pair state likely changed).
+  renderModalState();
+};
+
+function setDongleStatusClass(cls) {
+  const el = document.getElementById('dongle-status');
+  if (el) el.className = 'modal-status' + (cls ? ' ' + cls : '');
+}
+
+function setDongleStatusText(txt) {
+  const el = document.getElementById('dongle-status');
+  if (el) el.textContent = txt || '';
+}
+
+function setBusy(busy) {
+  ['dongle-pair-btn', 'dongle-unpair-btn'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.disabled = busy;
+  });
+}
+
+function setDongleBusy(label) {
+  setDongleStatusClass('busy');
+  setDongleStatusText(label);
+  setBusy(true);
+}
+
+function renderModalState() {
+  // INTENT-driven by current transport:
+  //   DONGLE → offer Unpair (switch back to Bluetooth).
+  //   BLE / disconnected → offer Pair to dongle.
+  //   USB → wired is direct, nothing to do (close-only).
+  // The daemon auto-reconnects all transports on a background thread now,
+  // so there's no manual "Re-probe" button — it's redundant.
+  const blurb = document.getElementById('modal-blurb');
+  const pairBtn = document.getElementById('dongle-pair-btn');
+  const unpairBtn = document.getElementById('dongle-unpair-btn');
+  const callout = document.getElementById('pair-callout');
+
+  if (pairBtn) { pairBtn.style.display = 'none'; pairBtn.classList.remove('primary'); pairBtn.disabled = false; }
+  if (unpairBtn) { unpairBtn.style.display = 'none'; unpairBtn.classList.remove('primary'); }
+  if (callout) callout.style.display = 'none';
+
+  if (transport === 'DONGLE') {
+    if (blurb) blurb.innerHTML = 'Currently on <strong class="accent">2.4 GHz dongle</strong> (paired). To switch back to Bluetooth, unpair below.';
+    if (unpairBtn) { unpairBtn.style.display = ''; unpairBtn.classList.add('primary'); }
+  } else if (transport === 'USB') {
+    if (blurb) blurb.innerHTML = 'Currently on <strong class="accent">Wired USB</strong>. The cable is the direct link — no pair/unpair options needed. Unplug the cable and flip the Joro switch to BLE/dongle to go wireless.';
+    // No actions; close-only.
+  } else {
+    // BLE or disconnected — the user wants to get onto a dongle. Show Pair.
+    if (transport === 'BLE') {
+      if (blurb) blurb.innerHTML = 'Currently on <strong class="accent">Bluetooth</strong>. To switch to the 2.4 GHz dongle, follow the step below and click Pair.';
+    } else {
+      if (blurb) blurb.innerHTML = 'No active transport. If the Joro is blinking white (pair-ready) pair it to a dongle below, or tap <strong>F1/F2/F3</strong> on the Joro to activate a Bluetooth slot (the daemon reconnects automatically).';
+    }
+    if (callout) callout.style.display = '';
+    if (pairBtn) { pairBtn.style.display = ''; pairBtn.classList.add('primary'); }
+  }
+}
+
+function openConnModal() {
+  const modal = document.getElementById('conn-modal');
+  if (!modal) return;
+  renderModalState();
+  // Clear any stale status from a previous open.
+  setDongleStatusClass('');
+  setDongleStatusText('');
+  setBusy(false);
+  modal.classList.add('open');
+}
+
+function closeConnModal() {
+  const modal = document.getElementById('conn-modal');
+  if (modal) modal.classList.remove('open');
+}
+
+function wireDongleControls() {
+  const link = document.getElementById('transport-options-link');
+  if (link) link.addEventListener('click', openConnModal);
+
+  const closeBtn = document.getElementById('conn-modal-close');
+  if (closeBtn) closeBtn.addEventListener('click', closeConnModal);
+
+  // Click-outside dismiss
+  const backdrop = document.getElementById('conn-modal');
+  if (backdrop) backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) closeConnModal();
+  });
+  // Escape dismiss
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && backdrop && backdrop.classList.contains('open')) {
+      closeConnModal();
+    }
+  });
+
+  const pairBtn = document.getElementById('dongle-pair-btn');
+  const unpairBtn = document.getElementById('dongle-unpair-btn');
+  if (pairBtn) pairBtn.addEventListener('click', () => {
+    setDongleBusy('Pairing… (~6 s). Keep F1+F3 held / lights blinking until pair completes.');
+    window.ipc.postMessage(JSON.stringify({ action: 'dongle_pair' }));
+  });
+  if (unpairBtn) unpairBtn.addEventListener('click', () => {
+    setDongleBusy('Unpairing — then tap F1/F2/F3 on the Joro for a Bluetooth slot…');
+    window.ipc.postMessage(JSON.stringify({ action: 'dongle_unpair' }));
+  });
+}
 
 // Called by the Rust daemon periodically (~30s) to refresh the battery indicator.
 window.joroSetBattery = function(pct) {
@@ -1271,11 +1756,73 @@ function wireLayerToggle() {
   });
 }
 
+// Tracks the persisted preference ("fn"|"mm"|"auto") — distinct from the
+// EFFECTIVE current firmware mode (firmwareFnPrimary) which auto-mode
+// resolves to either Fn or MM at apply time. The UI shows both: the
+// pill highlights the persisted pref, the keyboard rendering uses the
+// effective mode.
+let deviceModePref = 'auto';
+
+function renderModeToggle() {
+  // Lock ONLY on wired: the wired firmware genuinely ignores runtime mode
+  // switching (returns 0x05 NOT_SUPPORTED — see memory project_wired_mode_locked).
+  // On BLE/dongle: leave both buttons interactive. If the config has Win+X
+  // remaps, the user is free to pick Fn but Lock/Copilot will stop working
+  // in that mode — surface that as a WARNING, not a lock.
+  const onWired = transport === 'USB';
+  const needsMmForRemaps = (remaps || []).some(r => {
+    const f = (r.from || '').toLowerCase();
+    return f.startsWith('win+') || f.startsWith('lwin+') || f.startsWith('rwin+');
+  });
+  // Effective active button = wired-forced-mm, else the saved preference.
+  const effectiveMode = onWired ? 'mm' : (deviceModePref === 'fn' ? 'fn' : 'mm');
+  document.querySelectorAll('#mode-toggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === effectiveMode);
+    b.disabled = onWired;
+  });
+  const note = document.getElementById('mode-lock-note');
+  if (note) {
+    if (onWired) {
+      note.textContent = 'Locked — wired firmware hardcodes the top row.';
+      note.style.display = '';
+    } else if (needsMmForRemaps && deviceModePref === 'fn') {
+      note.textContent = 'Warning: Lock/Copilot/Win+X remaps only work in Multimedia keys mode.';
+      note.style.display = '';
+    } else if (needsMmForRemaps) {
+      // gentle hint — explains why MM is the daemon's default when remaps need it
+      note.textContent = 'Your remaps include Win+X combos (Lock, Copilot…) — keep Multimedia keys for them to work.';
+      note.style.display = '';
+    } else {
+      note.textContent = '';
+      note.style.display = 'none';
+    }
+  }
+}
+
+function wireModeToggle() {
+  document.querySelectorAll('#mode-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      if (mode === deviceModePref) return;
+      deviceModePref = mode;
+      renderModeToggle();
+      window.ipc.postMessage(JSON.stringify({
+        action: 'set_device_mode_pref',
+        mode,
+      }));
+    });
+  });
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   wireLightingControls();
+  wireColorPicker();
   wireLayerToggle();
+  wireModeToggle();
+  wireDongleControls();
   renderKeyboard();
   renderLighting();
+  renderModeToggle();
   window.ipc.postMessage(JSON.stringify({ action: 'request_state' }));
 });
 </script>

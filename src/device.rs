@@ -5,7 +5,14 @@
 ///
 /// All methods take `&mut self` so a single trait works for backends that
 /// need interior state mutation (e.g. BLE transaction IDs).
-pub trait JoroDevice {
+///
+/// `Send` supertrait: a freshly-opened device must be transferable from a
+/// background reconnect thread back to the main event-loop thread. The
+/// reconnect probe (dongle heartbeat ~2 s, BLE WinRT scan 5 s+) is run off
+/// the main thread so the webview never freezes; the resulting boxed device
+/// is moved to the main thread via a shared slot. All three backends are
+/// Send (hidapi HidDevice, rusb DeviceHandle, agile WinRT GATT objects).
+pub trait JoroDevice: Send {
     /// Check if the device is still reachable.
     fn is_connected(&mut self) -> bool;
 
@@ -67,6 +74,36 @@ pub trait JoroDevice {
     /// BLE: Protocol30 `SET class=0x01 cmd=0x02 sub=00,00 data=[mode, 0]`.
     /// USB: not yet implemented — default no-op.
     fn set_device_mode(&mut self, _fn_primary: bool) -> Result<(), String> {
+        Ok(())
+    }
+
+    /// Begin keymap edit session. The dongle requires a `class=0x02 cmd=0xa4`
+    /// "unlock" call before it accepts any `cmd=0x0d` Hypershift write —
+    /// otherwise writes are silently dropped. Direct USB and BLE backends
+    /// don't need this (default no-op).
+    fn unlock_keymap_writes(&mut self) -> Result<(), String> {
+        Ok(())
+    }
+
+    /// Disable firmware idle sleep. `seconds = 0` = never sleep (openrazer
+    /// convention). Useful for keep-alive when responsiveness matters more
+    /// than battery life. Default no-op for backends that haven't implemented
+    /// the command yet.
+    fn set_idle_time(&mut self, _seconds: u16) -> Result<(), String> {
+        Ok(())
+    }
+
+    /// Persist the live (RAM) Hypershift keymap to the keyboard's flash
+    /// config store so remaps survive a power cycle.
+    ///
+    /// `bindings` are the (matrix, modifier, dst_usage) triples the caller
+    /// just wrote via `set_layer_remap`. The dongle backend replays
+    /// Synapse's proven class-0x0F VARSTORE commit transaction (captured,
+    /// embedded) substituting these bindings; every other byte is
+    /// byte-identical to a known-good Synapse save. Other transports:
+    /// default no-op (BLE never persists; direct-USB uses the transport
+    /// cycle documented in `project_hypershift_commit_trigger.md`).
+    fn persist_keymap(&mut self, _bindings: &[(u8, u8, u8)]) -> Result<(), String> {
         Ok(())
     }
 }

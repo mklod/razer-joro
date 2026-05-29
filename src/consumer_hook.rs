@@ -34,14 +34,16 @@ use crate::remap::{make_key_input, send_inputs};
 
 // Joro ships as several VID/PID pairs depending on transport:
 //   VID 0x1532 PID 0x02CD → wired USB
-//   VID 0x1532 PID 0x02CE → 2.4 GHz dongle (untested but same stack)
+//   VID 0x1532 PID 0x02CE → Razer filter-driver presented direct USB
 //   VID 0x068E PID 0x02CE → BLE (BthHID exposes it under the BT vendor
 //                                 ID for the radio, not Razer's)
-// We accept all three so the consumer hook runs regardless of transport.
+//   VID 0x1532 PID 0x009C → DA V2 X HyperSpeed multi-device dongle (Joro paired)
+// We accept all four so the consumer hook runs regardless of transport.
 const JORO_VENDORS: &[(u16, u16)] = &[
     (0x1532, 0x02CD),
     (0x1532, 0x02CE),
     (0x068E, 0x02CE),
+    (0x1532, 0x009C),
 ];
 const CONSUMER_USAGE_PAGE: u16 = 0x000C;
 const CONSUMER_USAGE: u16 = 0x0001;
@@ -248,23 +250,23 @@ fn open_input_interfaces(api: &HidApi) -> Vec<(String, hidapi::HidDevice)> {
 }
 
 fn run_loop(stop: Arc<AtomicBool>, entries: HashMap<u16, ConsumerRemapEntry>) {
-    let api = match HidApi::new() {
+    let mut api = match HidApi::new() {
         Ok(a) => a,
         Err(e) => {
             eprintln!("joro-consumer-hook: HidApi::new failed: {e}");
             return;
         }
     };
-    let devices = open_input_interfaces(&api);
+    let mut devices = open_input_interfaces(&api);
     if devices.is_empty() {
-        eprintln!("joro-consumer-hook: no consumer/system HID interfaces opened");
-        return;
+        eprintln!("joro-consumer-hook: no consumer/system HID interfaces opened initially — will retry");
+    } else {
+        eprintln!(
+            "joro-consumer-hook: running with {} remap(s) across {} interface(s)",
+            entries.len(),
+            devices.len()
+        );
     }
-    eprintln!(
-        "joro-consumer-hook: running with {} remap(s) across {} interface(s)",
-        entries.len(),
-        devices.len()
-    );
     for e in entries.values() {
         eprintln!(
             "  usage=0x{:04x} → mods={:?} key=0x{:04x} ({})",
@@ -276,13 +278,41 @@ fn run_loop(stop: Arc<AtomicBool>, entries: HashMap<u16, ConsumerRemapEntry>) {
     // Per-interface "last emitted usage" so key-down/key-up pair correctly
     // even when both interfaces deliver reports at once.
     let mut last_usage: HashMap<String, u16> = HashMap::new();
+    // Self-heal: when reads fail repeatedly, the HID interface paths
+    // we opened have gone stale (Windows reuses paths across BLE
+    // sleep/wake or daemon-restart races, but our handles still point
+    // at the prior generation). On every Nth consecutive read error,
+    // drop the handles and re-enumerate. Reset on any successful read.
+    const RESET_THRESHOLD: u32 = 20;
+    let mut error_streak: u32 = 0;
 
     while !stop.load(Ordering::Relaxed) {
+        // No interfaces — wait, refresh, retry. Avoids tight spin.
+        if devices.is_empty() {
+            thread::sleep(Duration::from_secs(2));
+            let _ = api.refresh_devices();
+            devices = open_input_interfaces(&api);
+            if !devices.is_empty() {
+                eprintln!(
+                    "joro-consumer-hook: re-opened {} interface(s) after wait",
+                    devices.len()
+                );
+                error_streak = 0;
+            }
+            continue;
+        }
+
         for (kind, dev) in &devices {
             let n = match dev.read_timeout(&mut buf, 10) {
-                Ok(n) => n,
+                Ok(n) => {
+                    error_streak = 0;
+                    n
+                }
                 Err(e) => {
-                    eprintln!("joro-consumer-hook: {kind} read error: {e}");
+                    if error_streak < RESET_THRESHOLD {
+                        eprintln!("joro-consumer-hook: {kind} read error: {e}");
+                    }
+                    error_streak += 1;
                     thread::sleep(Duration::from_millis(500));
                     continue;
                 }
@@ -290,9 +320,30 @@ fn run_loop(stop: Arc<AtomicBool>, entries: HashMap<u16, ConsumerRemapEntry>) {
             if n < 3 {
                 continue;
             }
+            // Any HID report from Joro means the keyboard is awake right
+            // now. Signal this so main can clear the keyboard_asleep flag
+            // without waiting for the dongle's bridged battery query (which
+            // can lag minutes after a wake). Cheap atomic store.
+            crate::fn_detect::JORO_HID_ACTIVITY.store(true, std::sync::atomic::Ordering::Release);
             // Joro report format: [report_id, usage_lo, usage_hi, ...]
             // (report_id varies by collection: 0x02 for consumer, 0x03 for system on some devices)
             let usage = u16::from_le_bytes([buf[1], buf[2]]);
+
+            // Fn-state detection through dongle (and BLE, which has the
+            // same consumer 0x029D event) — the AC View Toggle (0x029D)
+            // is what the keyboard fires when Fn is pressed/released. We
+            // update the same fn_detect::FN_HELD atomic the BLE-side
+            // hidapi reader uses, so the WH_KEYBOARD_LL hook + fn_host_remap
+            // table works transport-agnostic without RawInput.
+            if usage == 0x029D {
+                use std::sync::atomic::Ordering;
+                crate::fn_detect::FN_HELD.store(true, Ordering::Release);
+            } else if usage == 0 {
+                // Consumer key-up — also our Fn release edge.
+                use std::sync::atomic::Ordering;
+                crate::fn_detect::FN_HELD.store(false, Ordering::Release);
+            }
+
             if usage == 0 {
                 // Key-up. If we intercepted a key-down for this interface,
                 // emit the replacement's key-up now.
@@ -358,6 +409,29 @@ fn run_loop(stop: Arc<AtomicBool>, entries: HashMap<u16, ConsumerRemapEntry>) {
                     "joro-consumer-hook: {kind} unhandled usage=0x{usage:04x} raw=[{raw_hex}]"
                 );
             }
+        }
+
+        // After each pass over all devices, check whether the error
+        // streak demands a re-enumeration.
+        if error_streak >= RESET_THRESHOLD {
+            eprintln!(
+                "joro-consumer-hook: {} consecutive read errors — re-enumerating HID interfaces",
+                error_streak
+            );
+            devices.clear();
+            if let Err(e) = api.refresh_devices() {
+                eprintln!("joro-consumer-hook: refresh_devices failed: {e}");
+            }
+            devices = open_input_interfaces(&api);
+            if devices.is_empty() {
+                eprintln!("joro-consumer-hook: re-enumeration found no Joro HID interfaces — backing off");
+            } else {
+                eprintln!(
+                    "joro-consumer-hook: re-enumerated {} interface(s)",
+                    devices.len()
+                );
+            }
+            error_streak = 0;
         }
     }
     eprintln!("joro-consumer-hook: stopped");
