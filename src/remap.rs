@@ -508,6 +508,7 @@ pub fn build_remap_tables(
 /// F1/F2/F3 are firmware BLE-slot selectors (unreachable host-side) and are
 /// intentionally excluded.
 const MM_DEFAULT_FROW: &[(&str, &str)] = &[
+    ("F4", "Win+Tab"), // Joro MM-mode Task View / window overview
     ("F5", "VolumeMute"),
     ("F6", "VolumeDown"),
     ("F7", "VolumeUp"),
