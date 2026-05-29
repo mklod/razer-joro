@@ -15,3 +15,5 @@ captures/
 *.log
 # Harness scratch
 .claude/scheduled_tasks.lock
+__pycache__/
+*.pyc
