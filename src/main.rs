@@ -997,7 +997,7 @@ impl App {
 
         // Rebuild remap tables
         let (combo_table, trigger_table, special_table, consumer_table) =
-            remap::build_remap_tables(&self.config.remap);
+            remap::build_remap_tables_for_mode(&self.config.remap, self.config.device_mode == "mm");
         let fn_host_table = remap::build_fn_host_remap_table(&self.config.fn_host_remap);
         remap::update_remap_table(combo_table);
         remap::update_trigger_table(trigger_table);
@@ -1357,7 +1357,7 @@ impl App {
 
                 // Rebuild host-side remap tables
                 let (combo_table, trigger_table, special_table, consumer_table) =
-                    remap::build_remap_tables(&self.config.remap);
+                    remap::build_remap_tables_for_mode(&self.config.remap, self.config.device_mode == "mm");
                 let fn_host_table =
                     remap::build_fn_host_remap_table(&self.config.fn_host_remap);
                 remap::update_remap_table(combo_table);
@@ -1552,6 +1552,19 @@ impl App {
                         }
                     }
                 }
+                // Rebuild host-side remap tables so the MM-primary F-row layer
+                // is applied/removed LIVE when the user flips the MM/Fn toggle.
+                // (The toggle is host-side now — the firmware register no-ops
+                // over BLE; see JORO_FUNCTION.md §A2.)
+                let (combo_table, trigger_table, special_table, consumer_table) =
+                    remap::build_remap_tables_for_mode(
+                        &self.config.remap,
+                        self.config.device_mode == "mm",
+                    );
+                remap::update_remap_table(combo_table);
+                remap::update_trigger_table(trigger_table);
+                remap::update_special_action_table(special_table);
+                remap::update_consumer_action_table(consumer_table);
                 self.push_settings_state();
                 self.push_save_result(true, None);
             }
@@ -1641,7 +1654,7 @@ impl ApplicationHandler<UserEvent> for App {
 
         // Build initial remap tables
         let (combo_table, trigger_table, special_table, consumer_table) =
-            remap::build_remap_tables(&self.config.remap);
+            remap::build_remap_tables_for_mode(&self.config.remap, self.config.device_mode == "mm");
         let fn_host_table = remap::build_fn_host_remap_table(&self.config.fn_host_remap);
         eprintln!(
             "joro-daemon: {} combo remaps, {} trigger remaps, {} fn-host remaps, {} special actions, {} consumer actions",
