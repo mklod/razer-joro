@@ -209,14 +209,15 @@ Legend: ✅ working & tested · ⚠️ partial / known issue · ❌ broken / wro
 | Keyboard backlight (static/breathing/spectrum/brightness) | Protocol30 class 0x10 (BLE) | wired/BLE ✅, dongle ⚠️ | ✅ on wired/BLE |
 | No-sleep firmware patch | 3-byte patch #3, `fw-flash-stock --commit-mod` | wired flash → all | ✅ (flashed 2026-05-19; verify live) |
 | Synapse-free dongle pairing | 70-frame replay (`joro-dongle-pair`) | dongle | ✅ |
-| **MM/Fn primary toggle** | ❌ Currently writes the firmware register only (no-op over BLE) | — | ❌ **Needs host-side reimplementation (A2)** |
+| **MM/Fn primary toggle (host-side)** | `remap::build_remap_tables_for_mode` injects MM F-row defaults under user remaps; rebuilt live on toggle. Firmware register still written (no-op BLE, needed on dongle) | BLE ✅ | ✅ implemented 2026-05-29 (pending physical confirm) |
 | Hypershift flash persistence | RAM write only; missing class-0x0f commit | USB | 🔲 |
 | Dongle lighting keep-warm | not implemented | dongle | 🔲 |
 | Fn+arrow on dongle (narrow RawInput) | disabled (dropped keys) | dongle | 🔲 |
 
-### The one broken headline feature: MM/Fn toggle
-Today it does nothing because the daemon writes a firmware register that no-ops over BLE.
-**Correct fix (Synapse parity):** make it a host-side daemon layer —
+### MM/Fn toggle — host-side, implemented 2026-05-29
+Previously did nothing (the daemon only wrote a firmware register that no-ops over BLE).
+Now a host-side daemon layer (`remap::build_remap_tables_for_mode`, called at all three
+table-build sites + rebuilt live in the `set_device_mode_pref` handler). Design —
 - Keep the keyboard in a known plain-VK state (it already emits plain VK over BLE).
 - **Fn mode** = pass F5–F12 through as F-keys (+ user remaps on top).
 - **MM mode** = daemon translates F5→Mute, F6→VolDn, F7→VolUp, F8/F9→monitor brightness,
@@ -225,8 +226,17 @@ Today it does nothing because the daemon writes a firmware register that no-ops 
 - Because the keyboard emits plain VK over BLE, the old "F8/F9 no Win32 VK" / "F10/F11 not
   LL-catchable" problems disappear — every F-key arrives as a plain VK the LL hook sees.
 
-### Deployment note (2026-05-29)
-The autostart Run key `JoroDaemon` points at `…\AppData\Local\razer-joro\joro-daemon.exe`
-(an **old 5/19 build with no toggle in the UI**). The current build with the toggle is
-`…\AppData\Local\razer-joro-target\release\joro-daemon.exe`. These must be reconciled:
-build the fixed daemon and deploy it to the autostart path so login launches the right one.
+### Deployment (resolved 2026-05-29)
+Build with `cargo build --release` → output goes to `…\AppData\Local\razer-joro-target\release\joro-daemon.exe`
+(per `.cargo/config.toml` `target-dir`). **Deploy step:** copy that exe over the autostart
+path `…\AppData\Local\razer-joro\joro-daemon.exe` (the `JoroDaemon` Run key launches it at
+login), then relaunch. Done 2026-05-29 with the MM/Fn toggle build.
+
+### Battery charge status — OPEN (needs a capture before daemon work)
+Battery **%** is solid (Protocol30 `0x07:80` arg[1] on BLE/USB; passive `09 31` byte[2] on
+dongle; GATT `0x2A19` is frozen, never use). **Charge status (charging/plugged) is NOT known
+on any transport.** openrazer's `0x07/0x84 = charging` does **not** apply — on Joro `0x07/0x83`/`0x84`
+is the idle/power command and is NOT_SUPPORTED over BLE. No charge capture exists. Leads: the
+undecoded bytes of the BLE `0x07:80` 4-byte response (`40 ?? c5 86`, only `arg[1]` decoded) and
+the dongle heartbeat bytes 3–7. Cheapest test: the daemon already logs `raw=[…]` every 60 s —
+plug power while on BLE and watch if those bytes change (caveat: USB-C plug may switch to wired).

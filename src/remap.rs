@@ -499,6 +499,69 @@ pub fn build_remap_tables(
     (combo_table, trigger_table, special_table, consumer_table)
 }
 
+/// Built-in MM-primary F-row layout (Synapse parity), applied HOST-SIDE when
+/// `device_mode == "mm"`. The Joro emits plain VK F1-F12 over BLE regardless of
+/// the firmware mode register (the register is a no-op over BLE on the current
+/// firmware — see JORO_FUNCTION.md §A2), so we translate the F-row here instead
+/// of relying on the firmware. These are DEFAULTS only: a user `[[remap]]` whose
+/// source resolves to the same physical key wins and the default is dropped.
+/// F1/F2/F3 are firmware BLE-slot selectors (unreachable host-side) and are
+/// intentionally excluded.
+const MM_DEFAULT_FROW: &[(&str, &str)] = &[
+    ("F5", "VolumeMute"),
+    ("F6", "VolumeDown"),
+    ("F7", "VolumeUp"),
+    ("F8", "Brightness+Down"), // external monitor via DDC/CI
+    ("F9", "Brightness+Up"),
+    ("F10", "Backlight+Down"), // keyboard backlight via Protocol30
+    ("F11", "Backlight+Up"),
+    ("F12", "PrintScreen"),
+];
+
+/// Build the remap tables for the current firmware-mode preference. When
+/// `mm_mode` is true, the built-in MM-primary F-row defaults (`MM_DEFAULT_FROW`)
+/// are injected underneath the user's remaps — any default whose source key the
+/// user already remapped is skipped, so user config always wins. When false, the
+/// F-row passes through as plain F1-F12 (plus whatever the user mapped). This is
+/// the host-side replacement for the firmware MM/Fn toggle.
+pub fn build_remap_tables_for_mode(
+    remaps: &[crate::config::RemapConfig],
+    mm_mode: bool,
+) -> (
+    Vec<ComboRemap>,
+    Vec<TriggerRemap>,
+    Vec<SpecialActionEntry>,
+    Vec<ConsumerActionEntry>,
+) {
+    if !mm_mode {
+        return build_remap_tables(remaps);
+    }
+    // Source VKs the user already maps (single-key sources only — combo sources
+    // like "Win+L" are triggers, not F-row keys).
+    let covered: Vec<VkCode> = remaps
+        .iter()
+        .filter(|e| !e.from.contains('+'))
+        .filter_map(|e| keys::key_name_to_vk(&e.from))
+        .collect();
+    let mut augmented = remaps.to_vec();
+    for (from, to) in MM_DEFAULT_FROW {
+        if let Some(vk) = keys::key_name_to_vk(from) {
+            if covered.contains(&vk) {
+                eprintln!("remap: MM default {from} -> {to} skipped (user remap present)");
+                continue;
+            }
+        }
+        eprintln!("remap: MM default {from} -> {to}");
+        augmented.push(crate::config::RemapConfig {
+            name: format!("MM-primary default {from}"),
+            from: (*from).to_string(),
+            to: (*to).to_string(),
+            matrix_index: None,
+        });
+    }
+    build_remap_tables(&augmented)
+}
+
 /// Determine prefix modifier VKs sent before the gate modifier.
 /// Copilot key sends LShift↓ before LWin↓ — LShift is a prefix mod.
 fn determine_prefix_mods(gate_mod: VkCode, trigger: VkCode) -> Vec<VkCode> {
