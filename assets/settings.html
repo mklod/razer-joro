@@ -787,7 +787,7 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
      always on (host-side, per-key); to make any top-row key act as a plain
      F-key, remap it to itself (e.g. F6 → F6) via the key popover. The
      firmware register is pinned MM by the daemon (Lock/Copilot need it). -->
-<div id="mode-lock-note" class="mode-lock-note">Top row does media actions by default. Click any key to remap it — map a key to itself (e.g. <code>F6</code> → <code>F6</code>) to make it a plain F-key.</div>
+<div id="mode-lock-note" class="mode-lock-note">Top row does media actions (e.g. volume, brightness) by default. Click any key to remap it.</div>
 <style>
 .mode-lock-note {
   font-size: 11px;
@@ -1794,7 +1794,7 @@ function renderModeToggle() {
   if (transport === 'USB') {
     note.innerHTML = 'Wired: the firmware hardcodes the top row — remap F-keys over Bluetooth.';
   } else {
-    note.innerHTML = 'Top row does media actions by default. Click any key to remap it — map a key to itself (e.g. <code>F6</code> → <code>F6</code>) to make it a plain F-key.';
+    note.innerHTML = 'Top row does media actions (e.g. volume, brightness) by default. Click any key to remap it.';
   }
 }
 
