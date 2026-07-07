@@ -778,11 +778,11 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
 </div>
 
 <div class="section-title">Function key settings</div>
-<div class="mode-toggle layer-toggle" id="mode-toggle">
-  <button data-mode="mm" title="Top row emits media keys (vol, brightness, play). Hold Fn for F1–F12.">Multimedia keys</button>
-  <button data-mode="fn" title="Top row emits F1–F12. Hold Fn for media keys.">Function keys</button>
-</div>
-<div id="mode-lock-note" class="mode-lock-note" style="display:none;"></div>
+<!-- The MM/Fn mode toggle was REMOVED 2026-07-07. Multimedia defaults are
+     always on (host-side, per-key); to make any top-row key act as a plain
+     F-key, remap it to itself (e.g. F6 → F6) via the key popover. The
+     firmware register is pinned MM by the daemon (Lock/Copilot need it). -->
+<div id="mode-lock-note" class="mode-lock-note">Top row does media actions by default. Click any key to remap it — map a key to itself (e.g. <code>F6</code> → <code>F6</code>) to make it a plain F-key.</div>
 <style>
 .mode-lock-note {
   font-size: 11px;
@@ -1304,8 +1304,8 @@ function renderKeyboard() {
           btn.title = `${k.key} — matrix index unknown, can't remap yet`;
         } else if (currentLayer === 'hypershift') {
           btn.title = `Fn+${k.key}`;
-        } else if (k.mmEmits && deviceModePref !== 'fn') {
-          btn.title = `${k.key} → ${k.mmEmits} (Multimedia default, host-side — remap ${k.key} to override)`;
+        } else if (k.mmEmits) {
+          btn.title = `${k.key} → ${k.mmEmits} (default — remap ${k.key} to override, or map it to itself for plain ${k.key})`;
         } else if (k.fwNote) {
           btn.title = `${k.key} — ${k.fwNote}`;
         } else {
@@ -1397,10 +1397,8 @@ function onKeyClick(k, btnEl, evt) {
       } else {
         fwNoteLine = `<div class="pop-hint" style="color:#88c0ff;">${escapeHtml(k.key)} emits <code>${escapeHtml(k.mmEmits)}</code> at the firmware level on wired. Remapping <code>${escapeHtml(k.mmEmits)}</code> intercepts it.</div>`;
       }
-    } else if (k.mmEmits && deviceModePref !== 'fn') {
-      fwNoteLine = `<div class="pop-hint" style="color:#88c0ff;">${escapeHtml(k.key)} does <code>${escapeHtml(k.mmEmits)}</code> by default (Multimedia mode, applied host-side). A remap on <code>${escapeHtml(k.key)}</code> overrides that default for this key only.</div>`;
     } else if (k.mmEmits) {
-      fwNoteLine = `<div class="pop-hint" style="color:#9aa;">${escapeHtml(k.key)} passes through as plain <code>${escapeHtml(k.key)}</code> (Function keys mode). Switch to Multimedia to restore <code>${escapeHtml(k.mmEmits)}</code> by default.</div>`;
+      fwNoteLine = `<div class="pop-hint" style="color:#88c0ff;">${escapeHtml(k.key)} does <code>${escapeHtml(k.mmEmits)}</code> by default (host-side). A remap on <code>${escapeHtml(k.key)}</code> overrides it — map <code>${escapeHtml(k.key)}</code> → <code>${escapeHtml(k.key)}</code> for a plain F-key.</div>`;
     } else if (k.fwNote) {
       fwNoteLine = `<div class="pop-hint" style="color:#9aa;">${escapeHtml(k.fwNote)}</div>`;
     }
@@ -1579,10 +1577,7 @@ window.joroSetState = function(state) {
   );
   transport = state.transport || null;
   firmwareFnPrimary = (state.firmware_fn_primary === undefined) ? null : state.firmware_fn_primary;
-  if (state.device_mode_config) {
-    deviceModePref = state.device_mode_config;
-    renderModeToggle();
-  }
+  renderModeToggle();
   if (state.lighting) {
     lighting = {
       color: state.lighting.color || '#00cc44',
@@ -1762,59 +1757,20 @@ function wireLayerToggle() {
   });
 }
 
-// Tracks the persisted preference ("fn"|"mm"|"auto") — distinct from the
-// EFFECTIVE current firmware mode (firmwareFnPrimary) which auto-mode
-// resolves to either Fn or MM at apply time. The UI shows both: the
-// pill highlights the persisted pref, the keyboard rendering uses the
-// effective mode.
-let deviceModePref = 'auto';
-
+// MM/Fn toggle REMOVED 2026-07-07 — multimedia defaults are always on
+// (host-side per-key layer); a per-key remap (incl. identity F6→F6)
+// overrides its default. The daemon ignores `set_device_mode_pref`.
 function renderModeToggle() {
-  // The toggle is HOST-SIDE ONLY: the daemon pins the firmware register to
-  // MM-primary on every connect (Fn firmware mode kills the Lock/Copilot
-  // Win+X macro composition — ground truth 2026-07-07), and the MM media
-  // layer is a set of per-key defaults in the daemon's remap tables. So
-  // Lock/Copilot work in BOTH toggle positions, and every F-key remains
-  // individually remappable in both. Lock only on wired, where the
-  // firmware hardcodes the F-row.
-  const onWired = transport === 'USB';
-  const effectiveMode = onWired ? 'mm' : (deviceModePref === 'fn' ? 'fn' : 'mm');
-  document.querySelectorAll('#mode-toggle button').forEach(b => {
-    b.classList.toggle('active', b.dataset.mode === effectiveMode);
-    b.disabled = onWired;
-  });
   const note = document.getElementById('mode-lock-note');
-  if (note) {
-    if (onWired) {
-      note.textContent = 'Locked — wired firmware hardcodes the top row.';
-      note.style.display = '';
-    } else {
-      note.textContent = 'Sets the top-row defaults only (host-side). Per-key remaps override either way; Lock/Copilot work in both.';
-      note.style.display = '';
-    }
+  if (note && transport === 'USB') {
+    note.textContent = 'Wired: the firmware hardcodes the top row — remap F-keys over Bluetooth.';
   }
-}
-
-function wireModeToggle() {
-  document.querySelectorAll('#mode-toggle button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const mode = btn.dataset.mode;
-      if (mode === deviceModePref) return;
-      deviceModePref = mode;
-      renderModeToggle();
-      window.ipc.postMessage(JSON.stringify({
-        action: 'set_device_mode_pref',
-        mode,
-      }));
-    });
-  });
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   wireLightingControls();
   wireColorPicker();
   wireLayerToggle();
-  wireModeToggle();
   wireDongleControls();
   renderKeyboard();
   renderLighting();

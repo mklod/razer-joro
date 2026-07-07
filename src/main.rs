@@ -985,7 +985,7 @@ impl App {
 
         // Rebuild remap tables
         let (combo_table, trigger_table, special_table, consumer_table) =
-            remap::build_remap_tables_for_mode(&self.config.remap, self.config.device_mode != "fn");
+            remap::build_remap_tables_for_mode(&self.config.remap, true); // MM defaults always on (toggle removed 2026-07-07)
         let fn_host_table = remap::build_fn_host_remap_table(&self.config.fn_host_remap);
         remap::update_remap_table(combo_table);
         remap::update_trigger_table(trigger_table);
@@ -1346,7 +1346,7 @@ impl App {
 
                 // Rebuild host-side remap tables
                 let (combo_table, trigger_table, special_table, consumer_table) =
-                    remap::build_remap_tables_for_mode(&self.config.remap, self.config.device_mode != "fn");
+                    remap::build_remap_tables_for_mode(&self.config.remap, true); // MM defaults always on (toggle removed 2026-07-07)
                 let fn_host_table =
                     remap::build_fn_host_remap_table(&self.config.fn_host_remap);
                 remap::update_remap_table(combo_table);
@@ -1498,49 +1498,11 @@ impl App {
                 self.push_settings_state();
                 self.push_save_result(true, None);
             }
-            "set_device_mode_pref" => {
-                // User clicked Multimedia keys / Function keys in the UI.
-                // Auto was removed 2026-05-21 — the auto-detect rule (force
-                // MM when any Win+X remap is present) now LOCKS the toggle
-                // in the UI instead of being a separate user-selectable
-                // option. Accepted values: "mm" | "fn".
-                let mode = val
-                    .get("mode")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                if !matches!(mode.as_str(), "fn" | "mm") {
-                    self.push_save_result(false, Some("mode must be fn|mm"));
-                    return;
-                }
-                // The preference is HOST-SIDE ONLY. The firmware register is
-                // pinned MM at connect time (Fn firmware mode kills the
-                // Lock/Copilot macro composition — ground truth 2026-07-07)
-                // and is deliberately NOT written here.
-                let effective_mode = mode.as_str();
-                self.config.device_mode = effective_mode.to_string();
-                if let Err(e) = config::save_config(&self.config_path, &self.config) {
-                    self.push_save_result(false, Some(&e));
-                    return;
-                }
-                self.config_modified = std::fs::metadata(&self.config_path)
-                    .ok()
-                    .and_then(|m| m.modified().ok());
-                eprintln!("joro-daemon: device mode pref = {effective_mode} (host-side)");
-                // Rebuild host-side remap tables so the MM-primary F-row layer
-                // is applied/removed LIVE when the user flips the MM/Fn toggle.
-                let (combo_table, trigger_table, special_table, consumer_table) =
-                    remap::build_remap_tables_for_mode(
-                        &self.config.remap,
-                        self.config.device_mode != "fn",
-                    );
-                remap::update_remap_table(combo_table);
-                remap::update_trigger_table(trigger_table);
-                remap::update_special_action_table(special_table);
-                remap::update_consumer_action_table(consumer_table);
-                self.push_settings_state();
-                self.push_save_result(true, None);
-            }
+            // "set_device_mode_pref" REMOVED 2026-07-07 — the MM/Fn toggle
+            // is gone. MM defaults are always on (host-side, per-key); a
+            // user remap on a key (including identity, e.g. F6 → F6)
+            // overrides that key's default. Toggling was also flaky in
+            // practice, and with per-key overrides it served no purpose.
             other => {
                 eprintln!("Warning: unknown settings action: {other}");
             }
@@ -1627,7 +1589,7 @@ impl ApplicationHandler<UserEvent> for App {
 
         // Build initial remap tables
         let (combo_table, trigger_table, special_table, consumer_table) =
-            remap::build_remap_tables_for_mode(&self.config.remap, self.config.device_mode != "fn");
+            remap::build_remap_tables_for_mode(&self.config.remap, true); // MM defaults always on (toggle removed 2026-07-07)
         let fn_host_table = remap::build_fn_host_remap_table(&self.config.fn_host_remap);
         eprintln!(
             "joro-daemon: {} combo remaps, {} trigger remaps, {} fn-host remaps, {} special actions, {} consumer actions",
