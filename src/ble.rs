@@ -21,11 +21,13 @@ use windows::Devices::Bluetooth::Advertisement::{
     BluetoothLEScanningMode,
 };
 use windows::Devices::Bluetooth::GenericAttributeProfile::{
-    GattCharacteristic, GattClientCharacteristicConfigurationDescriptorValue,
-    GattCommunicationStatus, GattDeviceService, GattSession, GattValueChangedEventArgs,
-    GattWriteOption,
+    GattCharacteristic, GattCharacteristicProperties,
+    GattClientCharacteristicConfigurationDescriptorValue, GattCommunicationStatus,
+    GattDeviceService, GattSession, GattValueChangedEventArgs, GattWriteOption,
 };
-use windows::Devices::Bluetooth::{BluetoothConnectionStatus, BluetoothLEDevice};
+use windows::Devices::Bluetooth::{
+    BluetoothCacheMode, BluetoothConnectionStatus, BluetoothLEDevice,
+};
 use windows::Devices::Enumeration::DeviceInformation;
 use windows::Foundation::{EventRegistrationToken, IClosable, TypedEventHandler};
 use windows::Storage::Streams::{DataReader, DataWriter};
@@ -36,12 +38,16 @@ const RAZER_SERVICE_UUID: GUID = GUID::from_u128(0x52401523_f97c_7f90_0e7f_6c6f4
 const CHAR_TX_UUID: GUID = GUID::from_u128(0x52401524_f97c_7f90_0e7f_6c6f4e36db1c);
 const CHAR_RX_UUID: GUID = GUID::from_u128(0x52401525_f97c_7f90_0e7f_6c6f4e36db1c);
 
-// NOTE: the standard BLE Battery Service (0x180F / char 0x2A19) is
-// deliberately NOT used anywhere — on this Joro firmware it is FROZEN at
-// the last-charged value (showed 100% all day while the real level drained
-// 100→79). Battery reads go through Razer Protocol30 0x07:0x80 ONLY.
-// The old discovery machinery was deleted 2026-07-07 so nobody "cleans up"
-// toward the frozen char again.
+// Standard BLE Battery Service (0x180F) / Battery Level char (0x2A19).
+// REHABILITATED 2026-07-07: the May "frozen at 100%" verdict blamed this
+// characteristic, but the culprit was almost certainly Windows' GATT READ
+// CACHE (default BluetoothCacheMode::Cached). Read UNCACHED, 0x2A19 exactly
+// matches the wired Protocol30 register (both said 45% while the BLE-side
+// Protocol30 0x07:80 served a months-stale 76%). 0x2A19 is the PRIMARY
+// battery source over BLE — always read with BluetoothCacheMode::Uncached,
+// never Cached.
+const BATTERY_SERVICE_UUID: GUID = GUID::from_u128(0x0000180f_0000_1000_8000_00805f9b34fb);
+const BATTERY_LEVEL_UUID: GUID = GUID::from_u128(0x00002a19_0000_1000_8000_00805f9b34fb);
 
 const SCAN_TIMEOUT: Duration = Duration::from_millis(1500);
 const WRITE_DELAY: Duration = Duration::from_millis(150);
@@ -58,6 +64,10 @@ pub struct BleDevice {
     _session: GattSession,
     char_tx: GattCharacteristic,
     char_rx: GattCharacteristic,
+    /// Standard Battery Level char (0x2A19) — primary battery source over
+    /// BLE (uncached reads + change notifications). See the const comment.
+    char_battery: Option<GattCharacteristic>,
+    battery_notif_token: Option<EventRegistrationToken>,
     // Channel of received notification payloads from the ValueChanged callback
     notif_rx: mpsc::Receiver<Vec<u8>>,
     // Token for unregistering the ValueChanged handler in Drop
@@ -123,7 +133,21 @@ impl BleDevice {
     }
 
     fn drain_notifications(&self) {
-        while self.notif_rx.try_recv().is_ok() {}
+        // Log what we throw away: unsolicited keyboard→host frames on the
+        // Razer RX char are the BLE analogue of the dongle's `09 31`
+        // heartbeat — the one PROVEN-live battery telemetry channel. If the
+        // keyboard pushes periodic telemetry here, these lines reveal it
+        // (frames accumulate between commands and surface at the next
+        // 60s battery poll's drain).
+        while let Ok(frame) = self.notif_rx.try_recv() {
+            let hex: String = frame
+                .iter()
+                .take(24)
+                .map(|b| format!("{b:02x}"))
+                .collect::<Vec<_>>()
+                .join(" ");
+            eprintln!("joro-ble: unsolicited notification ({} B) [{hex}]", frame.len());
+        }
     }
 
     /// Write bytes to char_tx as an ATT Write Request (with response).
@@ -252,32 +276,48 @@ impl BleDevice {
             .ok_or_else(|| "get_brightness: no data".into())
     }
 
-    /// Read battery level via Razer Protocol30 `class=0x07 cmd=0x80`
-    /// (raw 0-255 in arg[1]) — the ONLY battery source on BLE/USB. The
-    /// standard GATT Battery Service char (0x2A19) is frozen on this
-    /// firmware and must never be used (see comment at the top of the
-    /// file). Returns Err on transport failure; a genuine 0% is Ok(0).
+    /// Read battery level. PRIMARY: standard GATT Battery Level (0x2A19)
+    /// with an UNCACHED read — proven to match the wired live register
+    /// (both 45% on 2026-07-07). The Razer Protocol30 `0x07:0x80` register
+    /// over BLE serves a months-stale snapshot (sat at 76% from May through
+    /// July, unmoved by charging/draining/transport cycles) and is only a
+    /// last-resort fallback here. Returns Err on transport failure; a
+    /// genuine 0% is Ok(0).
     pub fn get_battery_percent(&mut self) -> Result<u8, String> {
-        // PRIMARY: Razer Protocol30 `class=0x07 cmd=0x80`, battery in arg[1]
-        // (openrazer-confirmed; this is the path that historically showed
-        // real BLE battery — see _status 2026-04-13). It reads the SAME
-        // value the dongle heartbeat `09 31 <raw>` carries.
-        //
-        // The standard BLE Battery Service char (0x2A19) is NOT used: on this
-        // Joro firmware it is FROZEN at the last-charged value (returned 100%
-        // all day while the dongle heartbeat showed the real level draining
-        // 100→79). Razer never updates the standard GATT battery service;
-        // they only maintain their own vendor telemetry. Preferring 0x2A19
-        // was a regression that made the UI show a permanent fake 100%.
+        if let Some(ch) = self.char_battery.as_ref() {
+            // MUST be Uncached: the default Cached mode returns Windows'
+            // stale copy — the original source of the "frozen at 100%" bug.
+            let res = ch
+                .ReadValueWithCacheModeAsync(BluetoothCacheMode::Uncached)
+                .and_then(|op| op.get())
+                .map_err(|e| format!("battery 0x2A19 read: {e}"))?;
+            let status = res.Status().map_err(|e| e.to_string())?;
+            if status != GattCommunicationStatus::Success {
+                return Err(format!("battery 0x2A19 read status: {status:?}"));
+            }
+            let buf = res.Value().map_err(|e| e.to_string())?;
+            let reader = DataReader::FromBuffer(&buf).map_err(|e| e.to_string())?;
+            let len = reader.UnconsumedBufferLength().unwrap_or(0) as usize;
+            let mut data = vec![0u8; len];
+            reader.ReadBytes(&mut data).map_err(|e| e.to_string())?;
+            let pct = *data.first().ok_or("battery 0x2A19: empty read")?;
+            eprintln!("joro-ble: battery (GATT 0x2A19 uncached) -> {pct}%");
+            return Ok(pct.min(100));
+        }
+        // FALLBACK (Battery Service missing — unexpected): Protocol30
+        // 0x07:80 arg[1]. Known-stale over BLE; better than nothing.
         let data = self.send_get(0x07, 0x80, 0, 0)?;
         let hex: String = data.iter().take(8).map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ");
         let raw = *data.get(1).ok_or("get_battery: response too short")?;
-        // Rounded, matching the dongle heartbeat formula — all transports
-        // must map the same raw byte to the same percent (was truncating,
-        // which flickered ±1% across transport hops).
         let pct = (((raw as u32) * 100 + 127) / 255).min(100) as u8;
-        eprintln!("joro-ble: battery (Protocol30 0x07:80) raw=[{hex}] -> {pct}%");
+        eprintln!("joro-ble: battery FALLBACK (Protocol30 0x07:80, may be stale) raw=[{hex}] -> {pct}%");
         Ok(pct)
+    }
+
+    /// Diagnostic raw GET for register sweeps (diag-battsweep CLI). Exposes
+    /// the private send_get without widening the normal API surface.
+    pub fn diag_get(&mut self, class: u8, cmd: u8, sub1: u8, sub2: u8) -> Result<Vec<u8>, String> {
+        self.send_get(class, cmd, sub1, sub2)
     }
 
     pub fn set_brightness(&mut self, level: u8) -> Result<(), String> {
@@ -362,8 +402,11 @@ impl BleDevice {
 impl Drop for BleDevice {
     fn drop(&mut self) {
         eprintln!("joro-ble: Drop — releasing GATT session");
-        // Unregister the ValueChanged handler so it stops firing
+        // Unregister the ValueChanged handlers so they stop firing
         let _ = self.char_rx.RemoveValueChanged(self.notif_token);
+        if let (Some(ch), Some(tok)) = (self.char_battery.as_ref(), self.battery_notif_token) {
+            let _ = ch.RemoveValueChanged(tok);
+        }
         // Close the device handle so Windows releases the BLE link.
         // Without this, the keyboard can stay invisible to scans after disconnect.
         if let Ok(closable) = self.device.cast::<IClosable>() {
@@ -481,6 +524,143 @@ fn find_paired_joro() -> WinResult<Option<BluetoothLEDevice>> {
     Ok(None)
 }
 
+/// Diagnostic (diag-gatt CLI): enumerate the ENTIRE GATT database, read every
+/// readable characteristic once, subscribe to every notify/indicate-capable
+/// one, and listen. Hunts for a live push-telemetry channel (battery) — the
+/// dongle's `09 31` heartbeat proved the keyboard measures battery live and
+/// PUSHES it; every host-queried register over BLE serves stale snapshots
+/// (0x07:80 frozen at 76% since May while wired ground truth said 45%).
+/// Run with the daemon STOPPED.
+pub fn diag_gatt_probe(listen_secs: u64) -> Result<(), String> {
+    let device = find_paired_joro()
+        .map_err(|e| format!("enumerate: {e}"))?
+        .ok_or("no paired Joro found")?;
+    let dev_id = device.BluetoothDeviceId().map_err(|e| e.to_string())?;
+    let session = GattSession::FromDeviceIdAsync(&dev_id)
+        .and_then(|op| op.get())
+        .map_err(|e| e.to_string())?;
+    session.SetMaintainConnection(true).map_err(|e| e.to_string())?;
+
+    let svcs = device
+        .GetGattServicesAsync()
+        .and_then(|op| op.get())
+        .map_err(|e| e.to_string())?;
+    let services = svcs.Services().map_err(|e| e.to_string())?;
+    let n = services.Size().map_err(|e| e.to_string())?;
+    println!("diag-gatt: {n} services");
+    // Keep subscriptions alive for the listen window.
+    let mut _subs: Vec<(GattCharacteristic, EventRegistrationToken)> = Vec::new();
+
+    for i in 0..n {
+        let svc = services.GetAt(i).map_err(|e| e.to_string())?;
+        let su = svc.Uuid().map_err(|e| e.to_string())?;
+        println!("service {su:?}");
+        let chars_result = match svc.GetCharacteristicsAsync().and_then(|op| op.get()) {
+            Ok(c) => c,
+            Err(e) => {
+                println!("  (characteristics error: {e})");
+                continue;
+            }
+        };
+        let chars = match chars_result.Characteristics() {
+            Ok(c) => c,
+            Err(e) => {
+                println!("  (characteristics list error: {e})");
+                continue;
+            }
+        };
+        let cn = chars.Size().unwrap_or(0);
+        for j in 0..cn {
+            let Ok(ch) = chars.GetAt(j) else { continue };
+            let cu = ch.Uuid().map(|u| format!("{u:?}")).unwrap_or_default();
+            let props = ch
+                .CharacteristicProperties()
+                .unwrap_or(GattCharacteristicProperties::None);
+            println!("  char {cu} props=0x{:x}", props.0);
+
+            if (props.0 & GattCharacteristicProperties::Read.0) != 0 {
+                match ch.ReadValueAsync().and_then(|op| op.get()) {
+                    Ok(res) if res.Status().map_err(|e| e.to_string())? == GattCommunicationStatus::Success => {
+                        if let Ok(buf) = res.Value() {
+                            if let Ok(reader) = DataReader::FromBuffer(&buf) {
+                                let len = reader.UnconsumedBufferLength().unwrap_or(0) as usize;
+                                let mut data = vec![0u8; len];
+                                if reader.ReadBytes(&mut data).is_ok() {
+                                    let hex: String = data
+                                        .iter()
+                                        .take(32)
+                                        .map(|b| format!("{b:02x}"))
+                                        .collect::<Vec<_>>()
+                                        .join(" ");
+                                    println!("    read ({len} B): [{hex}]");
+                                }
+                            }
+                        }
+                    }
+                    Ok(res) => println!("    read status: {:?}", res.Status()),
+                    Err(e) => println!("    read error: {e}"),
+                }
+            }
+
+            let can_notify = (props.0 & GattCharacteristicProperties::Notify.0) != 0;
+            let can_indicate = (props.0 & GattCharacteristicProperties::Indicate.0) != 0;
+            if can_notify || can_indicate {
+                let cccd = if can_notify {
+                    GattClientCharacteristicConfigurationDescriptorValue::Notify
+                } else {
+                    GattClientCharacteristicConfigurationDescriptorValue::Indicate
+                };
+                match ch
+                    .WriteClientCharacteristicConfigurationDescriptorAsync(cccd)
+                    .and_then(|op| op.get())
+                {
+                    Ok(GattCommunicationStatus::Success) => {
+                        let label = format!("{su:?}/{cu}");
+                        let handler = TypedEventHandler::<
+                            GattCharacteristic,
+                            GattValueChangedEventArgs,
+                        >::new(move |_sender, args| {
+                            if let Some(args) = args.as_ref() {
+                                if let Ok(buf) = args.CharacteristicValue() {
+                                    if let Ok(reader) = DataReader::FromBuffer(&buf) {
+                                        let len =
+                                            reader.UnconsumedBufferLength().unwrap_or(0) as usize;
+                                        let mut data = vec![0u8; len];
+                                        if reader.ReadBytes(&mut data).is_ok() {
+                                            let hex: String = data
+                                                .iter()
+                                                .take(32)
+                                                .map(|b| format!("{b:02x}"))
+                                                .collect::<Vec<_>>()
+                                                .join(" ");
+                                            println!("NOTIFY {label} ({len} B): [{hex}]");
+                                        }
+                                    }
+                                }
+                            }
+                            Ok(())
+                        });
+                        if let Ok(tok) = ch.ValueChanged(&handler) {
+                            println!("    subscribed ({})", if can_notify { "notify" } else { "indicate" });
+                            _subs.push((ch, tok));
+                        }
+                    }
+                    Ok(other) => println!("    subscribe status: {other:?}"),
+                    Err(e) => println!("    subscribe error: {e}"),
+                }
+            }
+        }
+    }
+
+    println!("diag-gatt: listening {listen_secs}s — type on the keyboard, plug/unplug the cable...");
+    std::thread::sleep(Duration::from_secs(listen_secs));
+    for (ch, tok) in _subs {
+        let _ = ch.RemoveValueChanged(tok);
+    }
+    println!("diag-gatt: done");
+    Ok(())
+}
+
 /// Connect to a Joro at the given Bluetooth address (used for the
 /// advertisement-scan path). Resolves the address to a BluetoothLEDevice
 /// and delegates to `connect_from_device`.
@@ -573,16 +753,90 @@ fn connect_from_device(device: BluetoothLEDevice) -> WinResult<BleDevice> {
     std::thread::sleep(Duration::from_millis(500));
     while notif_rx.try_recv().is_ok() {}
 
+    // Battery Level char (0x2A19) — primary battery source over BLE (see
+    // the const comment). Subscribe to change notifications so the UI
+    // updates the moment the firmware publishes a new level, independent
+    // of the 60 s poll.
+    let char_battery = find_battery_level_char(&device).ok();
+    let battery_notif_token = char_battery.as_ref().and_then(|ch| {
+        let cccd_ok = ch
+            .WriteClientCharacteristicConfigurationDescriptorAsync(
+                GattClientCharacteristicConfigurationDescriptorValue::Notify,
+            )
+            .and_then(|op| op.get())
+            .map(|s| s == GattCommunicationStatus::Success)
+            .unwrap_or(false);
+        if !cccd_ok {
+            eprintln!("joro-ble: 0x2A19 notify subscribe failed — 60s polling still covers it");
+            return None;
+        }
+        let handler = TypedEventHandler::<GattCharacteristic, GattValueChangedEventArgs>::new(
+            move |_sender, args| {
+                if let Some(args) = args.as_ref() {
+                    if let Ok(buf) = args.CharacteristicValue() {
+                        if let Ok(reader) = DataReader::FromBuffer(&buf) {
+                            let len = reader.UnconsumedBufferLength().unwrap_or(0) as usize;
+                            let mut data = vec![0u8; len];
+                            if reader.ReadBytes(&mut data).is_ok() {
+                                if let Some(&pct) = data.first() {
+                                    eprintln!("joro-ble: battery notify (0x2A19) -> {pct}%");
+                                    crate::post_user_event(crate::UserEvent::BatteryObserved(
+                                        pct.min(100),
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+                Ok(())
+            },
+        );
+        ch.ValueChanged(&handler).ok()
+    });
+    if char_battery.is_some() {
+        eprintln!(
+            "joro-ble: battery source = GATT 0x2A19 (uncached reads{})",
+            if battery_notif_token.is_some() { " + notify" } else { "" }
+        );
+    } else {
+        eprintln!("joro-ble: Battery Service NOT found — falling back to stale Protocol30 register");
+    }
+
     Ok(BleDevice {
         device,
         _session: session,
         char_tx,
         char_rx,
+        char_battery,
+        battery_notif_token,
         notif_rx,
         notif_token,
         txn_id: 0,
         disconnect_count: 0,
     })
+}
+
+/// Discover the standard Battery Service (0x180F) and return its Battery
+/// Level characteristic (0x2A19), if present.
+fn find_battery_level_char(device: &BluetoothLEDevice) -> WinResult<GattCharacteristic> {
+    let svcs = device
+        .GetGattServicesForUuidAsync(BATTERY_SERVICE_UUID)?
+        .get()?;
+    if svcs.Status()? != GattCommunicationStatus::Success {
+        return Err(WinError::new(
+            windows::core::HRESULT(0),
+            "battery service not found",
+        ));
+    }
+    let services = svcs.Services()?;
+    if services.Size()? == 0 {
+        return Err(WinError::new(
+            windows::core::HRESULT(0),
+            "battery service empty",
+        ));
+    }
+    let svc: GattDeviceService = services.GetAt(0)?;
+    find_char(&svc, BATTERY_LEVEL_UUID, "Battery Level (0x2A19)")
 }
 
 fn find_char(
