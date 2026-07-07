@@ -37,23 +37,35 @@ pub struct Config {
     #[serde(default)]
     pub ble_fn_primary: bool,
 
-    /// Joro firmware device mode — "auto" (default) | "fn" | "mm".
+    /// HOST-SIDE F-row mode preference — "mm" (default) | "fn".
     ///
-    /// "fn" = Fn-primary: F4-F12 emit plain VK_F4..VK_F12 scancodes.
-    ///        Best for programming F-keys but disables hardware Win+L
-    ///        and Copilot combos — Lock/Copilot stop working.
-    /// "mm" = MM-primary: F5-F9 emit consumer usages (mute/vol/brightness),
-    ///        Lock/Copilot hardware combos work.
-    /// "auto" = scan `remap` for Win+X trigger entries. If any exist, use
-    ///          MM so those combos survive. Otherwise use Fn.
+    /// This no longer touches the firmware register. Ground truth 2026-07-07
+    /// (live BLE test): Fn-primary FIRMWARE mode kills the Lock/Copilot
+    /// Win+X macro composition entirely, while F-row emission is plain VK
+    /// F1-F12 over BLE regardless of the register. So the daemon pins the
+    /// firmware register to MM on every connect and implements this
+    /// preference purely host-side (remap::build_remap_tables_for_mode):
     ///
-    /// Controlled via BLE Protocol30 SET class=0x01 cmd=0x02 data=[mode,0].
-    /// See memory/project_fnmm_toggle_solved.md.
+    /// "mm" = MM-primary defaults injected under user remaps (F5=Mute,
+    ///        F6/F7=Vol, F8/F9=monitor brightness, F10/F11=backlight,
+    ///        F12=PrintScreen, F4=Win+Tab). Any per-key [[remap]] overrides
+    ///        its default individually.
+    /// "fn" = no defaults; F-row passes through as plain F-keys (+ user
+    ///        remaps). Lock/Copilot keep working (firmware stays MM).
+    ///
+    /// Legacy values ("auto", "") are treated as "mm".
     #[serde(default = "default_device_mode")]
     pub device_mode: String,
+
+    /// When true, the LL keyboard hook logs every key event + action to
+    /// hook_debug.log (see remap::dbg_log for the path). Turn on to
+    /// diagnose stuck-modifier / phantom-shortcut incidents, off for
+    /// normal use (per-key file I/O risks the LL hook timeout).
+    #[serde(default)]
+    pub hook_debug: bool,
 }
 
-fn default_device_mode() -> String { "auto".to_string() }
+fn default_device_mode() -> String { "mm".to_string() }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct LightingConfig {

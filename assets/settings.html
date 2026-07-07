@@ -858,30 +858,31 @@ const LAYOUT = [
   // F-row (16)
   [
     K('esc',  'Escape'),
-    // F-row: F1/F2/F3 are firmware-locked BLE slot selectors — on BLE they
-    // bypass the HID stack entirely and we can't intercept them. They're
-    // rendered as `dead` at runtime when `transport === 'BLE'`.
-    // F4-F12 are fully programmable: the daemon keeps Joro's firmware in
-    // Fn-primary mode (Protocol30 class=0x01 cmd=0x02 data=[0x03,0]) so
-    // they always emit plain VK_F4..VK_F12 scancodes the LL hook swallows
-    // and rewrites.
-    K('',     'F1',  { icon: 'bluetooth', topNum: '1', bot: 'F1', fSub: true, btLed: true, bleSlot: true, fwNote: 'BLE slot 1 — firmware-locked in BLE mode' }),
-    K('',     'F2',  { icon: 'bluetooth', topNum: '2', bot: 'F2', fSub: true, btLed: true, bleSlot: true, fwNote: 'BLE slot 2 — firmware-locked in BLE mode' }),
-    K('',     'F3',  { icon: 'bluetooth', topNum: '3', bot: 'F3', fSub: true, btLed: true, bleSlot: true, fwNote: 'BLE slot 3 — firmware-locked in BLE mode' }),
-    // `mmEmits` = what the key sends when the Joro firmware is in MM-primary
-    // mode. When the daemon picks MM (because the config has Win+Lock or
-    // Win+Copilot trigger remaps), the UI swaps the remap source to this
-    // name and shows it in the key tooltip. In Fn mode, F4-F12 emit their
-    // plain VK_F* name and `mmEmits` is ignored.
-    K('',     'F4',  { icon: 'screens',       bot: 'F4',  fSub: true, mmEmits: 'Win+Tab', mmMacro: true, fwNote: 'Firmware macro Win+Tab in MM mode — not individually remappable without switching to Fn mode' }),
+    // F-row: over BLE the keyboard ALWAYS emits plain VK_F1..VK_F12 —
+    // firmware is pinned MM-primary (for Lock/Copilot macro composition)
+    // and the MM media layer is applied HOST-SIDE by the daemon
+    // (remap::build_remap_tables_for_mode). Every F-key is individually
+    // remappable: a user [[remap]] sourced on the plain F* name overrides
+    // that key's MM default. F1-F3 were historically firmware-locked BLE
+    // slot selectors, but on the current firmware they reach Windows as
+    // plain VKs (observed live 2026-07-07) — treat as remappable, with a
+    // caution note.
+    K('',     'F1',  { icon: 'bluetooth', topNum: '1', bot: 'F1', fSub: true, btLed: true, bleSlot: true, fwNote: 'BLE slot key — on current firmware it reaches Windows as plain F1 (2026-07). Remap with caution.' }),
+    K('',     'F2',  { icon: 'bluetooth', topNum: '2', bot: 'F2', fSub: true, btLed: true, bleSlot: true, fwNote: 'BLE slot key — on current firmware it reaches Windows as plain F2 (2026-07). Remap with caution.' }),
+    K('',     'F3',  { icon: 'bluetooth', topNum: '3', bot: 'F3', fSub: true, btLed: true, bleSlot: true, fwNote: 'BLE slot key — on current firmware it reaches Windows as plain F3 (2026-07). Remap with caution.' }),
+    // `mmEmits` = this key's HOST-SIDE default action in Multimedia mode
+    // (display/tooltip only). The remap source is always the plain F* name;
+    // a remap on it overrides the MM default for that key alone. Only on
+    // WIRED does the firmware itself emit the MM usages (F-row hardcoded).
+    K('',     'F4',  { icon: 'screens',       bot: 'F4',  fSub: true, mmEmits: 'Win+Tab (Task View)' }),
     K('',     'F5',  { icon: 'speakerMute',   bot: 'F5',  fSub: true, mmEmits: 'VolumeMute' }),
     K('',     'F6',  { icon: 'speakerLow',    bot: 'F6',  fSub: true, mmEmits: 'VolumeDown' }),
     K('',     'F7',  { icon: 'speakerHigh',   bot: 'F7',  fSub: true, mmEmits: 'VolumeUp' }),
     K('',     'F8',  { icon: 'sunSmall',      bot: 'F8',  fSub: true, mmEmits: 'BrightnessDown', mmConsumer: true }),
     K('',     'F9',  { icon: 'sunLarge',      bot: 'F9',  fSub: true, mmEmits: 'BrightnessUp',   mmConsumer: true }),
-    K('',     'F10', { icon: 'backlightDown', bot: 'F10', fSub: true, mmEmits: 'BacklightDown', mmVendor: true, mmMacro: true, fwNote: 'Vendor backlight control in MM mode — not remappable without switching to Fn mode' }),
-    K('',     'F11', { icon: 'backlightUp',   bot: 'F11', fSub: true, mmEmits: 'BacklightUp',   mmVendor: true, mmMacro: true, fwNote: 'Vendor backlight control in MM mode — not remappable without switching to Fn mode' }),
-    K('prt sc', 'PrintScreen', { bot: 'F12', fSub: true }),
+    K('',     'F10', { icon: 'backlightDown', bot: 'F10', fSub: true, mmEmits: 'BacklightDown', mmVendor: true, mmMacro: true, fwNote: 'Hardware backlight key on wired — remappable on BLE' }),
+    K('',     'F11', { icon: 'backlightUp',   bot: 'F11', fSub: true, mmEmits: 'BacklightUp',   mmVendor: true, mmMacro: true, fwNote: 'Hardware backlight key on wired — remappable on BLE' }),
+    K('prt sc', 'F12', { bot: 'F12', fSub: true, mmEmits: 'PrintScreen' }),
     K('ins',  'Insert'),
     K('del',  'Delete'),
     K('',     'LockKey', { icon: 'lock', emits: 'Win+L' }),
@@ -999,12 +1000,14 @@ function emitsOf(k) {
   return (k.emits || k.key || '').trim();
 }
 
-// What this key actually sends to the OS in the keyboard's current firmware
-// mode. F5-F11 in MM mode emit consumer usages (VolumeMute, BrightnessDown,
-// etc.) so the remap source is that name, not "F5". In Fn mode they emit
-// their plain VK_F* name. Falls back to the key's `emits` / `key` field.
+// What this key actually sends to the OS. Over BLE/dongle the keyboard
+// always emits plain VK F-keys — the MM media layer is HOST-SIDE (daemon
+// remap tables), so remap sources must be the plain key name ("F12", not
+// "PrintScreen"); a remap sourced on the MM output name can never fire
+// because the daemon's own injections are tag-skipped by its hook. Only
+// WIRED firmware genuinely emits the MM usages (F-row hardcoded there).
 function effectiveEmitsOf(k) {
-  if (k.mmEmits && firmwareFnPrimary === false) return k.mmEmits;
+  if (k.mmEmits && transport === 'USB') return k.mmEmits.split(' ')[0];
   return (k.emits || k.key || '').trim();
 }
 
@@ -1259,13 +1262,13 @@ function renderKeyboard() {
       const btn = document.createElement('button');
       const classes = ['key', k.width || 'k1'];
       if (k.letter) classes.push('letter');
-      // F1/F2/F3 are firmware-locked BLE slot keys when the keyboard is
-      // paired over BLE. Treat them as dead in that mode so the user gets
-      // a clear "not programmable here" affordance instead of silently
-      // failing remaps. Styled distinctly via `.ble-locked` (solid light
-      // grey) so the user can tell "hardware lock" from "unused key".
-      const isLockedBleSlot = k.bleSlot && transport === 'BLE';
-      const isLockedMmMacro = k.mmMacro && firmwareFnPrimary === false;
+      // F1/F2/F3 were firmware-locked BLE slot selectors historically, but
+      // on the current firmware they reach Windows as plain VKs over BLE
+      // (observed 2026-07-07) — remappable, so no lock. mmMacro keys
+      // (F10/F11 hardware backlight) are only truly firmware-level on
+      // WIRED, where the F-row is hardcoded.
+      const isLockedBleSlot = false;
+      const isLockedMmMacro = k.mmMacro && transport === 'USB';
       if (k.dead) classes.push('dead');
       if (isLockedBleSlot) { classes.push('dead'); classes.push('ble-locked'); }
       if (isLockedMmMacro) { classes.push('dead'); classes.push('ble-locked'); }
@@ -1301,8 +1304,8 @@ function renderKeyboard() {
           btn.title = `${k.key} — matrix index unknown, can't remap yet`;
         } else if (currentLayer === 'hypershift') {
           btn.title = `Fn+${k.key}`;
-        } else if (k.mmEmits && firmwareFnPrimary === false) {
-          btn.title = `${k.key} → emits ${k.mmEmits} (MM firmware mode)`;
+        } else if (k.mmEmits && deviceModePref !== 'fn') {
+          btn.title = `${k.key} → ${k.mmEmits} (Multimedia default, host-side — remap ${k.key} to override)`;
         } else if (k.fwNote) {
           btn.title = `${k.key} — ${k.fwNote}`;
         } else {
@@ -1384,17 +1387,20 @@ function onKeyClick(k, btnEl, evt) {
   if (!isHypershift) {
     if (k.fwEmits) {
       fwNoteLine = `<div class="pop-hint" style="color:#88c0ff;">${escapeHtml(k.key)} fires <code>${escapeHtml(k.fwEmits)}</code> at the firmware level. Remapping <code>${escapeHtml(k.fwEmits)}</code> will intercept this key.</div>`;
-    } else if (k.mmEmits && firmwareFnPrimary === false) {
-      // MM mode: tell the user the key emits a consumer/vendor usage.
+    } else if (k.mmEmits && transport === 'USB') {
+      // Wired: the firmware itself emits the MM usage — source must be
+      // that name, and vendor-page usages aren't interceptable at all.
       if (k.mmVendor) {
-        fwNoteLine = `<div class="pop-hint" style="color:#ffb066;">${escapeHtml(k.key)} currently emits <code>${escapeHtml(k.mmEmits)}</code> as a Razer vendor HID usage — the LL keyboard hook can't intercept these. Switch firmware to Fn-primary to make ${escapeHtml(k.key)} fully programmable.</div>`;
+        fwNoteLine = `<div class="pop-hint" style="color:#ffb066;">${escapeHtml(k.key)} emits <code>${escapeHtml(k.mmEmits)}</code> as a Razer vendor HID usage on wired — not interceptable. Use BLE to remap this key.</div>`;
       } else if (k.mmConsumer) {
-        fwNoteLine = `<div class="pop-hint" style="color:#ffd066;">${escapeHtml(k.key)} currently emits <code>${escapeHtml(k.mmEmits)}</code> on the Consumer Control HID page. The daemon's consumer hook catches this — remap fires via that path.</div>`;
+        fwNoteLine = `<div class="pop-hint" style="color:#ffd066;">${escapeHtml(k.key)} emits <code>${escapeHtml(k.mmEmits)}</code> on the Consumer Control HID page (wired firmware). The daemon's consumer hook catches this — remap fires via that path.</div>`;
       } else {
-        fwNoteLine = `<div class="pop-hint" style="color:#88c0ff;">${escapeHtml(k.key)} currently emits <code>${escapeHtml(k.mmEmits)}</code> (MM mode). Remapping <code>${escapeHtml(k.mmEmits)}</code> intercepts this key via the LL hook.</div>`;
+        fwNoteLine = `<div class="pop-hint" style="color:#88c0ff;">${escapeHtml(k.key)} emits <code>${escapeHtml(k.mmEmits)}</code> at the firmware level on wired. Remapping <code>${escapeHtml(k.mmEmits)}</code> intercepts it.</div>`;
       }
-    } else if (k.mmEmits && firmwareFnPrimary === true) {
-      fwNoteLine = `<div class="pop-hint" style="color:#9aa;">${escapeHtml(k.key)} emits plain <code>${escapeHtml(k.key)}</code> in Fn mode (current). Switch to MM to restore <code>${escapeHtml(k.mmEmits)}</code> behaviour.</div>`;
+    } else if (k.mmEmits && deviceModePref !== 'fn') {
+      fwNoteLine = `<div class="pop-hint" style="color:#88c0ff;">${escapeHtml(k.key)} does <code>${escapeHtml(k.mmEmits)}</code> by default (Multimedia mode, applied host-side). A remap on <code>${escapeHtml(k.key)}</code> overrides that default for this key only.</div>`;
+    } else if (k.mmEmits) {
+      fwNoteLine = `<div class="pop-hint" style="color:#9aa;">${escapeHtml(k.key)} passes through as plain <code>${escapeHtml(k.key)}</code> (Function keys mode). Switch to Multimedia to restore <code>${escapeHtml(k.mmEmits)}</code> by default.</div>`;
     } else if (k.fwNote) {
       fwNoteLine = `<div class="pop-hint" style="color:#9aa;">${escapeHtml(k.fwNote)}</div>`;
     }
@@ -1764,17 +1770,14 @@ function wireLayerToggle() {
 let deviceModePref = 'auto';
 
 function renderModeToggle() {
-  // Lock ONLY on wired: the wired firmware genuinely ignores runtime mode
-  // switching (returns 0x05 NOT_SUPPORTED — see memory project_wired_mode_locked).
-  // On BLE/dongle: leave both buttons interactive. If the config has Win+X
-  // remaps, the user is free to pick Fn but Lock/Copilot will stop working
-  // in that mode — surface that as a WARNING, not a lock.
+  // The toggle is HOST-SIDE ONLY: the daemon pins the firmware register to
+  // MM-primary on every connect (Fn firmware mode kills the Lock/Copilot
+  // Win+X macro composition — ground truth 2026-07-07), and the MM media
+  // layer is a set of per-key defaults in the daemon's remap tables. So
+  // Lock/Copilot work in BOTH toggle positions, and every F-key remains
+  // individually remappable in both. Lock only on wired, where the
+  // firmware hardcodes the F-row.
   const onWired = transport === 'USB';
-  const needsMmForRemaps = (remaps || []).some(r => {
-    const f = (r.from || '').toLowerCase();
-    return f.startsWith('win+') || f.startsWith('lwin+') || f.startsWith('rwin+');
-  });
-  // Effective active button = wired-forced-mm, else the saved preference.
   const effectiveMode = onWired ? 'mm' : (deviceModePref === 'fn' ? 'fn' : 'mm');
   document.querySelectorAll('#mode-toggle button').forEach(b => {
     b.classList.toggle('active', b.dataset.mode === effectiveMode);
@@ -1785,16 +1788,9 @@ function renderModeToggle() {
     if (onWired) {
       note.textContent = 'Locked — wired firmware hardcodes the top row.';
       note.style.display = '';
-    } else if (needsMmForRemaps && deviceModePref === 'fn') {
-      note.textContent = 'Warning: Lock/Copilot/Win+X remaps only work in Multimedia keys mode.';
-      note.style.display = '';
-    } else if (needsMmForRemaps) {
-      // gentle hint — explains why MM is the daemon's default when remaps need it
-      note.textContent = 'Your remaps include Win+X combos (Lock, Copilot…) — keep Multimedia keys for them to work.';
-      note.style.display = '';
     } else {
-      note.textContent = '';
-      note.style.display = 'none';
+      note.textContent = 'Sets the top-row defaults only (host-side). Per-key remaps override either way; Lock/Copilot work in both.';
+      note.style.display = '';
     }
   }
 }
