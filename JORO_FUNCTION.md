@@ -154,7 +154,7 @@ Lock/Copilot work in both toggle positions.
 
 | Method | Use it? |
 |---|---|
-| Std GATT `0x2A19`, **UNCACHED read** (`BluetoothCacheMode::Uncached`) + notify | ✅ **Primary for BLE.** Matches the wired live register exactly (both 45% at test time). The May "frozen at 100%" verdict blamed the char, but the culprit was Windows' GATT read cache (default Cached mode) — never read it Cached. |
+| Std GATT `0x2A19`, **UNCACHED read** (`BluetoothCacheMode::Uncached`) + notify | ✅ **Primary for BLE.** Matches the wired register (93%/93% verified 2026-07-08). The May "frozen at 100%" verdict blamed the char; the culprit was Windows' GATT read cache (default Cached mode) — never read it Cached. **Caveat: the FW samples LAZILY on battery** — after power events (unplug) it can serve a stale value for up to ~an hour before a corrective notify arrives (observed 45-stale → notify 93). While charging it may peg at 100 ("charge state" display). Treat sharp jumps to/from 100 as plug events, not level changes — that's exactly what the daemon's charging inference keys on. |
 | Protocol30 `0x07:0x80` over **BLE** | ❌ **Months-stale snapshot.** Sat at raw `0xc2`=76% from May→July, unmoved by charging, draining, or transport cycles, while ground truth was 45%. The May-29 "fix" that made this primary replaced one stale source with another. Fallback only. |
 | Protocol30 `0x07:0x80` over **wired USB** | ✅ Live (matches 0x2A19). |
 | Dongle heartbeat `09 31 <raw>`, `pct = (byte2*100+127)/255` | ✅ **Primary for dongle — PASSIVE only.** Never solicit-poll the dongle (RF bridge timeout `0x04` + input lag). |

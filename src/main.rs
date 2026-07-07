@@ -947,6 +947,12 @@ impl App {
                 self.battery_poll_failures = 0;
                 self.last_battery_poll = None;
                 self.battery_charging = false;
+                // Lighting cache must NOT survive a disconnect/transport
+                // change: the keyboard reverts to its default demo effect
+                // on transport switches, and a stale "already applied"
+                // signature made apply_config skip the rewrite (user saw
+                // rainbow demo mode after a wired flip, 2026-07-08).
+                self.last_applied_lighting = None;
                 // Stop the consumer hook — it'll be restarted on reconnect
                 self.consumer_hook = None;
                 // Release filter-driver hooks — will be re-opened on reconnect
@@ -1549,6 +1555,12 @@ impl App {
                 self.battery_poll_failures = 0;
                 self.last_battery_poll = None;
                 self.battery_charging = false;
+                // Lighting cache must NOT survive a disconnect/transport
+                // change: the keyboard reverts to its default demo effect
+                // on transport switches, and a stale "already applied"
+                // signature made apply_config skip the rewrite (user saw
+                // rainbow demo mode after a wired flip, 2026-07-08).
+                self.last_applied_lighting = None;
                 self.consumer_hook = None;
                 self.rzcontrol = None;
                 if let Some(ref mut tray) = self.tray {
@@ -1879,6 +1891,12 @@ impl ApplicationHandler<UserEvent> for App {
                 self.battery_poll_failures = 0;
                 self.last_battery_poll = None;
                 self.battery_charging = false;
+                // Lighting cache must NOT survive a disconnect/transport
+                // change: the keyboard reverts to its default demo effect
+                // on transport switches, and a stale "already applied"
+                // signature made apply_config skip the rewrite (user saw
+                // rainbow demo mode after a wired flip, 2026-07-08).
+                self.last_applied_lighting = None;
                 self.consumer_hook = None;
                 self.rzcontrol = None;
                 if let Some(ref mut tray) = self.tray {
