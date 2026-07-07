@@ -1,5 +1,30 @@
 # Razer Joro — Status
 
+## Session 2026-07-07 — Stuck-modifier hook hardening + firmware pinned MM + per-key F-row (PrtScrn fix)
+
+**User reports: (1) phantom shortcuts — pressing plain "S" opened Windows Search (+ similar); (2) wants Lock→Delete + Copilot→Ctrl+F12 kept while every F-row key is individually remappable; (3) remapping the prt-sc key did nothing.**
+
+**New ground truths (user live tests over BLE):**
+- **Fn firmware mode kills Lock/Copilot entirely over BLE** — with register=Fn they emit NOTHING. So A2's "register is a no-op over BLE" was only true for F-ROW emission; the register gates the Win+X macro composition. Corrected in JORO_FUNCTION.md §A2.
+- **F1/F2/F3 emit plain VK_F1..F3 over BLE on current FW** — the "firmware-locked BLE slot selector" hard limit no longer reproduces (cause unknown: no-sleep FW patch? single bond?). Marked observed/caution in §A4/§A11; UI lock removed.
+- F6/F7 MM defaults + F5→F5 per-key override confirmed working (host-side per-key layer behaves as designed).
+- USB-only firmware keymap writes = rejected by user as a fix path (no wired dependency wanted). FW-remap track for Lock/Copilot is OFF.
+
+**Decision: firmware register pinned MM-primary forever.** `finish_connect` always writes MM; `set_device_mode_pref` no longer touches the firmware. The MM/Fn toggle is purely host-side table defaults; Lock/Copilot work in both positions; every F-key individually overridable via `[[remap]]` on its plain F* name. `device_mode` default "auto"→"mm"; all checks are now `!= "fn"` (legacy values = mm).
+
+**Stuck-modifier root causes found (remap.rs) + fixes shipped:**
+1. **Gate autorepeat leak** — holding Win, repeat Win↓ events fell through to Windows behind the gate (desync → phantom Win+X on next key). Now swallowed.
+2. **Lost combo release** — F4→Win+Tab (ComboRemap) released by fresh table lookup at key-up; a table rebuild between down/up (or UIPI-dropped SendInput) orphaned injected Win → EVERY later keypress = Win+X ("S opens Search"). New `ACTIVE_COMBOS` registry: key-up releases exactly what key-down pressed, table-rebuild-proof.
+3. **LShift globally hijacked as Copilot prefix** — human Win+Shift+X went through fragile suppress/replay. Fixed with a time fence — but the first cut (50 ms on trigger AND prefix matching) made Copilot a coin flip: **BLE batches the macro's events by connection interval, so the Win↓→F23↓ gap jitters past 50 ms**; missed matches replayed raw Win+Shift+F23, which Windows maps to Search (live report: "half the time it pops Win search instead of/before Greenshot"). Corrected same session: **trigger matching is unconditional** (F23 / L-under-Win are never human-typed), fence applies to **prefix suppression only**, widened to 250 ms (`PREFIX_BURST`). Lock→Delete verified in both host modes; Copilot pending re-test after redeploy.
+4. **Stuck-modifier watchdog (April "MUST have" lesson, finally implemented)** — 1 s tick: clears stale gate/trigger state (>3 s, physically released), and releases modifiers that are logically down (GetAsyncKeyState) but physically up (hook-observed) for 2 consecutive ticks with no in-flight remap state and ≥1 s key silence. Logs `remap-watchdog:` lines.
+5. **`hook_debug` config flag** — wires the previously-dead `set_debug_log` to config.toml so the next incident is diagnosable without a rebuild (hook_debug.log).
+
+**PrtScrn remap fix (settings.html):** the prt-sc key was modeled as `PrintScreen` and `effectiveEmitsOf` swapped F-row remap sources to `mmEmits` names — both stale since the host-side re-architecture. Over BLE the key emits plain VK_F12 and the MM default F12→PrintScreen is OUR OWN tagged injection (hook skips it), so a remap sourced "PrintScreen" can never fire. Key remodeled as F12 (`mmEmits: 'PrintScreen'` display-only); remap sources are now always the plain F* name except on wired (where FW genuinely emits MM usages). mmMacro locks now wired-only; F1-F3 unlocked with caution note; mode-toggle note rewritten (host-side, Lock/Copilot unaffected).
+
+**Build:** 41/41 tests pass, release build clean. **NOT yet deployed to autostart** — deploy = copy `…\razer-joro-target\release\joro-daemon.exe` → `…\AppData\Local\razer-joro\joro-daemon.exe`, relaunch. Needs live soak: Lock, Copilot, Win-tap (Start), Win+E, Win+Shift+S, F4 hold, mode toggle both ways, prt-sc remap via UI.
+
+**Open (from this session's audit, not yet done):** battery `Ok(0)` sentinel vs real 0% conflation; staleness indicator + RazerAppEngine watchdog; `last_battery_poll` reset on reconnect; truncate-vs-round formula unification; stale `ble.rs:258` doc comment + dead `char_battery` code; USB view hides %; charge-status A/B capture still gated.
+
 ## Session 2026-05-29--1620 — Daemon triage (Razer contention) + JORO_FUNCTION.md + host-side MM/Fn toggle
 
 **User report: "daemon fucked up" — wrong battery, shows disconnected while on BLE, MM/Fn toggle dead, F-keys stuck. All fixed or correctly re-architected this session.**
