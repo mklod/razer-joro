@@ -304,7 +304,8 @@ impl RazerDevice {
             .args
             .get(1)
             .ok_or("get_battery: response too short")?;
-        let pct = ((raw as u32) * 100 / 255) as u8;
+        // Rounded — same formula on every transport (see ble.rs).
+        let pct = (((raw as u32) * 100 + 127) / 255).min(100) as u8;
         Ok(pct)
     }
 

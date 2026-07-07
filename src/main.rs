@@ -167,6 +167,15 @@ struct App {
     /// ~60s so the UI doesn't sit on a stale connect-time value.
     last_battery_poll: Option<Instant>,
     cached_battery: Option<u8>,
+    /// Consecutive failed solicited battery polls. At >=3 the displayed
+    /// value is flagged stale in the UI instead of silently lying.
+    battery_poll_failures: u32,
+    battery_stale: bool,
+    /// Periodic Razer-software detector: running Razer processes contend
+    /// for the BLE/HID session and silently break battery/LED/mode writes
+    /// (JORO_FUNCTION.md §A10) — surface it instead of showing stale data.
+    last_razer_check: Option<Instant>,
+    razer_contention: bool,
     _window: Option<winit::window::Window>, // hidden window to keep event loop alive
     proxy: EventLoopProxy<UserEvent>,
     settings: Option<settings_window::SettingsWindow>,
@@ -331,6 +340,10 @@ impl App {
             last_fn_detect_check: None,
             last_battery_poll: None,
             cached_battery: None,
+            battery_poll_failures: 0,
+            battery_stale: false,
+            last_razer_check: None,
+            razer_contention: false,
             _window: None,
             proxy,
             settings: None,
@@ -578,16 +591,19 @@ impl App {
             std::sync::atomic::Ordering::Release,
         );
         // One solicited battery read at connect for an immediate value on
-        // BLE/USB (reliable there). Through the dongle this usually returns
-        // the Ok(0) timeout sentinel → None; the passive heartbeat
-        // (UserEvent::BatteryObserved) fills it in within a few seconds. No
-        // repeated solicited polling — that's what caused the input lag.
-        let battery = match dev.get_battery_percent() {
-            Ok(0) => None,
-            Ok(pct) => Some(pct),
-            Err(_) => None,
-        };
+        // BLE/USB (reliable there). Through the dongle a bridged-RF timeout
+        // is an Err → None; the passive heartbeat (UserEvent::BatteryObserved)
+        // fills it in within a few seconds. No repeated solicited polling —
+        // that's what caused the input lag. Ok(0) is a REAL 0% now (the old
+        // sentinel conflation is gone).
+        let battery = dev.get_battery_percent().ok();
         eprintln!("joro-daemon: {} battery={:?}%", transport, battery);
+        self.battery_poll_failures = 0;
+        self.battery_stale = false;
+        // A successful connect read restarts the 60s poll clock; a failed
+        // one leaves it None so the poll retries on the next tick instead
+        // of showing "—" for up to a minute after a transport hop.
+        self.last_battery_poll = if battery.is_some() { Some(Instant::now()) } else { None };
 
         // Apply Fn-layer remaps from config (USB-only — class 0x02 isn't
         // available over BLE). These persist in keyboard firmware so they
@@ -921,6 +937,9 @@ impl App {
                     .store(transport_code::NONE, std::sync::atomic::Ordering::Release);
                 self.device = None;
                 self.cached_battery = None;
+                self.battery_stale = false;
+                self.battery_poll_failures = 0;
+                self.last_battery_poll = None;
                 // Stop the consumer hook — it'll be restarted on reconnect
                 self.consumer_hook = None;
                 // Release filter-driver hooks — will be re-opened on reconnect
@@ -1250,6 +1269,8 @@ impl App {
                 "mode": self.config.lighting.mode,
             },
             "battery": self.cached_battery,
+            "battery_stale": self.battery_stale,
+            "razer_contention": self.razer_contention,
             "known_matrix_keys": known_matrix_keys,
             "transport": self.device.as_ref().map(|d| d.transport_name()),
             "firmware_fn_primary": self.firmware_fn_primary,
@@ -1269,8 +1290,17 @@ impl App {
             Some(b) => b.to_string(),
             None => "null".to_string(),
         };
-        let script = format!("window.joroSetBattery({});", payload);
+        let script = format!("window.joroSetBattery({}, {});", payload, self.battery_stale);
         let _ = s.eval(&script);
+    }
+
+    /// Show/hide the Razer-contention warning banner in the settings UI.
+    fn push_razer_warning(&self) {
+        let Some(ref s) = self.settings else { return };
+        let _ = s.eval(&format!(
+            "window.joroSetRazerWarning({});",
+            self.razer_contention
+        ));
     }
 
 
@@ -1488,6 +1518,9 @@ impl App {
                 eprintln!("joro-daemon: reconnect_device IPC — dropping device + spawning probe thread");
                 self.device = None;
                 self.cached_battery = None;
+                self.battery_stale = false;
+                self.battery_poll_failures = 0;
+                self.last_battery_poll = None;
                 self.consumer_hook = None;
                 self.rzcontrol = None;
                 if let Some(ref mut tray) = self.tray {
@@ -1748,7 +1781,9 @@ impl ApplicationHandler<UserEvent> for App {
                 // display — never touches connection state. Only push when
                 // the value actually changes to avoid webview spam (the
                 // heartbeat fires every few seconds).
-                if self.cached_battery != Some(pct) {
+                self.battery_poll_failures = 0;
+                let was_stale = std::mem::replace(&mut self.battery_stale, false);
+                if self.cached_battery != Some(pct) || was_stale {
                     self.cached_battery = Some(pct);
                     eprintln!("joro-daemon: battery {pct}% (passive heartbeat)");
                     self.push_battery_update();
@@ -1811,6 +1846,9 @@ impl ApplicationHandler<UserEvent> for App {
                     .store(transport_code::NONE, std::sync::atomic::Ordering::Release);
                 self.device = None;
                 self.cached_battery = None;
+                self.battery_stale = false;
+                self.battery_poll_failures = 0;
+                self.last_battery_poll = None;
                 self.consumer_hook = None;
                 self.rzcontrol = None;
                 if let Some(ref mut tray) = self.tray {
@@ -1912,14 +1950,28 @@ impl ApplicationHandler<UserEvent> for App {
                 if due {
                     self.last_battery_poll = Some(now);
                     match dev.get_battery_percent() {
-                        Ok(0) => {}
                         Ok(pct) => {
-                            if self.cached_battery != Some(pct) {
+                            self.battery_poll_failures = 0;
+                            let was_stale = std::mem::replace(&mut self.battery_stale, false);
+                            if self.cached_battery != Some(pct) || was_stale {
                                 self.cached_battery = Some(pct);
                                 self.push_battery_update();
                             }
                         }
-                        Err(e) => eprintln!("joro-daemon: BLE/USB battery poll failed: {e}"),
+                        Err(e) => {
+                            self.battery_poll_failures += 1;
+                            eprintln!(
+                                "joro-daemon: BLE/USB battery poll failed ({}x): {e}",
+                                self.battery_poll_failures
+                            );
+                            // After 3 consecutive failures (~3 min) flag the
+                            // displayed value stale instead of silently lying
+                            // (classic cause: Razer software contention).
+                            if self.battery_poll_failures >= 3 && !self.battery_stale {
+                                self.battery_stale = true;
+                                self.push_battery_update();
+                            }
+                        }
                     }
                 }
             }
@@ -1943,6 +1995,33 @@ impl ApplicationHandler<UserEvent> for App {
             fn_detect::start();
         }
 
+        // Razer-software contention detector (60s). Running Razer processes
+        // silently break battery/LED/mode writes — the recurring cause of
+        // "wrong battery / daemon fucked up" reports. Warn loudly instead of
+        // letting the UI show stale data. Deliberately does NOT auto-kill:
+        // the user sometimes launches Synapse on purpose.
+        let razer_due = match self.last_razer_check {
+            Some(last) => now.duration_since(last) >= Duration::from_secs(60),
+            None => true,
+        };
+        if razer_due {
+            self.last_razer_check = Some(now);
+            let procs = razer_processes_running();
+            let contention = !procs.is_empty();
+            if contention != self.razer_contention {
+                self.razer_contention = contention;
+                if contention {
+                    eprintln!(
+                        "joro-daemon: WARNING — Razer software running ({}). It contends for the keyboard session: battery goes stale, LED/mode writes silently fail. Kill it for reliable daemon control.",
+                        procs.join(", ")
+                    );
+                } else {
+                    eprintln!("joro-daemon: Razer software gone — contention cleared");
+                }
+                self.push_razer_warning();
+            }
+        }
+
         // Handle menu events
         self.handle_menu_events(event_loop);
 
@@ -1951,6 +2030,48 @@ impl ApplicationHandler<UserEvent> for App {
             Instant::now() + Duration::from_millis(100),
         ));
     }
+}
+
+/// Enumerate running Razer processes (RazerAppEngine, Razer services,
+/// RzSDK*, RzEngine*). They contend for the BLE GATT / HID session and
+/// silently break battery, LED, and mode writes (JORO_FUNCTION.md §A10) —
+/// the daemon detects and warns rather than showing mysteriously stale data.
+fn razer_processes_running() -> Vec<String> {
+    use windows::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+        TH32CS_SNAPPROCESS,
+    };
+    let mut found: Vec<String> = Vec::new();
+    unsafe {
+        let Ok(snap) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) else {
+            return found;
+        };
+        let mut entry = PROCESSENTRY32W {
+            dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+            ..Default::default()
+        };
+        if Process32FirstW(snap, &mut entry).is_ok() {
+            loop {
+                let len = entry
+                    .szExeFile
+                    .iter()
+                    .position(|&c| c == 0)
+                    .unwrap_or(entry.szExeFile.len());
+                let name = String::from_utf16_lossy(&entry.szExeFile[..len]);
+                let lc = name.to_ascii_lowercase();
+                if (lc.starts_with("razer") || lc.starts_with("rzsdk") || lc.starts_with("rzengine"))
+                    && !found.contains(&name)
+                {
+                    found.push(name);
+                }
+                if Process32NextW(snap, &mut entry).is_err() {
+                    break;
+                }
+            }
+        }
+        let _ = windows::Win32::Foundation::CloseHandle(snap);
+    }
+    found
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────

@@ -36,12 +36,12 @@ const RAZER_SERVICE_UUID: GUID = GUID::from_u128(0x52401523_f97c_7f90_0e7f_6c6f4
 const CHAR_TX_UUID: GUID = GUID::from_u128(0x52401524_f97c_7f90_0e7f_6c6f4e36db1c);
 const CHAR_RX_UUID: GUID = GUID::from_u128(0x52401525_f97c_7f90_0e7f_6c6f4e36db1c);
 
-// Standard BLE Battery Service (org.bluetooth.service.battery_service)
-// and its Battery Level characteristic (org.bluetooth.characteristic.battery_level).
-// These are SIG-assigned UUIDs in the 16-bit range, expanded to 128-bit form.
-// The Battery Level characteristic returns a single byte 0-100 directly.
-const BATTERY_SERVICE_UUID: GUID = GUID::from_u128(0x0000180f_0000_1000_8000_00805f9b34fb);
-const BATTERY_LEVEL_UUID: GUID = GUID::from_u128(0x00002a19_0000_1000_8000_00805f9b34fb);
+// NOTE: the standard BLE Battery Service (0x180F / char 0x2A19) is
+// deliberately NOT used anywhere — on this Joro firmware it is FROZEN at
+// the last-charged value (showed 100% all day while the real level drained
+// 100→79). Battery reads go through Razer Protocol30 0x07:0x80 ONLY.
+// The old discovery machinery was deleted 2026-07-07 so nobody "cleans up"
+// toward the frozen char again.
 
 const SCAN_TIMEOUT: Duration = Duration::from_millis(1500);
 const WRITE_DELAY: Duration = Duration::from_millis(150);
@@ -58,9 +58,6 @@ pub struct BleDevice {
     _session: GattSession,
     char_tx: GattCharacteristic,
     char_rx: GattCharacteristic,
-    /// Standard BLE Battery Level characteristic (org.bluetooth 0x2A19).
-    /// Optional because not every transport/firmware exposes it.
-    char_battery: Option<GattCharacteristic>,
     // Channel of received notification payloads from the ValueChanged callback
     notif_rx: mpsc::Receiver<Vec<u8>>,
     // Token for unregistering the ValueChanged handler in Drop
@@ -255,12 +252,11 @@ impl BleDevice {
             .ok_or_else(|| "get_brightness: no data".into())
     }
 
-    /// Read battery level. Uses the standard BLE Battery Service (0x180F /
-    /// 0x2A19) if the keyboard exposes it — this returns 0-100 directly and
-    /// matches what Synapse/OS shows. Falls back to Razer Protocol30
-    /// `class=0x07 cmd=0x80` if the standard service isn't available (the
-    /// Protocol30 encoding is opaque and gives wrong values; we only use it
-    /// as a last-resort fallback).
+    /// Read battery level via Razer Protocol30 `class=0x07 cmd=0x80`
+    /// (raw 0-255 in arg[1]) — the ONLY battery source on BLE/USB. The
+    /// standard GATT Battery Service char (0x2A19) is frozen on this
+    /// firmware and must never be used (see comment at the top of the
+    /// file). Returns Err on transport failure; a genuine 0% is Ok(0).
     pub fn get_battery_percent(&mut self) -> Result<u8, String> {
         // PRIMARY: Razer Protocol30 `class=0x07 cmd=0x80`, battery in arg[1]
         // (openrazer-confirmed; this is the path that historically showed
@@ -276,7 +272,10 @@ impl BleDevice {
         let data = self.send_get(0x07, 0x80, 0, 0)?;
         let hex: String = data.iter().take(8).map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ");
         let raw = *data.get(1).ok_or("get_battery: response too short")?;
-        let pct = ((raw as u32) * 100 / 255) as u8;
+        // Rounded, matching the dongle heartbeat formula — all transports
+        // must map the same raw byte to the same percent (was truncating,
+        // which flickered ±1% across transport hops).
+        let pct = (((raw as u32) * 100 + 127) / 255).min(100) as u8;
         eprintln!("joro-ble: battery (Protocol30 0x07:80) raw=[{hex}] -> {pct}%");
         Ok(pct)
     }
@@ -574,50 +573,16 @@ fn connect_from_device(device: BluetoothLEDevice) -> WinResult<BleDevice> {
     std::thread::sleep(Duration::from_millis(500));
     while notif_rx.try_recv().is_ok() {}
 
-    // Optional: standard BLE Battery Service (0x180F) with Battery Level
-    // characteristic (0x2A19). If present, we'll use it for battery reads
-    // instead of Razer Protocol30 — it returns a clean 0-100 byte directly.
-    let char_battery = find_battery_level_char(&device).ok();
-    if char_battery.is_some() {
-        eprintln!("joro-ble: standard BLE Battery Service found");
-    } else {
-        eprintln!("joro-ble: standard BLE Battery Service NOT found — falling back to Protocol30");
-    }
-
     Ok(BleDevice {
         device,
         _session: session,
         char_tx,
         char_rx,
-        char_battery,
         notif_rx,
         notif_token,
         txn_id: 0,
         disconnect_count: 0,
     })
-}
-
-/// Discover the standard BLE Battery Service (0x180F) and return its
-/// Battery Level characteristic (0x2A19), if present.
-fn find_battery_level_char(device: &BluetoothLEDevice) -> WinResult<GattCharacteristic> {
-    let svcs = device
-        .GetGattServicesForUuidAsync(BATTERY_SERVICE_UUID)?
-        .get()?;
-    if svcs.Status()? != GattCommunicationStatus::Success {
-        return Err(WinError::new(
-            windows::core::HRESULT(0),
-            "battery service not found",
-        ));
-    }
-    let services = svcs.Services()?;
-    if services.Size()? == 0 {
-        return Err(WinError::new(
-            windows::core::HRESULT(0),
-            "battery service empty",
-        ));
-    }
-    let svc: GattDeviceService = services.GetAt(0)?;
-    find_char(&svc, BATTERY_LEVEL_UUID, "Battery Level (0x2A19)")
 }
 
 fn find_char(

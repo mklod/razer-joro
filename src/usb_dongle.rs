@@ -303,30 +303,30 @@ impl RazerDongle {
     }
 
     /// Read battery percent. Same Protocol30 query as direct USB
-    /// (`class=0x07 cmd=0x80`, value at args[1]). Falls back to Err if
-    /// the dongle's firmware uses a different battery query (likely
-    /// `cmd=0x84` based on Synapse traces — patch if/when this fails).
+    /// (`class=0x07 cmd=0x80`, value at args[1]).
     pub fn get_battery_percent(&mut self) -> Result<u8, String> {
         // SINGLE control round-trip per call. Multi-attempt retries hammered
         // the dongle's control pipe and starved keyboard input forwarding,
-        // causing dropped keys mid-typing. Accept whatever the dongle says
-        // on a single try: if status == STATUS_OK with non-zero raw → use
-        // it. Otherwise return Ok(0) as the "transient / not yet ready"
-        // sentinel — `poll_battery` skips the cache update so the webview
-        // doesn't flap. Only return Err on a real transport failure.
+        // causing dropped keys mid-typing. A non-OK status (0x04 =
+        // bridged-query timeout, keyboard idle on RF — common, transient)
+        // is an Err so callers can't confuse it with a genuinely dead
+        // battery: the old `Ok(0)` sentinel made real 0% and "no answer"
+        // indistinguishable.
         let pkt = build_packet(0x07, 0x80, 2, &[]);
         let response = self.send_receive(&pkt)?;
         let parsed = parse_packet(&response);
         if !parsed.crc_valid {
             return Err("get_battery: bad CRC".into());
         }
-        // status 0x04 = bridged-query TIMEOUT (keyboard idle on RF). Common
-        // and transient — return the 0 sentinel.
         if parsed.status != 0x02 {
-            return Ok(0);
+            return Err(format!(
+                "get_battery: bridged query status 0x{:02x} (transient — heartbeat will fill in)",
+                parsed.status
+            ));
         }
         let raw = parsed.args.get(1).copied().unwrap_or(0);
-        Ok(((raw as u32) * 100 / 255) as u8)
+        // Rounded — same formula on every transport (see ble.rs).
+        Ok((((raw as u32) * 100 + 127) / 255).min(100) as u8)
     }
 
     /// Persist the live Hypershift keymap to flash by faithfully replaying
