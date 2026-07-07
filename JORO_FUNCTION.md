@@ -71,6 +71,15 @@ exactly this — the keyboard sends plain VK F-keys and Synapse translates F5→
 F6→VolDn, etc. on the host. The firmware register is at best a best-effort hint the
 daemon may still write on connect, but it must **not** be depended on.
 
+**2026-07-07 correction — the register is NOT a full no-op over BLE.** Live test (user):
+with the register set to Fn-primary over BLE, **the Lock and Copilot keys emit NOTHING**
+— the firmware's Win+L / Win+Shift+F23 macro composition is gated by the register even
+though F-row emission is not. So the register has exactly one real effect over BLE:
+enabling/disabling the Lock/Copilot macros. **Policy (implemented 2026-07-07): the daemon
+pins the register to MM-primary on every connect and never writes Fn.** The user-facing
+MM/Fn toggle is purely host-side (`device_mode` config → `build_remap_tables_for_mode`);
+Lock/Copilot work in both toggle positions.
+
 > Superseded claims: `project_fnmm_toggle_solved.md` ("flips firmware live, F5=Mute
 > verified") and `ARCHITECTURE.md:185-196` MM column both assume the register switches
 > F-row emission. The 2026-05-29 ground-truth disproves that for current BLE FW. The
@@ -96,7 +105,7 @@ daemon may still write on connect, but it must **not** be depended on.
 
 | Key | Reality over BLE | Notes |
 |---|---|---|
-| F1, F2, F3 | **Firmware-locked BLE slot selectors** — bypass HID stack, *cannot* be remapped host-side on BLE (Synapse can't either). Reachable only on wired. | Hard limit. |
+| F1, F2, F3 | ~~Firmware-locked BLE slot selectors~~ **OBSERVED 2026-07-07: emit plain VK_F1..VK_F3 over BLE (MM register, current no-sleep FW)** — they reach Windows, so they're host-remappable in principle. Cause of the change unknown (no-sleep FW patch? single-slot bond?). Slot-switching side effect not re-tested — remap with caution. | Old hard-limit claim outdated on current FW. |
 | F4 | Plain VK_F4 (remappable) | *Not* a Win+Tab macro (that claim was retracted). |
 | F5–F12 | **Plain VK_F5…VK_F12 over BLE, always** | The "MM mode → media/consumer" behavior in old docs does NOT happen at the firmware level on BLE. To get media keys, the daemon must translate host-side (A2). |
 | F10/F11 | Plain VK over BLE; on wired the hardware backlight fires directly | — |
@@ -181,8 +190,9 @@ zero Razer processes.
 
 | Want | Status | Why |
 |---|---|---|
-| Remap F1/F2/F3 on BLE | ❌ Impossible | Firmware BLE-slot selectors, bypass HID stack. Synapse can't either. |
-| Firmware-level MM/Fn that changes F-row over BLE | ❌ Not on current FW | Register is a no-op over BLE (A2). Do it host-side. |
+| Remap F1/F2/F3 on BLE | ⚠️ Possibly possible now | Old "firmware-locked slot selector" behavior gone on current FW — they emit plain VKs over BLE (observed 2026-07-07). Untested whether slot-switching still fires alongside. |
+| Firmware-level MM/Fn that changes F-row over BLE | ❌ Not on current FW | Register doesn't change F-row emission over BLE (A2) — but it DOES gate Lock/Copilot macros, so it must stay MM. Do F-row translation host-side. |
+| Lock/Copilot combos with firmware in Fn mode | ❌ | Register in Fn kills the Win+X macro composition entirely (2026-07-07). Daemon pins MM. |
 | MM/Fn toggle on wired | ❌ | `0x05 NOT_SUPPORTED`; wired F-row hardcoded. |
 | Flash-patch the base keymap (Lock→Delete via FW) | ❌ | Base keymap is in config-store `0xf2000`, outside DFU regions. |
 | Write keymap over BLE | ❌ | Firmware accepts keymap writes only over USB. |
@@ -209,7 +219,8 @@ Legend: ✅ working & tested · ⚠️ partial / known issue · ❌ broken / wro
 | Keyboard backlight (static/breathing/spectrum/brightness) | Protocol30 class 0x10 (BLE) | wired/BLE ✅, dongle ⚠️ | ✅ on wired/BLE |
 | No-sleep firmware patch | 3-byte patch #3, `fw-flash-stock --commit-mod` | wired flash → all | ✅ (flashed 2026-05-19; verify live) |
 | Synapse-free dongle pairing | 70-frame replay (`joro-dongle-pair`) | dongle | ✅ |
-| **MM/Fn primary toggle (host-side)** | `remap::build_remap_tables_for_mode` injects MM F-row defaults under user remaps; rebuilt live on toggle. Firmware register still written (no-op BLE, needed on dongle) | BLE ✅ | ✅ implemented 2026-05-29 (pending physical confirm) |
+| **MM/Fn primary toggle (host-side)** | `remap::build_remap_tables_for_mode` injects MM F-row defaults under user remaps; rebuilt live on toggle. **Firmware register pinned MM always** (Fn register mode kills Lock/Copilot — 2026-07-07); toggle no longer writes it | BLE ✅ | ✅ re-architected 2026-07-07 (pending physical confirm) |
+| Hook hardening (stuck-modifier fixes) | Gate autorepeat suppression; 50 ms firmware-burst fence on trigger/prefix matching; ACTIVE_COMBOS registry (key-up releases what key-down pressed, table-rebuild-proof); stuck-modifier watchdog (logical-vs-physical + stale gate/trigger, 1 s tick, 2-tick confirm); `hook_debug` config flag → hook_debug.log | all | 🔲 implemented 2026-07-07, needs live soak |
 | Hypershift flash persistence | RAM write only; missing class-0x0f commit | USB | 🔲 |
 | Dongle lighting keep-warm | not implemented | dongle | 🔲 |
 | Fn+arrow on dongle (narrow RawInput) | disabled (dropped keys) | dongle | 🔲 |
