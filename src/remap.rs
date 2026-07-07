@@ -19,11 +19,13 @@
 // physically fixes it. The gated window is typically <1ms for firmware macros.
 
 use crate::keys::{self, VkCode};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Mutex;
 use std::io::Write;
+use std::time::{Duration, Instant};
 use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    MapVirtualKeyW, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT,
+    GetAsyncKeyState, MapVirtualKeyW, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT,
     KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, MAP_VIRTUAL_KEY_TYPE, VIRTUAL_KEY,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -247,12 +249,27 @@ struct ActiveFnRemap {
 /// wait for the next key to decide what to do.
 static GATE: Mutex<Option<GateState>> = Mutex::new(None);
 
+/// Window after gate capture during which a modifier key-down is treated
+/// as a firmware-macro prefix (LShift before Copilot's LWin+F23) and
+/// suppressed. Outside it, a modifier is human chording (Win then Shift)
+/// and takes the plain replay path. NOTE: applies to PREFIX matching only
+/// — trigger keys (F23, L-under-Win) are never human-typed, so trigger
+/// matching is unconditional. A 50 ms fence on triggers made Copilot a
+/// coin flip over BLE: the macro's events arrive batched by the BLE
+/// connection interval and the Win↓→F23↓ gap can jitter well past 50 ms;
+/// missed matches replayed the raw Win+Shift+F23, which Windows maps to
+/// Search (observed live 2026-07-07).
+const PREFIX_BURST: Duration = Duration::from_millis(250);
+
 #[derive(Clone)]
 struct GateState {
     /// The modifier VK we suppressed
     gate_vk: VkCode,
     /// Prefix mods we also suppressed (e.g., LShift for Copilot)
     suppressed_prefix: Vec<VkCode>,
+    /// When the gate was captured — trigger/prefix matching is only valid
+    /// within TRIGGER_BURST of this instant.
+    since: Instant,
 }
 
 /// Track which output combo is currently "held down" so we can release it on
@@ -271,13 +288,163 @@ struct ActiveTrigger {
     /// True after trigger key-up sent combo_up. We keep the ActiveTrigger
     /// alive until gate_vk key-up arrives so we can suppress it.
     output_released: bool,
+    /// When the trigger fired — used by the watchdog to detect stale state
+    /// (missed key-ups leave this alive forever otherwise).
+    since: Instant,
+}
+
+/// Combo remaps currently held down (source key-down fired, key-up pending).
+/// Registered so the key-up ALWAYS releases exactly what the key-down
+/// pressed — even if the remap table was rebuilt (mode toggle, config
+/// reload) between the two events, which previously orphaned the injected
+/// modifiers (stuck Win from F4→Win+Tab). Also consulted by the watchdog
+/// so it never "fixes" modifiers we are intentionally holding.
+static ACTIVE_COMBOS: Mutex<Vec<ActiveCombo>> = Mutex::new(Vec::new());
+
+#[derive(Clone)]
+struct ActiveCombo {
+    from_vk: VkCode,
+    output_mods: Vec<VkCode>,
+    output_key: VkCode,
+}
+
+// ── Stuck-modifier watchdog ──────────────────────────────────────────────────
+//
+// Safety net (April 2026 lesson, finally implemented): injections can get
+// lost (UIPI silently drops SendInput while an elevated window has focus;
+// Windows silently removes LL hooks that stall >~300 ms), leaving a
+// modifier logically stuck down — then every plain keypress becomes
+// Win+X / Ctrl+X ("pressed S, Windows Search popped"). The watchdog
+// compares Windows' logical modifier state (GetAsyncKeyState) against
+// physical reality observed by the hook and injects a key-up when they
+// disagree on two consecutive 1 s ticks with no other explanation (no
+// gate, no active trigger/combo/fn-remap, no key events in the last 1 s).
+
+const MOD_VKS: [VkCode; 8] = [0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0x5B, 0x5C];
+
+/// Bitmask (by MOD_VKS index) of modifiers physically held right now, as
+/// observed from non-injected events in the hook.
+static PHYS_MODS: AtomicU8 = AtomicU8::new(0);
+/// Instant of the last non-injected key event seen by the hook.
+static LAST_KEY_EVENT: Mutex<Option<Instant>> = Mutex::new(None);
+static WATCHDOG_STARTED: AtomicBool = AtomicBool::new(false);
+
+fn mod_bit(vk: VkCode) -> Option<u8> {
+    MOD_VKS.iter().position(|&m| m == vk).map(|i| i as u8)
+}
+
+fn phys_down(vk: VkCode) -> bool {
+    match mod_bit(vk) {
+        Some(bit) => PHYS_MODS.load(Ordering::Relaxed) & (1 << bit) != 0,
+        None => false,
+    }
+}
+
+fn logically_down(vk: VkCode) -> bool {
+    unsafe { (GetAsyncKeyState(vk as i32) as u16 & 0x8000) != 0 }
+}
+
+/// Spawn the watchdog thread (once). It idles while no hook is installed.
+fn start_watchdog() {
+    if WATCHDOG_STARTED.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    std::thread::spawn(|| {
+        // Mods that looked stuck on the previous tick; a release only fires
+        // when a mod is stuck two ticks in a row.
+        let mut suspect: u8 = 0;
+        loop {
+            std::thread::sleep(Duration::from_secs(1));
+            if HOOK_HANDLE.lock().unwrap().is_none() {
+                suspect = 0;
+                continue;
+            }
+
+            // 1. Stale gate: modifier physically released but the gate never
+            //    resolved (its key-up got lost). Clear + inject a safety up.
+            {
+                let mut gate = GATE.lock().unwrap();
+                if let Some(g) = gate.as_ref() {
+                    if g.since.elapsed() > Duration::from_secs(3) && !phys_down(g.gate_vk) {
+                        let vk = g.gate_vk;
+                        *gate = None;
+                        drop(gate);
+                        eprintln!("remap-watchdog: cleared stale gate 0x{vk:02X}");
+                        if DEBUG_LOG.load(Ordering::Relaxed) {
+                            dbg_log(&format!("WATCHDOG: cleared stale gate 0x{vk:02X}"));
+                        }
+                        send_inputs(&[make_key_input(vk, true)]);
+                    }
+                }
+            }
+
+            // 2. Stale active trigger: fired >3 s ago, gate mod physically up,
+            //    but the two-phase release never completed.
+            {
+                let mut act = ACTIVE_TRIGGER.lock().unwrap();
+                let stale = act.as_ref().map_or(false, |a| {
+                    a.since.elapsed() > Duration::from_secs(3) && !phys_down(a.gate_vk)
+                });
+                if stale {
+                    let a = act.take().unwrap();
+                    drop(act);
+                    eprintln!("remap-watchdog: released stale trigger state (trigger 0x{:02X})", a.trigger_vk);
+                    if DEBUG_LOG.load(Ordering::Relaxed) {
+                        dbg_log("WATCHDOG: released stale trigger state");
+                    }
+                    if !a.output_released {
+                        send_combo_up(&a.output_mods, a.output_key);
+                    }
+                    cleanup_modifiers(&a);
+                }
+            }
+
+            // 3. Logically-stuck modifiers with no physical hold and no
+            //    in-flight remap state that would explain them.
+            let busy = GATE.lock().unwrap().is_some()
+                || ACTIVE_TRIGGER.lock().unwrap().is_some()
+                || ACTIVE_FN_REMAP.lock().unwrap().is_some();
+            let quiet = LAST_KEY_EVENT
+                .lock()
+                .unwrap()
+                .map_or(true, |t| t.elapsed() > Duration::from_secs(1));
+            if busy || !quiet {
+                suspect = 0;
+                continue;
+            }
+            let combos = ACTIVE_COMBOS.lock().unwrap().clone();
+            let mut now_stuck: u8 = 0;
+            for (i, &vk) in MOD_VKS.iter().enumerate() {
+                let held_by_combo = combos.iter().any(|c| c.output_mods.contains(&vk));
+                if logically_down(vk) && !phys_down(vk) && !held_by_combo {
+                    now_stuck |= 1 << i;
+                }
+            }
+            let confirmed = now_stuck & suspect;
+            if confirmed != 0 {
+                let vks: Vec<VkCode> = MOD_VKS
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| confirmed & (1 << i) != 0)
+                    .map(|(_, &vk)| vk)
+                    .collect();
+                eprintln!("remap-watchdog: releasing stuck modifiers {vks:02X?}");
+                if DEBUG_LOG.load(Ordering::Relaxed) {
+                    dbg_log(&format!("WATCHDOG: releasing stuck modifiers {vks:02X?}"));
+                }
+                let ups: Vec<INPUT> = vks.iter().map(|&vk| make_key_input(vk, true)).collect();
+                send_inputs(&ups);
+            }
+            suspect = now_stuck & !confirmed;
+        }
+    });
 }
 
 /// When true, log key events to a file for debugging.
 static DEBUG_LOG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-/// Enable/disable VK debug logging in the hook.
-#[allow(dead_code)]
+/// Enable/disable VK debug logging in the hook. Wired to the `hook_debug`
+/// config flag so a stuck-key incident can be diagnosed without a rebuild.
 pub fn set_debug_log(enabled: bool) {
     DEBUG_LOG.store(enabled, std::sync::atomic::Ordering::Relaxed);
 }
@@ -634,6 +801,7 @@ pub fn install_hook() -> Result<(), String> {
             .map_err(|e| format!("SetWindowsHookExW failed: {e}"))?
     };
     *HOOK_HANDLE.lock().unwrap() = Some(SendHook(hook));
+    start_watchdog();
     Ok(())
 }
 
@@ -645,6 +813,7 @@ pub fn remove_hook() {
     // Clear all state
     *GATE.lock().unwrap() = None;
     *ACTIVE_TRIGGER.lock().unwrap() = None;
+    *ACTIVE_COMBOS.lock().unwrap() = Vec::new();
 
     let handle = HOOK_HANDLE.lock().unwrap().take();
     if let Some(SendHook(h)) = handle {
@@ -689,6 +858,15 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
     if !injected && (is_down || is_up) {
         crate::fn_detect::JORO_HID_ACTIVITY
             .store(true, std::sync::atomic::Ordering::Release);
+        // Physical-state bookkeeping for the stuck-modifier watchdog.
+        *LAST_KEY_EVENT.lock().unwrap() = Some(Instant::now());
+        if let Some(bit) = mod_bit(vk) {
+            if is_down {
+                PHYS_MODS.fetch_or(1 << bit, Ordering::Relaxed);
+            } else {
+                PHYS_MODS.fetch_and(!(1 << bit), Ordering::Relaxed);
+            }
+        }
     }
 
     // Log ALL events (including injected) before any processing
@@ -852,13 +1030,18 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
     {
         let gate = GATE.lock().unwrap().take();
         if let Some(g) = gate {
+            // Prefix matching is time-fenced (see PREFIX_BURST); trigger
+            // matching is NOT — trigger keys are never human-typed, and BLE
+            // batching can delay macro events past any tight window.
+            let in_burst = g.since.elapsed() <= PREFIX_BURST;
             // Check if this is a trigger key
             if is_down {
-                let table = TRIGGER_TABLE.lock().unwrap();
-                let matched = table.iter()
-                    .find(|r| r.gate_mod_vk == g.gate_vk && r.trigger_vk == vk)
-                    .cloned();
-                drop(table);
+                let matched = {
+                    let table = TRIGGER_TABLE.lock().unwrap();
+                    table.iter()
+                        .find(|r| r.gate_mod_vk == g.gate_vk && r.trigger_vk == vk)
+                        .cloned()
+                };
 
                 if let Some(remap) = matched {
                     // TRIGGER MATCHED — fire the remap
@@ -900,15 +1083,19 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
                         output_mods: remap.output_mods.clone(),
                         output_key: remap.output_key,
                         output_released: false,
+                        since: Instant::now(),
                     });
                     return LRESULT(1); // suppress trigger key-down
                 }
 
-                // Check if this is a known prefix modifier (e.g., LShift before Copilot)
-                let table = TRIGGER_TABLE.lock().unwrap();
-                let is_prefix = table.iter()
-                    .any(|r| r.gate_mod_vk == g.gate_vk && r.prefix_mods.contains(&vk));
-                drop(table);
+                // Check if this is a known prefix modifier (e.g., LShift before
+                // Copilot). Only within the prefix window — a human pressing
+                // Win then (later) Shift is chording, not a firmware macro.
+                let is_prefix = in_burst && {
+                    let table = TRIGGER_TABLE.lock().unwrap();
+                    table.iter()
+                        .any(|r| r.gate_mod_vk == g.gate_vk && r.prefix_mods.contains(&vk))
+                };
 
                 if is_prefix {
                     // Prefix mod — suppress and keep waiting
@@ -978,16 +1165,26 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
         drop(table);
 
         if should_gate {
-            // Only gate on initial press, not auto-repeat
-            let gate = GATE.lock().unwrap();
-            if gate.is_none() {
-                drop(gate);
-                if debug { dbg_log(&format!("  ACT: gating 0x{vk:04X}")); }
-                *GATE.lock().unwrap() = Some(GateState {
-                    gate_vk: vk,
-                    suppressed_prefix: vec![],
-                });
-                return LRESULT(1); // suppress the modifier
+            let mut gate = GATE.lock().unwrap();
+            match gate.as_ref() {
+                None => {
+                    *gate = Some(GateState {
+                        gate_vk: vk,
+                        suppressed_prefix: vec![],
+                        since: Instant::now(),
+                    });
+                    drop(gate);
+                    if debug { dbg_log(&format!("  ACT: gating 0x{vk:04X}")); }
+                    return LRESULT(1); // suppress the modifier
+                }
+                // Auto-repeat of the already-gated modifier: swallow it.
+                // Previously repeats fell through to CallNextHookEx, handing
+                // Windows hardware Win↓ events behind the gate's back —
+                // state desync → phantom Win+X shortcuts on the next key.
+                Some(g) if g.gate_vk == vk => {
+                    return LRESULT(1);
+                }
+                Some(_) => {}
             }
         }
     }
@@ -1033,6 +1230,24 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
     }
 
     // ── Standard single-key remap lookup ─────────────────────────────────────
+    //
+    // Key-ups release via the ACTIVE_COMBOS registry, NOT a fresh table
+    // lookup — the table may have been rebuilt (mode toggle, config reload)
+    // between key-down and key-up, and a missed release orphans injected
+    // modifiers (stuck Win from F4→Win+Tab was exactly this).
+    if is_up {
+        let mut held = ACTIVE_COMBOS.lock().unwrap();
+        if let Some(pos) = held.iter().position(|c| c.from_vk == vk) {
+            let c = held.remove(pos);
+            drop(held);
+            if debug {
+                dbg_log(&format!("  ACT: combo up 0x{vk:04X} -> release {:?}+0x{:04X}", c.output_mods, c.output_key));
+            }
+            send_combo_up(&c.output_mods, c.output_key);
+            return LRESULT(1);
+        }
+    }
+
     let table = REMAP_TABLE.lock().unwrap();
     let found = table.iter().find(|r| r.from_vk == vk).cloned();
     drop(table);
@@ -1043,8 +1258,18 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
                 dbg_log(&format!("  ACT: remap mods={:?} key=0x{:04X}", remap.modifier_vks, remap.key_vk));
             }
             send_combo_down(&remap.modifier_vks, remap.key_vk);
+            let mut held = ACTIVE_COMBOS.lock().unwrap();
+            if !held.iter().any(|c| c.from_vk == vk) {
+                held.push(ActiveCombo {
+                    from_vk: vk,
+                    output_mods: remap.modifier_vks.clone(),
+                    output_key: remap.key_vk,
+                });
+            }
             return LRESULT(1);
         } else if is_up {
+            // No registry entry (key-down predates the hook/table) —
+            // best-effort release from the current table.
             send_combo_up(&remap.modifier_vks, remap.key_vk);
             return LRESULT(1);
         }
