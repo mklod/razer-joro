@@ -2032,6 +2032,44 @@ impl ApplicationHandler<UserEvent> for App {
     }
 }
 
+/// Sweep Protocol30 GET registers over BLE hunting for a LIVE battery/charge
+/// byte. Ground truth 2026-07-07: wired `0x07:80` arg[1]=0x72 (45%) is live,
+/// while BLE `0x07:80` returns a FROZEN snapshot `[40 c2 c5 86]` (76%, stale
+/// since May — unchanged by charging, draining, or transport cycles). Run
+/// with the daemon STOPPED (BLE session contention) and the keyboard on
+/// wireless. Read-only: GETs only, no SETs. Look for a byte tracking the
+/// wired ground-truth value.
+fn run_batt_sweep() {
+    println!("diag-battsweep: opening BLE (daemon must be stopped)...");
+    let Some(mut dev) = ble::BleDevice::open() else {
+        eprintln!("diag-battsweep: BLE open failed — is the daemon still running, or keyboard not on BLE?");
+        std::process::exit(1);
+    };
+    println!("diag-battsweep: connected — sweeping (dead registers time out after 2s each, be patient)");
+    let sweeps: &[(u8, u8, u8)] = &[
+        (0x07, 0x80, 0x9f), // power/battery class — full plausible range
+        (0x05, 0x80, 0x8f), // seen in dongle pair preflight
+        (0x00, 0x80, 0x8f), // misc device class
+        (0x04, 0x80, 0x8f), // slot/poll-rate class (dongle) — long shot on BLE
+    ];
+    for &(class, lo, hi) in sweeps {
+        for cmd in lo..=hi {
+            match dev.diag_get(class, cmd, 0, 0) {
+                Ok(data) => {
+                    let hex: String = data
+                        .iter()
+                        .map(|b| format!("{b:02x}"))
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    println!("GET {class:02x}:{cmd:02x} -> [{hex}]");
+                }
+                Err(e) => println!("GET {class:02x}:{cmd:02x} -> ERR {e}"),
+            }
+        }
+    }
+    println!("diag-battsweep: done");
+}
+
 /// Enumerate running Razer processes (RazerAppEngine, Razer services,
 /// RzSDK*, RzEngine*). They contend for the BLE GATT / HID session and
 /// silently break battery, LED, and mode writes (JORO_FUNCTION.md §A10) —
@@ -2231,6 +2269,19 @@ fn main() {
     }
     if args.len() >= 2 && args[1] == "scan-gaps" {
         run_gap_scan();
+        return;
+    }
+    if args.len() >= 2 && args[1] == "diag-battsweep" {
+        run_batt_sweep();
+        return;
+    }
+    if args.len() >= 2 && args[1] == "diag-gatt" {
+        // Full GATT enumeration + subscribe-all probe (see ble::diag_gatt_probe).
+        let secs: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(120);
+        if let Err(e) = ble::diag_gatt_probe(secs) {
+            eprintln!("diag-gatt failed: {e}");
+            std::process::exit(1);
+        }
         return;
     }
 

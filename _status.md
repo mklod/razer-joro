@@ -35,6 +35,16 @@
 - **USB shows %** — the charging bolt now sits alongside the percentage instead of replacing it.
 - **Still open:** charge-status (charging/plugged) detection — needs the A/B capture (plug power on BLE, watch the undecoded `0x07:80` response bytes `40 ?? c5 86` in the 60 s poll log).
 
+**BLE BATTERY SOURCE RE-ARCHITECTED (same session, evening) — the May fix was wrong; 0x2A19 rehabilitated.**
+User: "76% for hours, unchanged, full backlight." Investigation (live, with user flipping transports):
+1. **BLE Protocol30 `0x07:80` is a MONTHS-STALE snapshot**: 114 identical reads `[40 c2 c5 86]`=76% today; same value recorded 2026-05-29; unmoved by charging (green LED on), draining, daemon restarts, or transport cycles. It read 100% on 5/19 → the value updates on some rare unidentified event only.
+2. **Wired ground truth**: two flips an hour apart both read raw `0x72` = 45%.
+3. **Register sweep over BLE** (`diag-battsweep`, new CLI): class 07 alive = 80/82/85/86/8b only; `07:86` byte[13]=0x35 looked like a live percent but proved static (flat through charge + flips) — it's residue also visible in the RX char's read buffer. Classes 05/00 nothing battery-like.
+4. **No unsolicited push telemetry** on the Razer RX char (logged drains: zero frames) — BLE has no analogue of the dongle's `09 31` heartbeat there.
+5. **Full-GATT probe** (`diag-gatt`, new CLI: enumerate all services/chars, read all, subscribe all): **std GATT `0x2A19` read 0x2d = 45% — exact match with wired.** The May "frozen at 100%" verdict blamed the char; the actual culprit is Windows' default CACHED GATT read mode (and/or Settings-UI caching).
+**Fix shipped:** BLE battery = `0x2A19` with `BluetoothCacheMode::Uncached` + ValueChanged notify subscription (posts `BatteryObserved` → instant UI update); Protocol30 `0x07:80` demoted to logged fallback. Verified live: daemon now shows 45% over BLE. JORO_FUNCTION.md §A7 rewritten. New diag CLIs kept: `diag-battsweep`, `diag-gatt [secs]`.
+**Open watch:** whether 0x2A19 trends while charging/draining (gauge sampling cadence unknown — keyboard showed 45% across 2+ h plugged with green LED; either trickle-slow charge or lazy gauge; the 60 s poll log will answer passively). Charge/plugged status still not host-visible (charge-only cable = no enumeration; no known FW register).
+
 ## Session 2026-05-29--1620 — Daemon triage (Razer contention) + JORO_FUNCTION.md + host-side MM/Fn toggle
 
 **User report: "daemon fucked up" — wrong battery, shows disconnected while on BLE, MM/Fn toggle dead, F-keys stuck. All fixed or correctly re-architected this session.**

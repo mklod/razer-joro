@@ -150,13 +150,16 @@ Lock/Copilot work in both toggle positions.
   commits Hypershift." The daemon currently does the RAM write but **lacks** the class-0x0f
   commit.
 
-## A7. Battery
+## A7. Battery — REWRITTEN 2026-07-07 (the May table was wrong)
 
 | Method | Use it? |
 |---|---|
-| Std GATT Battery Service `0x180F` / char `0x2A19` | ❌ **Frozen** at last-charged value on this FW (showed 100% all day). Never use. |
-| Protocol30 `class=0x07 cmd=0x80`, `pct = arg[1]*100/255` | ✅ **Primary for BLE/USB.** |
+| Std GATT `0x2A19`, **UNCACHED read** (`BluetoothCacheMode::Uncached`) + notify | ✅ **Primary for BLE.** Matches the wired live register exactly (both 45% at test time). The May "frozen at 100%" verdict blamed the char, but the culprit was Windows' GATT read cache (default Cached mode) — never read it Cached. |
+| Protocol30 `0x07:0x80` over **BLE** | ❌ **Months-stale snapshot.** Sat at raw `0xc2`=76% from May→July, unmoved by charging, draining, or transport cycles, while ground truth was 45%. The May-29 "fix" that made this primary replaced one stale source with another. Fallback only. |
+| Protocol30 `0x07:0x80` over **wired USB** | ✅ Live (matches 0x2A19). |
 | Dongle heartbeat `09 31 <raw>`, `pct = (byte2*100+127)/255` | ✅ **Primary for dongle — PASSIVE only.** Never solicit-poll the dongle (RF bridge timeout `0x04` + input lag). |
+| Protocol30 `0x07:86` (17-byte struct) | ❌ Investigated 2026-07-07 — byte[13] looked like a percent but is static; the struct is residue/config, not telemetry. |
+| Charge/plugged status | ❌ Still unknown on every transport. Cable in wireless-switch position is charge-only (no USB enumeration, nothing host-visible). Keyboard's green LED = external power present; FW flashes backlight red on critical-low. |
 
 ## A8. Keyboard backlight (Protocol30 lighting)
 
@@ -209,7 +212,7 @@ Legend: ✅ working & tested · ⚠️ partial / known issue · ❌ broken / wro
 | Feature | How | Transport | Status |
 |---|---|---|---|
 | BLE connect + stay-connected | `windows` crate, GattSession MaintainConnection, 3-strike disconnect tolerance | BLE | ✅ (after killing Razer) |
-| Battery reading | Protocol30 `0x07:0x80` arg[1]; 60 s poll on BLE/USB; passive heartbeat on dongle | BLE/USB ✅, dongle ✅ passive | ✅ (76% verified 2026-05-29) |
+| Battery reading | **BLE: GATT `0x2A19` UNCACHED + notify** (re-architected 2026-07-07 — Protocol30 over BLE is a stale snapshot); USB: Protocol30 `0x07:80`; dongle: passive heartbeat. 60 s poll + staleness flag + Razer-contention detector | BLE ✅, USB ✅, dongle ✅ passive | ✅ (45% matching wired ground truth, 2026-07-07) |
 | Connection status in UI | `is_connected()` via WinRT ConnectionStatus | BLE | ✅ (was Razer contention, now fixed) |
 | Base key remaps (LL hook) | `REMAP_TABLE` single→key/combo via SendInput | all | ✅ (user-confirmed working) |
 | Trigger/combo remaps (Win+L→Delete, Win+Copilot→Ctrl+F12) | `TRIGGER_TABLE` gate state machine + kernel gate-mod release | BLE ✅, dongle ⚠️ | ✅ |
