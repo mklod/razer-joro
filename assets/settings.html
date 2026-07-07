@@ -1513,11 +1513,18 @@ document.addEventListener('click', e => {
 // ──────────────────────────────────────────────────────────────────────────
 // Rust → JS bridges
 // ──────────────────────────────────────────────────────────────────────────
-function renderBattery(pct, stale) {
+function renderBattery(pct, stale, charging) {
   const fill = document.getElementById('battery-fill');
   const label = document.getElementById('battery-pct');
   const box = document.getElementById('battery');
+  const bolt = document.getElementById('battery-bolt');
   if (!fill || !label) return;
+  // Bolt: always on wired (cable is the transport); on wireless it shows
+  // only when the daemon INFERS charging from a rising level (the firmware
+  // exposes no charge signal over BLE — see JORO_FUNCTION §A7).
+  if (bolt && transport !== 'USB') {
+    bolt.style.display = charging ? '' : 'none';
+  }
   // Stale = the daemon's polls have been failing (classic cause: Razer
   // software contention). Keep showing the last value but dim it so it
   // doesn't read as current truth.
@@ -1596,7 +1603,7 @@ window.joroSetState = function(state) {
   }
   renderKeyboard();
   renderLighting();
-  renderBattery(state.battery != null ? state.battery : null, !!state.battery_stale);
+  renderBattery(state.battery != null ? state.battery : null, !!state.battery_stale, !!state.battery_charging);
   renderTransport(transport);
   setRazerWarning(!!state.razer_contention);
   // Refresh modal text if it's currently visible.
@@ -1751,8 +1758,8 @@ window.joroSetRazerWarning = function(active) {
   setRazerWarning(!!active);
 };
 
-window.joroSetBattery = function(pct, stale) {
-  renderBattery(pct, !!stale);
+window.joroSetBattery = function(pct, stale, charging) {
+  renderBattery(pct, !!stale, !!charging);
 };
 
 function wireLayerToggle() {
@@ -1781,8 +1788,13 @@ function wireLayerToggle() {
 // overrides its default. The daemon ignores `set_device_mode_pref`.
 function renderModeToggle() {
   const note = document.getElementById('mode-lock-note');
-  if (note && transport === 'USB') {
-    note.textContent = 'Wired: the firmware hardcodes the top row — remap F-keys over Bluetooth.';
+  if (!note) return;
+  // Must set BOTH branches — this runs on every transport change, and a
+  // one-way overwrite left the wired text stuck after switching back to BLE.
+  if (transport === 'USB') {
+    note.innerHTML = 'Wired: the firmware hardcodes the top row — remap F-keys over Bluetooth.';
+  } else {
+    note.innerHTML = 'Top row does media actions by default. Click any key to remap it — map a key to itself (e.g. <code>F6</code> → <code>F6</code>) to make it a plain F-key.';
   }
 }
 

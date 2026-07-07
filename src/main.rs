@@ -171,6 +171,11 @@ struct App {
     /// value is flagged stale in the UI instead of silently lying.
     battery_poll_failures: u32,
     battery_stale: bool,
+    /// Inferred charge state on wireless transports: the firmware exposes
+    /// NO charge/plugged signal over BLE (register diff + GATT probe,
+    /// 2026-07-07), but the battery source is live — a rising level proves
+    /// charging. Set on increase, cleared on decrease/disconnect.
+    battery_charging: bool,
     /// Periodic Razer-software detector: running Razer processes contend
     /// for the BLE/HID session and silently break battery/LED/mode writes
     /// (JORO_FUNCTION.md §A10) — surface it instead of showing stale data.
@@ -342,6 +347,7 @@ impl App {
             cached_battery: None,
             battery_poll_failures: 0,
             battery_stale: false,
+            battery_charging: false,
             last_razer_check: None,
             razer_contention: false,
             _window: None,
@@ -940,6 +946,7 @@ impl App {
                 self.battery_stale = false;
                 self.battery_poll_failures = 0;
                 self.last_battery_poll = None;
+                self.battery_charging = false;
                 // Stop the consumer hook — it'll be restarted on reconnect
                 self.consumer_hook = None;
                 // Release filter-driver hooks — will be re-opened on reconnect
@@ -1270,6 +1277,7 @@ impl App {
             },
             "battery": self.cached_battery,
             "battery_stale": self.battery_stale,
+            "battery_charging": self.battery_charging,
             "razer_contention": self.razer_contention,
             "known_matrix_keys": known_matrix_keys,
             "transport": self.device.as_ref().map(|d| d.transport_name()),
@@ -1284,13 +1292,32 @@ impl App {
 
     /// Push just the battery update to the webview (used when polling refreshes
     /// the cached value while the settings window is already open).
+    /// Update the inferred charge state from a fresh battery reading:
+    /// a level INCREASE on a battery-powered transport proves external
+    /// power (no direct charge signal exists over BLE); a decrease proves
+    /// discharge. Equal readings keep the current inference.
+    fn update_charging_inference(&mut self, new_pct: u8) {
+        if let Some(old) = self.cached_battery {
+            if new_pct > old && !self.battery_charging {
+                self.battery_charging = true;
+                eprintln!("joro-daemon: battery rose {old}%->{new_pct}% — inferring CHARGING");
+            } else if new_pct < old && self.battery_charging {
+                self.battery_charging = false;
+                eprintln!("joro-daemon: battery fell {old}%->{new_pct}% — charging inference cleared");
+            }
+        }
+    }
+
     fn push_battery_update(&self) {
         let Some(ref s) = self.settings else { return };
         let payload = match self.cached_battery {
             Some(b) => b.to_string(),
             None => "null".to_string(),
         };
-        let script = format!("window.joroSetBattery({}, {});", payload, self.battery_stale);
+        let script = format!(
+            "window.joroSetBattery({}, {}, {});",
+            payload, self.battery_stale, self.battery_charging
+        );
         let _ = s.eval(&script);
     }
 
@@ -1521,6 +1548,7 @@ impl App {
                 self.battery_stale = false;
                 self.battery_poll_failures = 0;
                 self.last_battery_poll = None;
+                self.battery_charging = false;
                 self.consumer_hook = None;
                 self.rzcontrol = None;
                 if let Some(ref mut tray) = self.tray {
@@ -1783,9 +1811,10 @@ impl ApplicationHandler<UserEvent> for App {
                 // heartbeat fires every few seconds).
                 self.battery_poll_failures = 0;
                 let was_stale = std::mem::replace(&mut self.battery_stale, false);
+                self.update_charging_inference(pct);
                 if self.cached_battery != Some(pct) || was_stale {
                     self.cached_battery = Some(pct);
-                    eprintln!("joro-daemon: battery {pct}% (passive heartbeat)");
+                    eprintln!("joro-daemon: battery {pct}% (live observation)");
                     self.push_battery_update();
                 }
             }
@@ -1849,6 +1878,7 @@ impl ApplicationHandler<UserEvent> for App {
                 self.battery_stale = false;
                 self.battery_poll_failures = 0;
                 self.last_battery_poll = None;
+                self.battery_charging = false;
                 self.consumer_hook = None;
                 self.rzcontrol = None;
                 if let Some(ref mut tray) = self.tray {
@@ -1953,6 +1983,7 @@ impl ApplicationHandler<UserEvent> for App {
                         Ok(pct) => {
                             self.battery_poll_failures = 0;
                             let was_stale = std::mem::replace(&mut self.battery_stale, false);
+                            self.update_charging_inference(pct);
                             if self.cached_battery != Some(pct) || was_stale {
                                 self.cached_battery = Some(pct);
                                 self.push_battery_update();
