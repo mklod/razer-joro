@@ -705,6 +705,11 @@ h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
   </div>
 </div>
 
+<!-- Razer-software contention warning (daemon-driven, 60s detector). -->
+<div id="razer-warning" style="display:none; margin:6px 0 2px; padding:6px 10px; border:1px solid #7a4a1a; border-radius:4px; background:rgba(120,70,20,.18); color:#ffb066; font-size:12px; line-height:1.4;">
+  ⚠ Razer software is running — it contends for the keyboard session (stale battery, dead lighting/mode writes). Close Synapse / kill Razer processes for reliable control.
+</div>
+
 <!-- Custom color-picker popup (positioned next to the swatch by JS). -->
 <div class="color-popup" id="color-popup">
   <canvas id="color-sv" width="200" height="130"></canvas>
@@ -1508,13 +1513,18 @@ document.addEventListener('click', e => {
 // ──────────────────────────────────────────────────────────────────────────
 // Rust → JS bridges
 // ──────────────────────────────────────────────────────────────────────────
-function renderBattery(pct) {
+function renderBattery(pct, stale) {
   const fill = document.getElementById('battery-fill');
   const label = document.getElementById('battery-pct');
+  const box = document.getElementById('battery');
   if (!fill || !label) return;
-  // On USB, renderTransport owns the battery display (full shell + bolt)
-  // — ignore percentage updates to avoid overwriting the "charging" look.
-  if (transport === 'USB') return;
+  // Stale = the daemon's polls have been failing (classic cause: Razer
+  // software contention). Keep showing the last value but dim it so it
+  // doesn't read as current truth.
+  if (box) {
+    box.style.opacity = stale ? '0.45' : '';
+    box.title = stale ? 'Battery reads failing — showing last known value' : '';
+  }
   if (pct == null) {
     fill.setAttribute('width', '0');
     label.textContent = '—';
@@ -1536,11 +1546,10 @@ function renderTransport(t) {
   if (t === 'USB') {
     el.className = 'transport-indicator connected';
     label.textContent = 'USB';
-    // Wired: show a white lightning bolt inside an empty battery outline,
-    // hide percentage text. Charge state is irrelevant while plugged in.
+    // Wired: show the charging bolt ALONGSIDE the percentage — the level
+    // is still readable over USB and "plugged in but how full?" is a real
+    // question. (Previously the bolt replaced the % entirely.)
     if (bolt) bolt.style.display = '';
-    if (fill) fill.setAttribute('width', '0');
-    if (pctLabel) pctLabel.textContent = '';
   } else if (t === 'BLE') {
     el.className = 'transport-indicator connected';
     label.textContent = 'Bluetooth';
@@ -1587,8 +1596,9 @@ window.joroSetState = function(state) {
   }
   renderKeyboard();
   renderLighting();
-  renderBattery(state.battery != null ? state.battery : null);
+  renderBattery(state.battery != null ? state.battery : null, !!state.battery_stale);
   renderTransport(transport);
+  setRazerWarning(!!state.razer_contention);
   // Refresh modal text if it's currently visible.
   const modal = document.getElementById('conn-modal');
   if (modal && modal.classList.contains('open')) renderModalState();
@@ -1732,8 +1742,17 @@ function wireDongleControls() {
 }
 
 // Called by the Rust daemon periodically (~30s) to refresh the battery indicator.
-window.joroSetBattery = function(pct) {
-  renderBattery(pct);
+function setRazerWarning(active) {
+  const el = document.getElementById('razer-warning');
+  if (el) el.style.display = active ? '' : 'none';
+}
+
+window.joroSetRazerWarning = function(active) {
+  setRazerWarning(!!active);
+};
+
+window.joroSetBattery = function(pct, stale) {
+  renderBattery(pct, !!stale);
 };
 
 function wireLayerToggle() {

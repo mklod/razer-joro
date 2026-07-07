@@ -25,7 +25,15 @@
 
 **Build:** 41/41 tests pass, release build clean. **NOT yet deployed to autostart** — deploy = copy `…\razer-joro-target\release\joro-daemon.exe` → `…\AppData\Local\razer-joro\joro-daemon.exe`, relaunch. Needs live soak: Lock, Copilot, Win-tap (Start), Win+E, Win+Shift+S, F4 hold, mode toggle both ways, prt-sc remap via UI.
 
-**Open (from this session's audit, not yet done):** battery `Ok(0)` sentinel vs real 0% conflation; staleness indicator + RazerAppEngine watchdog; `last_battery_poll` reset on reconnect; truncate-vs-round formula unification; stale `ble.rs:258` doc comment + dead `char_battery` code; USB view hides %; charge-status A/B capture still gated.
+**Battery cleanups — DONE (same session, later):**
+- **`Ok(0)` sentinel abolished** — dongle bridged-RF timeout now returns Err (with status byte in the message); `Ok(0)` is a genuine 0% everywhere. `finish_connect` and the poll no longer special-case 0.
+- **Staleness surfaced** — 3 consecutive poll failures (~3 min) flag the value stale: UI dims the battery + tooltip "showing last known value"; recovery (poll success or dongle heartbeat) clears it and re-pushes.
+- **Razer contention detector** — 60 s ToolHelp process scan for `razer*`/`rzsdk*`/`rzengine*`; on appearance logs a loud warning + shows an orange banner in settings ("stale battery, dead lighting/mode writes — close Synapse"). Deliberately does NOT auto-kill (user launches Synapse on purpose sometimes). This was the actual cause of both historical "wrong battery" incidents.
+- **Formula unified** — all transports now use the heartbeat's rounded `(raw*100+127)/255` (BLE/USB/dongle-solicited were truncating → ±1% flicker across transport hops).
+- **Poll clock reset on connect/disconnect** — failed connect-read leaves `last_battery_poll=None` so the poll retries next tick instead of showing "—" for up to 60 s after a transport hop.
+- **Frozen-GATT booby trap removed** — `ble.rs` doc comment claimed 0x2A19-first (opposite of reality); comment rewritten, and the entire dead `char_battery` discovery machinery (field, `find_battery_level_char`, UUID consts) deleted so nobody "cleans up" toward the frozen char again.
+- **USB shows %** — the charging bolt now sits alongside the percentage instead of replacing it.
+- **Still open:** charge-status (charging/plugged) detection — needs the A/B capture (plug power on BLE, watch the undecoded `0x07:80` response bytes `40 ?? c5 86` in the 60 s poll log).
 
 ## Session 2026-05-29--1620 — Daemon triage (Razer contention) + JORO_FUNCTION.md + host-side MM/Fn toggle
 
