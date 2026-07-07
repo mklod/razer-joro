@@ -37,23 +37,14 @@ pub struct Config {
     #[serde(default)]
     pub ble_fn_primary: bool,
 
-    /// HOST-SIDE F-row mode preference — "mm" (default) | "fn".
-    ///
-    /// This no longer touches the firmware register. Ground truth 2026-07-07
-    /// (live BLE test): Fn-primary FIRMWARE mode kills the Lock/Copilot
-    /// Win+X macro composition entirely, while F-row emission is plain VK
-    /// F1-F12 over BLE regardless of the register. So the daemon pins the
-    /// firmware register to MM on every connect and implements this
-    /// preference purely host-side (remap::build_remap_tables_for_mode):
-    ///
-    /// "mm" = MM-primary defaults injected under user remaps (F5=Mute,
-    ///        F6/F7=Vol, F8/F9=monitor brightness, F10/F11=backlight,
-    ///        F12=PrintScreen, F4=Win+Tab). Any per-key [[remap]] overrides
-    ///        its default individually.
-    /// "fn" = no defaults; F-row passes through as plain F-keys (+ user
-    ///        remaps). Lock/Copilot keep working (firmware stays MM).
-    ///
-    /// Legacy values ("auto", "") are treated as "mm".
+    /// DEPRECATED, IGNORED since 2026-07-07 (kept so old config files
+    /// parse). The MM/Fn toggle was removed: multimedia F-row defaults are
+    /// ALWAYS on (host-side, per-key — F4=Win+Tab, F5=Mute, F6/F7=Vol,
+    /// F8/F9=monitor brightness, F10/F11=backlight, F12=PrintScreen), and
+    /// any per-key [[remap]] overrides its default individually — including
+    /// identity remaps (F6 → F6) to get a plain F-key. The firmware
+    /// register is pinned MM on every connect (Fn firmware mode kills the
+    /// Lock/Copilot macro composition — ground truth 2026-07-07).
     #[serde(default = "default_device_mode")]
     pub device_mode: String,
 
