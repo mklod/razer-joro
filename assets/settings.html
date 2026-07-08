@@ -1569,11 +1569,13 @@ function renderTransport(t) {
   } else if (t === 'BLE') {
     el.className = 'transport-indicator connected';
     label.textContent = 'Bluetooth';
-    if (bolt) bolt.style.display = 'none';
+    // Do NOT touch the bolt here: on wireless transports renderBattery
+    // owns it (charging inference). This branch used to hide it
+    // unconditionally and ran after renderBattery on every state push —
+    // stomping the charging indicator the daemon had just set.
   } else if (t === 'DONGLE') {
     el.className = 'transport-indicator connected';
     label.textContent = '2.4 GHz Dongle';
-    if (bolt) bolt.style.display = 'none';
   } else {
     el.className = 'transport-indicator disconnected';
     label.textContent = 'Disconnected';
