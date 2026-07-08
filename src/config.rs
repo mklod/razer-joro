@@ -119,6 +119,15 @@ name = "Copilot key to Ctrl+F12"
 from = "Win+Copilot"
 to = "Ctrl+F12"
 
+# The Copilot key's BLE emission is bistable: sometimes the firmware
+# composes Win+Shift+F23 (caught by the trigger remap above), sometimes it
+# emits consumer usage 0x029D instead (caught by this consumer-source
+# remap). Keep BOTH so the key works in either firmware state.
+[[remap]]
+name = "Copilot key (consumer mode) to Ctrl+F12"
+from = "Copilot"
+to = "Ctrl+F12"
+
 # [[remap]]
 # name = "CapsLock to Ctrl+F12"
 # from = "CapsLock"
@@ -320,10 +329,14 @@ matrix_index = 1
         let config: Config = toml::from_str(DEFAULT_CONFIG).unwrap();
         assert_eq!(config.lighting.color, "#FFFFFF");
         assert_eq!(config.lighting.brightness, 128);
-        assert_eq!(config.remap.len(), 2);
+        assert_eq!(config.remap.len(), 3);
         assert_eq!(config.remap[0].from, "Win+L");
         assert_eq!(config.remap[0].to, "Delete");
         assert_eq!(config.remap[1].from, "Win+Copilot");
         assert_eq!(config.remap[1].to, "Ctrl+F12");
+        // Consumer-mode Copilot (bistable firmware emission — see comment
+        // in DEFAULT_CONFIG).
+        assert_eq!(config.remap[2].from, "Copilot");
+        assert_eq!(config.remap[2].to, "Ctrl+F12");
     }
 }
