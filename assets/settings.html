@@ -879,15 +879,15 @@ const LAYOUT = [
     // (display/tooltip only). The remap source is always the plain F* name;
     // a remap on it overrides the MM default for that key alone. Only on
     // WIRED does the firmware itself emit the MM usages (F-row hardcoded).
-    K('',     'F4',  { icon: 'screens',       bot: 'F4',  fSub: true, mmEmits: 'Win+Tab (Task View)' }),
-    K('',     'F5',  { icon: 'speakerMute',   bot: 'F5',  fSub: true, mmEmits: 'VolumeMute' }),
-    K('',     'F6',  { icon: 'speakerLow',    bot: 'F6',  fSub: true, mmEmits: 'VolumeDown' }),
-    K('',     'F7',  { icon: 'speakerHigh',   bot: 'F7',  fSub: true, mmEmits: 'VolumeUp' }),
-    K('',     'F8',  { icon: 'sunSmall',      bot: 'F8',  fSub: true, mmEmits: 'BrightnessDown', mmConsumer: true }),
-    K('',     'F9',  { icon: 'sunLarge',      bot: 'F9',  fSub: true, mmEmits: 'BrightnessUp',   mmConsumer: true }),
-    K('',     'F10', { icon: 'backlightDown', bot: 'F10', fSub: true, mmEmits: 'BacklightDown', mmVendor: true, mmMacro: true, fwNote: 'Hardware backlight key on wired — remappable on BLE' }),
-    K('',     'F11', { icon: 'backlightUp',   bot: 'F11', fSub: true, mmEmits: 'BacklightUp',   mmVendor: true, mmMacro: true, fwNote: 'Hardware backlight key on wired — remappable on BLE' }),
-    K('prt sc', 'F12', { bot: 'F12', fSub: true, mmEmits: 'PrintScreen' }),
+    K('',     'F4',  { icon: 'screens',       bot: 'F4',  fSub: true, mmEmits: 'Win+Tab (Task View)', mmLabel: 'Task View' }),
+    K('',     'F5',  { icon: 'speakerMute',   bot: 'F5',  fSub: true, mmEmits: 'VolumeMute', mmLabel: 'Mute' }),
+    K('',     'F6',  { icon: 'speakerLow',    bot: 'F6',  fSub: true, mmEmits: 'VolumeDown', mmLabel: 'Volume Down' }),
+    K('',     'F7',  { icon: 'speakerHigh',   bot: 'F7',  fSub: true, mmEmits: 'VolumeUp', mmLabel: 'Volume Up' }),
+    K('',     'F8',  { icon: 'sunSmall',      bot: 'F8',  fSub: true, mmEmits: 'BrightnessDown', mmLabel: 'Brightness Down', mmConsumer: true }),
+    K('',     'F9',  { icon: 'sunLarge',      bot: 'F9',  fSub: true, mmEmits: 'BrightnessUp',   mmLabel: 'Brightness Up', mmConsumer: true }),
+    K('',     'F10', { icon: 'backlightDown', bot: 'F10', fSub: true, mmEmits: 'BacklightDown', mmLabel: 'Backlight Down', mmVendor: true, mmMacro: true, fwNote: 'Hardware backlight key on wired — remappable on BLE' }),
+    K('',     'F11', { icon: 'backlightUp',   bot: 'F11', fSub: true, mmEmits: 'BacklightUp',   mmLabel: 'Backlight Up', mmVendor: true, mmMacro: true, fwNote: 'Hardware backlight key on wired — remappable on BLE' }),
+    K('prt sc', 'F12', { bot: 'F12', fSub: true, mmEmits: 'PrintScreen', mmLabel: 'Print Screen' }),
     K('ins',  'Insert'),
     K('del',  'Delete'),
     K('',     'LockKey', { icon: 'lock', emits: 'Win+L' }),
@@ -1310,7 +1310,7 @@ function renderKeyboard() {
         } else if (currentLayer === 'hypershift') {
           btn.title = `Fn+${k.key}`;
         } else if (k.mmEmits) {
-          btn.title = `${k.key} → ${k.mmEmits} (default — remap ${k.key} to override, or map it to itself for plain ${k.key})`;
+          btn.title = `${k.key} → ${k.mmLabel || k.mmEmits}`;
         } else if (k.fwNote) {
           btn.title = `${k.key} — ${k.fwNote}`;
         } else {
@@ -1355,17 +1355,23 @@ function onKeyClick(k, btnEl, evt) {
 
   const existing = findRemapForKey(k);
   const isHypershift = currentLayer === 'hypershift';
-  // For keys with a `fwEmits` (firmware keyboard macro — F4 → Win+Tab),
-  // prefill From with that macro so the user can directly set the target.
-  // In MM mode F5-F11 emit consumer usages, so the "From" default should
-  // be the MM emit name (VolumeMute, BrightnessDown, etc.) — that's what
-  // Windows actually sees when the user presses the key, and what the hook
-  // matches on.
-  const defaultFrom = isHypershift
+  // funcFrom = the FUNCTIONAL remap source (what the hook matches on):
+  // plain key name over BLE (the MM layer is host-side), the firmware's
+  // emit name only on wired (effectiveEmitsOf handles that).
+  const funcFrom = isHypershift
     ? k.key
     : (existing ? existing.from : (k.fwEmits || effectiveEmitsOf(k)));
+  // Top-row keys are shown by their DEFAULT action ("Volume Down"), since
+  // that's what the key IS out of the box. The friendly name is display
+  // only — savePopover translates it back to the functional source name
+  // (F6, what the hook actually matches) if left unedited.
+  const showFriendlyFrom =
+    !isHypershift && k.mmLabel && funcFrom.toLowerCase() === k.key.toLowerCase();
+  const defaultFrom = showFriendlyFrom ? k.mmLabel : funcFrom;
   const defaultTo = existing ? existing.to : '';
-  const labelText = isHypershift ? `Hypershift remap (Fn + ${escapeHtml(k.key)})` : 'Remap';
+  const labelText = isHypershift
+    ? `Hypershift remap (Fn + ${escapeHtml(k.key)})`
+    : (k.mmLabel ? `Remap ${escapeHtml(k.mmLabel)} (${escapeHtml(k.key)})` : 'Remap');
   const fromReadOnly = isHypershift ? ' readonly' : '';
   // Hypershift target selector: "host" (daemon, any transport) or
   // "firmware" (persistent across daemon restarts, USB-only writes).
@@ -1402,8 +1408,6 @@ function onKeyClick(k, btnEl, evt) {
       } else {
         fwNoteLine = `<div class="pop-hint" style="color:#88c0ff;">${escapeHtml(k.key)} emits <code>${escapeHtml(k.mmEmits)}</code> at the firmware level on wired. Remapping <code>${escapeHtml(k.mmEmits)}</code> intercepts it.</div>`;
       }
-    } else if (k.mmEmits) {
-      fwNoteLine = `<div class="pop-hint" style="color:#88c0ff;">${escapeHtml(k.key)} does <code>${escapeHtml(k.mmEmits)}</code> by default (host-side). A remap on <code>${escapeHtml(k.key)}</code> overrides it — map <code>${escapeHtml(k.key)}</code> → <code>${escapeHtml(k.key)}</code> for a plain F-key.</div>`;
     } else if (k.fwNote) {
       fwNoteLine = `<div class="pop-hint" style="color:#9aa;">${escapeHtml(k.fwNote)}</div>`;
     }
@@ -1479,9 +1483,14 @@ function onKeyClick(k, btnEl, evt) {
   });
 
   function savePopover() {
-    const fromVal = fromInput.value.trim();
+    let fromVal = fromInput.value.trim();
     const toVal = toInput.value.trim();
     if (!fromVal || !toVal) { toInput.focus(); return; }
+    // Translate the display-only friendly name back to the functional
+    // source key (the hook matches on "F6", not "Volume Down").
+    if (k.mmLabel && fromVal.toLowerCase() === k.mmLabel.toLowerCase()) {
+      fromVal = k.key;
+    }
     if (isHypershift) {
       const targetSel = popover.querySelector('#pop-target');
       const target = targetSel ? targetSel.value : 'host';

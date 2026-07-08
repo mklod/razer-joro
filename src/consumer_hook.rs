@@ -327,18 +327,28 @@ fn run_loop(stop: Arc<AtomicBool>, entries: HashMap<u16, ConsumerRemapEntry>) {
             crate::fn_detect::JORO_HID_ACTIVITY.store(true, std::sync::atomic::Ordering::Release);
             // Joro report format: [report_id, usage_lo, usage_hi, ...]
             // (report_id varies by collection: 0x02 for consumer, 0x03 for system on some devices)
+            let rid = buf[0];
             let usage = u16::from_le_bytes([buf[1], buf[2]]);
 
-            // Fn-state detection through dongle (and BLE, which has the
-            // same consumer 0x029D event) — the AC View Toggle (0x029D)
-            // is what the keyboard fires when Fn is pressed/released. We
-            // update the same fn_detect::FN_HELD atomic the BLE-side
-            // hidapi reader uses, so the WH_KEYBOARD_LL hook + fn_host_remap
-            // table works transport-agnostic without RawInput.
-            if usage == 0x029D {
+            // Usage 0x029D arrives with TWO distinct meanings, told apart
+            // by report id (discovered 2026-07-08):
+            //   rid 0x02 = Fn pressed (dongle Fn signature — Fn-held signal
+            //              only, never a mappable key)
+            //   rid 0x03 = the COPILOT key over BLE. The firmware is
+            //              bistable: sometimes Copilot composes the
+            //              Win+Shift+F23 VK macro (the trigger-remap path),
+            //              sometimes it emits this consumer usage instead —
+            //              flip cause unknown (observed after an overnight
+            //              charge/power event). Windows handles the usage
+            //              at shell level with NO VK events, so the LL hook
+            //              can neither see nor block it; mapping it here is
+            //              the only host-side interception point.
+            if usage == 0x029D && rid == 0x02 {
                 use std::sync::atomic::Ordering;
                 crate::fn_detect::FN_HELD.store(true, Ordering::Release);
-            } else if usage == 0 {
+                continue;
+            }
+            if usage == 0 {
                 // Consumer key-up — also our Fn release edge.
                 use std::sync::atomic::Ordering;
                 crate::fn_detect::FN_HELD.store(false, Ordering::Release);
@@ -361,34 +371,38 @@ fn run_loop(stop: Arc<AtomicBool>, entries: HashMap<u16, ConsumerRemapEntry>) {
             // create a VK for those usages and the LL hook never sees
             // them. Fires on the key-down edge only.
             if let Some(act_entry) = crate::remap::lookup_consumer_action(usage) {
+                if usage == 0x029D {
+                    // AMBIGUOUS USAGE (2026-07-08): over BLE the Fn key
+                    // emits the SAME rid-0x03 0x029D as the Copilot key —
+                    // Fn+arrow was firing the Copilot mapping. Discriminator:
+                    // an Fn press also raises the vendor-report Fn state
+                    // (fn_detect), Copilot doesn't. The vendor report can
+                    // land a few ms after the consumer report, so defer the
+                    // dispatch briefly and skip if Fn turns out to be held.
+                    let fn_at_receipt = crate::fn_detect::fn_held();
+                    let entry = act_entry.clone();
+                    std::thread::spawn(move || {
+                        thread::sleep(Duration::from_millis(60));
+                        if fn_at_receipt || crate::fn_detect::fn_held() {
+                            eprintln!(
+                                "joro-consumer-hook: 0x029d was the Fn key (vendor state) — skipping '{}'",
+                                entry.label
+                            );
+                            return;
+                        }
+                        eprintln!(
+                            "joro-consumer-hook: 0x029d consumer-action (deferred, Fn not held) → {}",
+                            entry.label
+                        );
+                        dispatch_consumer_action(&entry);
+                    });
+                    continue;
+                }
                 eprintln!(
                     "joro-consumer-hook: {kind} usage=0x{usage:04x} consumer-action → {}",
                     act_entry.label
                 );
-                match act_entry.action {
-                    crate::remap::ConsumerActionKind::Special(ref sa) => {
-                        crate::remap::dispatch_special_action(sa);
-                    }
-                    crate::remap::ConsumerActionKind::KeyCombo {
-                        ref modifier_vks,
-                        key_vk,
-                    } => {
-                        // Emit a down+up pair immediately. Consumer HID
-                        // reports don't give us a reliable key-up edge
-                        // for every usage (brightness Fn-key taps fire
-                        // on down only), so we synthesize both.
-                        let mut inputs = Vec::with_capacity(modifier_vks.len() * 2 + 2);
-                        for &m in modifier_vks {
-                            inputs.push(make_key_input(m, false));
-                        }
-                        inputs.push(make_key_input(key_vk, false));
-                        inputs.push(make_key_input(key_vk, true));
-                        for &m in modifier_vks.iter().rev() {
-                            inputs.push(make_key_input(m, true));
-                        }
-                        send_inputs(&inputs);
-                    }
-                }
+                dispatch_consumer_action(&act_entry);
                 continue;
             }
             if let Some(entry) = entries.get(&usage) {
@@ -435,6 +449,32 @@ fn run_loop(stop: Arc<AtomicBool>, entries: HashMap<u16, ConsumerRemapEntry>) {
         }
     }
     eprintln!("joro-consumer-hook: stopped");
+}
+
+/// Dispatch a matched ConsumerActionEntry: special actions route through
+/// remap's shared dispatcher; key combos emit a synthesized down+up pair
+/// (consumer reports don't give a reliable key-up edge for every usage).
+fn dispatch_consumer_action(entry: &crate::remap::ConsumerActionEntry) {
+    match entry.action {
+        crate::remap::ConsumerActionKind::Special(ref sa) => {
+            crate::remap::dispatch_special_action(sa);
+        }
+        crate::remap::ConsumerActionKind::KeyCombo {
+            ref modifier_vks,
+            key_vk,
+        } => {
+            let mut inputs = Vec::with_capacity(modifier_vks.len() * 2 + 2);
+            for &m in modifier_vks {
+                inputs.push(make_key_input(m, false));
+            }
+            inputs.push(make_key_input(key_vk, false));
+            inputs.push(make_key_input(key_vk, true));
+            for &m in modifier_vks.iter().rev() {
+                inputs.push(make_key_input(m, true));
+            }
+            send_inputs(&inputs);
+        }
+    }
 }
 
 fn emit_combo_down(entry: &ConsumerRemapEntry) {

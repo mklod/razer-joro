@@ -229,6 +229,11 @@ fn parse_consumer_usage(name: &str) -> Option<u16> {
         "nexttrack" | "medianexttrack" => Some(0x00B5),
         "prevtrack" | "mediaprevtrack" => Some(0x00B6),
         "stop" | "mediastop" => Some(0x00B7),
+        // Copilot key over BLE when the firmware is in consumer-emission
+        // mode (bistable — it sometimes composes the Win+Shift+F23 VK macro
+        // instead; keep the Win+Copilot trigger remap too). rid-0x03 0x029D;
+        // consumer_hook keeps rid-0x02 0x029D as the dongle Fn signal.
+        "copilot" | "acviewtoggle" => Some(0x029D),
         _ => None,
     }
 }
