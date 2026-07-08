@@ -1025,6 +1025,9 @@ impl App {
         remap::update_consumer_action_table(consumer_table);
         remap::update_fn_host_remap_table(fn_host_table);
         remap::set_debug_log(self.config.hook_debug);
+        // Re-seed the hook's F10/F11 delta base from the (possibly
+        // hand-edited) reloaded config.
+        remap::set_last_backlight(self.config.lighting.brightness);
 
         // Reapply to device if connected. Take the device out briefly so
         // apply_config (which needs &mut self for the last-applied cache)
@@ -1601,6 +1604,11 @@ impl App {
         }
         if let Some(b) = brightness {
             self.config.lighting.brightness = b;
+            // Keep the hook's F10/F11 delta base in sync — a slider move
+            // without this left LAST_BACKLIGHT stale, so the next
+            // Backlight± press jumped to a wrong level (one-press
+            // anomaly reported 2026-07-08).
+            remap::set_last_backlight(b);
             let _ = config::save_lighting_field(
                 &self.config_path,
                 "brightness",
