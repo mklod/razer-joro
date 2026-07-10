@@ -19,6 +19,7 @@ mod logfile;
 mod remap;
 mod rzcontrol;
 mod settings_window;
+mod shutdown_guard;
 mod tray;
 mod usb;
 mod usb_dongle;
@@ -88,6 +89,10 @@ pub enum UserEvent {
     /// Ctrl+C pressed in the terminal. Triggers a graceful shutdown so Drop
     /// runs on BleDevice (releasing the WinRT connection to the keyboard).
     CtrlC,
+    /// System shutdown/reboot/logoff (WM_ENDSESSION via shutdown_guard).
+    /// Same graceful path as CtrlC — without it the GATT session leaks and
+    /// the keyboard needs a Windows re-pair after every reboot.
+    SystemShutdown,
     /// Keyboard backlight command posted from the remap LL hook thread so
     /// we can dispatch BLE I/O on the main thread (BleDevice isn't Send).
     /// Value is an absolute 0-255 brightness level.
@@ -1779,6 +1784,10 @@ impl ApplicationHandler<UserEvent> for App {
                 eprintln!("joro-daemon: Ctrl+C received, shutting down cleanly");
                 self.shutdown_and_exit(event_loop);
             }
+            UserEvent::SystemShutdown => {
+                eprintln!("joro-daemon: system shutdown — releasing keyboard cleanly");
+                self.shutdown_and_exit(event_loop);
+            }
             UserEvent::BacklightObserved(level) => {
                 if self.config.lighting.brightness == level {
                     eprintln!(
@@ -3017,6 +3026,11 @@ fn main() {
             eprintln!("Warning: failed to install Ctrl+C handler: {e}");
         }
     }
+
+    // Same graceful teardown for system shutdown/reboot/logoff — the Ctrl+C
+    // handler never fires for those in the windowed release build, and a
+    // leaked GATT session forces a Windows re-pair after every reboot.
+    shutdown_guard::start();
 
     let mut app = App::new(proxy);
     event_loop.run_app(&mut app).expect("Event loop failed");

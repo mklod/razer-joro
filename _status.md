@@ -1,6 +1,24 @@
 # Razer Joro — Status
 
-## Session 2026-07-07 — Stuck-modifier hook hardening + firmware pinned MM + per-key F-row (PrtScrn fix)
+## Session 2026-07-09 — Reboot re-pair root cause (leaked GATT session) + shutdown guard; PTT/stuck-modifier incident
+
+**User reports: (1) PTT (press-and-hold Right Ctrl, dictation) broken while daemon attached; (2) killing the daemon left Ctrl/Alt logically stuck system-wide (BOTH keyboards typed as modified) until reboot; (3) Joro dead at Windows login screen after reboot — needs unpair/re-pair EVERY reboot; keyboard power-cycle at the login screen does NOT recover it.**
+
+**Root cause of the every-reboot re-pair — leaked WinRT GATT session (FIXED, pending reboot verification):**
+- The daemon holds `GattSession MaintainConnection=true`. Clean release existed only on tray-Quit/Ctrl+C (`shutdown_and_exit` → `BleDevice::Drop`). System shutdown/reboot/logoff killed the process without it. main.rs's own ctrlc comment already recorded the consequence: "killing the daemon leaks the WinRT GATT session and **forces a re-pair in Windows**."
+- Ruled out by evidence: Fast Startup (all boots Kernel-Boot-27 type 0x0), April's Intel/BARROT adapter race (GP driver block healthy, DisableIntelBT ran no-op at boot), bond corruption per se (bond data survives reboot by design).
+- Evidence FOR: post-boot daemon looped `no Joro advertisements received in 1.5s` (keyboard radio-silent); zero BT connect/auth events in System log between boot and re-pair; keyboard power-cycle **while healthy** reconnects in seconds (bonded advertising works), and desk simulation (hard-kill daemon + `pnputil /restart-device` BARROT) also auto-reconnected — the failure needs the real shutdown sequence, hence session leak at shutdown as the delta.
+- **Fix: new `src/shutdown_guard.rs`** — hidden top-level window (NOT message-only; those get no broadcasts), `SetProcessShutdownParameters(0x3FF)` (shut down early, while BT stack lives), `WM_QUERYENDSESSION`→TRUE (cancelable, no action), `WM_ENDSESSION(wParam=1)`→post `UserEvent::SystemShutdown` (new variant → same `shutdown_and_exit`) then park the guard thread up to 4 s so Windows doesn't kill us mid-drop. **Verified live without reboot:** posted real WM_ENDSESSION to the guard hwnd → log shows guard→SystemShutdown→`joro-ble: Drop — releasing GATT session`→clean exit. Deployed to autostart copy. FindWindowW can't locate the daemon's hidden windows (nor the old fn-detect one) — enumerate by PID (EnumWindows) when testing.
+- **Reboot test protocol (PENDING, user):** charge keyboard → normal reboot with daemon running → login screen should have the keyboard. If still dead: compare a reboot after tray-Quit (clean) vs daemon running — if clean-quit works and running fails, the guard didn't fire/finish in time; check daemon.log for `shutdown-guard:` lines from the previous session.
+
+**PTT / stuck-modifier incident (dormant, NOT fixed — tasks open):**
+- PTT = plain Right Ctrl hold; must reach apps untouched. Breakage was accumulated **stuck logical modifier state** (daemon-injected Ctrl from Copilot→Ctrl+F12 etc. losing its key-up via UIPI/hook races), not per-keystroke interception: after reboot cleared Windows key state, PTT works with daemon attached. daemon.log shows the 7/7 watchdog firing `releasing stuck modifiers [A4]`(LAlt) and `[A2]`(LCtrl) — desync happens in practice.
+- Hard-killing the daemon froze the desynced state system-wide (LL hook gone, no `release_all_modifiers`) → the "everything is Ctrl+Alt" chaos on both keyboards.
+- Known watchdog defects to fix (task #2): `PHYS_MODS` starts 0 at daemon boot → a modifier held across daemon (re)start looks stuck and gets force-released after 2 quiet ticks; watchdog also releases modifiers injected by OTHER software (fine for us, hostile to foot pedals/macro tools). Direction: scope releases to modifiers the daemon itself injected. Note (trace-verified): held RCtrl autorepeats DN events, so `quiet` stays false during an active hold — watchdog can't kill an in-progress hold; the danger window is holds spanning daemon start and foreign injections.
+- `hook_debug = true` currently LIVE in config.toml (hot-reloads; writes `razer-joro-target\hook_debug.log`, old trace saved as `hook_debug.old-20260709.log`). Turn OFF after the user's fresh-boot test passes — per-keystroke file I/O in the LL hook is itself a hook-removal risk.
+- Also reported: daemon takes ~1 min to notice the keyboard switched off (polling, not ConnectionStatusChanged) — UX issue, unfiled beyond this note.
+
+**Other:** connection recovered this session via user unpair/re-pair (bond healthy after); battery 16%→~50% on charge. `asdf` power-cycle test confirmed bonded advertising works when healthy.
 
 **User reports: (1) phantom shortcuts — pressing plain "S" opened Windows Search (+ similar); (2) wants Lock→Delete + Copilot→Ctrl+F12 kept while every F-row key is individually remappable; (3) remapping the prt-sc key did nothing.**
 
