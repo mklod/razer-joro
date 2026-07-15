@@ -1,5 +1,22 @@
 # Razer Joro — Status
 
+## Session 2026-07-14 — Shutdown guard VERIFIED on clean restarts; dirty-shutdown auto-salvage task; popup hunt instrumented
+
+**User reports: (1) Joro dead at login screen again after "shutdown/restart"; (2) random fast popups continue — most recent = a Claude Desktop window, before that a Windows Explorer window.**
+
+**Shutdown guard verdict: WORKING — the 7/14 failure was a dirty shutdown, not a guard failure.**
+- Clean 7/9 20:43 restart: daemon.log shows `shutdown-guard: WM_ENDSESSION → system shutdown → joro-ble: Drop — releasing GATT session` immediately before the boot banner. Fix confirmed live.
+- 7/14 16:55 boot: System log has Event 6008 (unexpected shutdown) + Kernel-Power 41 and NO 1074/6006 — power loss (user confirmed). No process receives WM_ENDSESSION on that path; guard can't run.
+- Evidence reinterpretation: "no Joro advertisements" from the daemon watcher proves nothing about bonded reconnect — directed advertising carries no name payload, so the name-filtered watcher is blind to it. Keyboard power-cycle not recovering ⇒ the wedged side is likely the WINDOWS BT stack/bond record, not the keyboard.
+- **Auto-salvage shipped:** scheduled task `SalvageBTDirtyBoot` (ONSTART, SYSTEM, `C:\Tools\salvage-bt-dirty-boot.ps1`, versioned in scripts/) — if Kernel-Power 41 exists within 10 min at boot (i.e. this boot follows a dirty shutdown), `pnputil /restart-device` the live BARROT adapter (found dynamically by VID_33FA&PID_0010 + Status OK; hardcoded paths go stale when the dongle changes ports); clean boots no-op. Validated: no-op path end-to-end under PS 5.1, detection query against 7/14's real event 41, restart action proven 7/9. **UNVERIFIED link: whether the adapter restart clears a real wedge — next power loss is the live test.** Fallback if it fails: manual BARROT replug at login screen (no admin), then re-pair as last resort. GOTCHA: PS 5.1 parses BOM-less UTF-8 as ANSI — em dashes in the script broke `schtasks`-run parsing; script is ASCII-only.
+- Guard limitation now understood and accepted: WM_ENDSESSION covers clean shutdown/restart/logoff; dirty shutdowns are covered by the boot-side salvage task instead.
+
+**Random popup hunt (Explorer window = Win+E-shaped, Claude Desktop = Ctrl+Alt-class hotkey — smells like phantom modifier state again):**
+- Full audit of daemon injection paths over the 5-day hook trace came back CLEAN on the current binary: zero `gate broken` replays, zero watchdog releases (0 WATCHDOG lines), all 3 Win-tap replays intentional (user typed "cal…" into Start right after), zero consumer-0x029D misfires since 7/9 evening (24 correct Fn-skips).
+- ONE confirmed historical misfire found (7/9 ~17:10, pre-discriminator binary): consumer hook fired `Copilot -> Ctrl+F12` and the vendor `FN_HELD false -> true` report landed immediately after — an Fn press whose state report lost the 60 ms race. Current deferred discriminator hasn't misfired in the log.
+- **hook_debug trace lines are now timestamped** (`MM-DD HH:MM:SS.mmm`, commit 01a3114) — 5 days of untimestamped trace was undiagnosable against "a popup just flashed". Protocol: user notes wall-clock time + what the popup was; read `razer-joro-target\hook_debug.log` around that timestamp. hook_debug stays ON.
+- Standing suspicion for the popup class: kernel async modifier state — a gated Win↓ (Lock key macro) sets kernel state before LL suppression (remap.rs:1071 comment), and phantom Ctrl/Alt stuck state (the PTT incident class) would explain a Ctrl+Alt-hotkey app window appearing.
+
 ## Session 2026-07-09 — Reboot re-pair root cause (leaked GATT session) + shutdown guard; PTT/stuck-modifier incident
 
 **User reports: (1) PTT (press-and-hold Right Ctrl, dictation) broken while daemon attached; (2) killing the daemon left Ctrl/Alt logically stuck system-wide (BOTH keyboards typed as modified) until reboot; (3) Joro dead at Windows login screen after reboot — needs unpair/re-pair EVERY reboot; keyboard power-cycle at the login screen does NOT recover it.**
