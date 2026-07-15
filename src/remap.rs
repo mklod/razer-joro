@@ -456,13 +456,21 @@ pub fn set_debug_log(enabled: bool) {
 
 /// Write a debug line to the log file. Opened in append mode each time to keep
 /// the hook callback fast (no persistent file handle needing synchronization).
+/// Lines are timestamped (local wall clock, ms) so an incident report
+/// ("a popup just flashed") can be correlated with the exact key events —
+/// 5 days of untimestamped trace proved undiagnosable (2026-07-14).
 fn dbg_log(msg: &str) {
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(r"C:\Users\mklod\AppData\Local\razer-joro-target\hook_debug.log")
     {
-        let _ = writeln!(f, "{msg}");
+        let t = unsafe { windows::Win32::System::SystemInformation::GetLocalTime() };
+        let _ = writeln!(
+            f,
+            "{:02}-{:02} {:02}:{:02}:{:02}.{:03} {msg}",
+            t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, t.wMilliseconds
+        );
     }
 }
 
