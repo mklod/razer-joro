@@ -1,5 +1,27 @@
 # Razer Joro — Status
 
+## Session 2026-10-01--0323 - Public repo scrubbed of private files; firmware moved to _private/ (done from the BLOG session)
+
+**Why:** github.com/mklod/razer-joro was public and carried Razer's firmware (stock + modified), raw Bluetooth/USB
+captures with device addresses, a Windows shortcut embedding the PC's adapter address, and a support-case PDF with
+personal details. Mike: keep the project PUBLIC so anyone with a Joro can use the daemon and replicate the RE.
+
+- **History rewritten** (git filter-repo, all 62 commits): removed the support PDF, `assets/fwupdate_{stock,mod}_replay.bin`,
+  `assets/fwupdate_joro_nosleep.bin`, `captures/*.{etl,xml,pcap,log}`, `captures/bt_hci.txt`, `Razer Synapse.lnk`;
+  Bluetooth addresses in text replaced by placeholders (keyboard XX:..., MITM proxy YY:..., PC adapter ZZ:...).
+  Verified: 958 blobs scanned, no personal values and no address bytes left.
+- **Local copies kept** in git-ignored `_private/` (firmware + PDF + .lnk); old captures back in git-ignored `captures/`.
+- **Flasher loads firmware at runtime** (`fwupdate::load_blob`): `JORO_FW_DIR`, then `<exe dir>/_private/assets`, then
+  `<repo>/_private/assets`; clear error if missing. `usb.rs dfu_replay_stock` uses the same loader. Scripts point at
+  `_private\assets`. Release build verified without the firmware; DRY run verified with it (4,952 frames).
+- **README.md** added (what's here, build, firmware not included / capture your own via FIRMWARE_RE.md §9).
+- **GitHub:** old repo renamed `razer-joro-old` + made PRIVATE (GitHub still served old commits by SHA); fresh public
+  `razer-joro` with the cleaned history, `main` = `master` (default `main` had been stale since April). The 3 unpushed
+  July commits are now published. TODO: delete `razer-joro-old` once the gh token has `delete_repo`.
+- Local working copy reset to the new history; `src/remap.rs` WIP (+324/-18) restored untouched (backup in C:\dev\tmp).
+  Old objects purged from this NAS repo (reflog expire + gc). Full pre-scrub backup: `C:\dev\tmp
+azer-joro-backup-*.git`.
+
 ## Session 2026-07-14 — Shutdown guard VERIFIED on clean restarts; dirty-shutdown auto-salvage task; popup hunt instrumented
 
 **User reports: (1) Joro dead at login screen again after "shutdown/restart"; (2) random fast popups continue — most recent = a Claude Desktop window, before that a Windows Explorer window.**
