@@ -7,8 +7,8 @@ that field is an enforced CRC). Self-verifies by content before patch.
 """
 import struct, hashlib
 
-BLOB=r'L:\PROJECTS\razer-joro\assets\fwupdate_stock_replay.bin'
-OUT =r'L:\PROJECTS\razer-joro\assets\fwupdate_mod_replay.bin'
+BLOB=r'L:\PROJECTS\razer-joro\_private\assets\fwupdate_stock_replay.bin'
+OUT =r'L:\PROJECTS\razer-joro\_private\assets\fwupdate_mod_replay.bin'
 blob=bytearray(open(BLOB,'rb').read())
 PKT=90
 frames=[(i,blob[i:i+90]) for i in range(0,len(blob),90)]

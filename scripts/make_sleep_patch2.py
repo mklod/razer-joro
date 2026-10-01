@@ -29,7 +29,7 @@ print("replacement decodes:", ", ".join(f"{x.mnemonic} {x.op_str}".strip() for x
 assert parts[0].mnemonic=='bx' and 'lr' in parts[0].op_str, "repl[0] not bx lr"
 
 # patch from CLEAN STOCK blob
-BLOB=r'L:\PROJECTS\razer-joro\assets\fwupdate_stock_replay.bin'
+BLOB=r'L:\PROJECTS\razer-joro\_private\assets\fwupdate_stock_replay.bin'
 blob=bytearray(open(BLOB,'rb').read())
 PKT=90
 chunks=[(i,blob[i:i+PKT]) for i in range(0,len(blob),PKT)]
@@ -53,7 +53,7 @@ for fi,fr in chunks:
     done=True; break
 if not done: raise SystemExit("target chunk not found")
 
-OUT=r'L:\PROJECTS\razer-joro\assets\fwupdate_mod_replay.bin'
+OUT=r'L:\PROJECTS\razer-joro\_private\assets\fwupdate_mod_replay.bin'
 open(OUT,'wb').write(blob)
 st=open(BLOB,'rb').read()
 diff=[k for k in range(len(st)) if st[k]!=blob[k]]

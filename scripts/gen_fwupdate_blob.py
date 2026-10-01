@@ -10,7 +10,7 @@ import struct, collections
 from scapy.all import rdpcap
 
 PCAP=r'L:\PROJECTS\razer-joro\captures\fw_update_u1.pcap'
-OUT =r'L:\PROJECTS\razer-joro\assets\fwupdate_stock_replay.bin'
+OUT =r'L:\PROJECTS\razer-joro\_private\assets\fwupdate_stock_replay.bin'
 pk=rdpcap(PCAP)
 
 frames=[]

@@ -428,7 +428,7 @@ impl RazerDevice {
 
     /// PHASE 3 RISK GATE — re-flash the captured STOCK firmware by
     /// faithfully replaying Razer's exact DFU transaction
-    /// (`assets/fwupdate_stock_replay.bin`, 4952 × 90-byte frames, byte-
+    /// (`fwupdate_stock_replay.bin`, 4952 × 90-byte frames, byte-
     /// identical to the `Joro_02CD_FirmwareUpdater_v1.02.02` session the
     /// keyboard already accepted). Proves the flasher + recovery path
     /// before any MODIFIED image (Phase 4). Stock→stock needs no CRC
@@ -440,9 +440,11 @@ impl RazerDevice {
     /// stays in DFU mode; just re-run this. `dry_run` sends nothing and
     /// only validates/structurally walks the blob.
     pub fn dfu_replay_stock(&self, dry_run: bool) -> Result<(), String> {
-        const STOCK: &[u8] = include_bytes!("../assets/fwupdate_stock_replay.bin");
-        if STOCK.len() % PACKET_SIZE != 0 {
-            return Err(format!("stock blob not /{PACKET_SIZE}: {}", STOCK.len()));
+        // Razer's firmware isn't in the repo: loaded at runtime from _private/assets/ (see fwupdate::load_blob).
+        let stock_owned = crate::fwupdate::load_blob(crate::fwupdate::STOCK)?;
+        let stock: &[u8] = &stock_owned;
+        if stock.len() % PACKET_SIZE != 0 {
+            return Err(format!("stock blob not /{PACKET_SIZE}: {}", stock.len()));
         }
         if self.pid != JORO_PID_WIRED {
             return Err(format!(
@@ -451,12 +453,12 @@ impl RazerDevice {
                 self.pid, JORO_PID_WIRED
             ));
         }
-        let total = STOCK.len() / PACKET_SIZE;
+        let total = stock.len() / PACKET_SIZE;
         eprintln!(
             "dfu_replay_stock: {total} frames, dry_run={dry_run} (WIRED pid=0x{:04x})",
             self.pid
         );
-        for (i, frame) in STOCK.chunks_exact(PACKET_SIZE).enumerate() {
+        for (i, frame) in stock.chunks_exact(PACKET_SIZE).enumerate() {
             let (class, cmd) = (frame[0x06], frame[0x07]);
             let mut pkt = [0u8; PACKET_SIZE];
             pkt.copy_from_slice(frame);

@@ -9,7 +9,7 @@ import struct
 from scapy.all import rdpcap
 
 PCAP=r'L:\PROJECTS\razer-joro\captures\fw_update_u1.pcap'
-BLOB=r'L:\PROJECTS\razer-joro\assets\fwupdate_stock_replay.bin'
+BLOB=r'L:\PROJECTS\razer-joro\_private\assets\fwupdate_stock_replay.bin'
 
 cap=[]
 for p in rdpcap(PCAP):

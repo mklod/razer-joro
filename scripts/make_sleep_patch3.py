@@ -31,7 +31,7 @@ ret = next(md.disasm(R3[0xe6fa:0xe6fe], 0xe6fa), None)
 print(f"target 0x0e6fa = {ret.mnemonic} {ret.op_str} (expect pop {{r4, pc}})")
 assert ret.mnemonic=='pop' and 'pc' in ret.op_str, "0xe6fa not a pop{..pc} return"
 
-BLOB=r'L:\PROJECTS\razer-joro\assets\fwupdate_stock_replay.bin'
+BLOB=r'L:\PROJECTS\razer-joro\_private\assets\fwupdate_stock_replay.bin'
 blob=bytearray(open(BLOB,'rb').read())
 PKT=90
 chunk_addr=OFF & ~63; in_chunk=OFF & 63
@@ -54,7 +54,7 @@ for fi in range(0,len(blob),PKT):
     done=True; break
 if not done: raise SystemExit("target chunk not found")
 
-OUT=r'L:\PROJECTS\razer-joro\assets\fwupdate_mod_replay.bin'
+OUT=r'L:\PROJECTS\razer-joro\_private\assets\fwupdate_mod_replay.bin'
 open(OUT,'wb').write(blob)
 st=open(BLOB,'rb').read()
 diff=[k for k in range(len(st)) if st[k]!=blob[k]]

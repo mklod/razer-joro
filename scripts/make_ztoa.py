@@ -78,7 +78,7 @@ if d[z_off]!=0x1D:
     print("!! Z byte != 0x1D — layout/stride wrong, abort"); raise SystemExit(1)
 
 # region-offset -> chunk in fwupdate_stock_replay.bin
-BLOB=r'L:\PROJECTS\razer-joro\assets\fwupdate_stock_replay.bin'
+BLOB=r'L:\PROJECTS\razer-joro\_private\assets\fwupdate_stock_replay.bin'
 blob=bytearray(open(BLOB,'rb').read())
 PKT=90
 region_tag=int(rn,16)
@@ -114,7 +114,7 @@ for fi in range(0,len(blob),PKT):
 
 if patched!=1:
     print(f"PATCH FAILED (patched={patched})"); raise SystemExit(1)
-OUT=r'L:\PROJECTS\razer-joro\assets\fwupdate_mod_replay.bin'
+OUT=r'L:\PROJECTS\razer-joro\_private\assets\fwupdate_mod_replay.bin'
 open(OUT,'wb').write(blob)
 import hashlib
 print(f"\nwrote {OUT} ({len(blob)} B) sha256 {hashlib.sha256(blob).hexdigest()[:16]}")

@@ -27,7 +27,7 @@ for off, orig, val in SITES:
           f"(expect mov.w r0,#{hex(val)})")
     assert got == orig, f"orig bytes mismatch @0x{off:05x}: {got.hex()} != {orig.hex()}"
 
-BLOB = r'L:\PROJECTS\razer-joro\assets\fwupdate_stock_replay.bin'
+BLOB = r'L:\PROJECTS\razer-joro\_private\assets\fwupdate_stock_replay.bin'
 blob = bytearray(open(BLOB,'rb').read())
 PKT = 90
 frames = [(i, blob[i:i+PKT]) for i in range(0, len(blob), PKT)]
@@ -59,7 +59,7 @@ def patch_region03(roff, newbytes):
 for off, _, _ in SITES:
     patch_region03(off, REPL)
 
-OUT = r'L:\PROJECTS\razer-joro\assets\fwupdate_mod_replay.bin'
+OUT = r'L:\PROJECTS\razer-joro\_private\assets\fwupdate_mod_replay.bin'
 open(OUT,'wb').write(blob)
 st = open(BLOB,'rb').read()
 diff = [k for k in range(len(st)) if st[k]!=blob[k]]

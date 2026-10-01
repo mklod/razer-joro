@@ -22,7 +22,7 @@ ZXCV=hid("ZXCVBNM")
 SC1_QWERTY=bytes([0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19]) # PS/2 set1
 print(f"QWERTY hid={QWERTY.hex()}  ASDF={ASDF.hex()}  ZXCVBNM={ZXCV.hex()}")
 
-pk_blob=open(r'L:\PROJECTS\razer-joro\assets\fwupdate_stock_replay.bin','rb').read()
+pk_blob=open(r'L:\PROJECTS\razer-joro\_private\assets\fwupdate_stock_replay.bin','rb').read()
 chunks=[]
 for i in range(0,len(pk_blob),90):
     f=pk_blob[i:i+90]

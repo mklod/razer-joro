@@ -29,11 +29,36 @@ pub enum Mode {
     Dry,       // no USB I/O — walk/validate only
     Probe,     // phases A + open-bootloader + status frames; STOP before 10:01 erase
     Commit,    // full flash — STOCK image
-    CommitMod, // full flash — MODIFIED image (assets/fwupdate_mod_replay.bin)
+    CommitMod, // full flash — MODIFIED image (fwupdate_mod_replay.bin)
 }
 
-const STOCK: &[u8] = include_bytes!("../assets/fwupdate_stock_replay.bin");
-const STOCK_MOD: &[u8] = include_bytes!("../assets/fwupdate_mod_replay.bin");
+// Razer's firmware is not distributed with this repo: it's theirs. Capture your own update once (FIRMWARE_RE.md §9,
+// scripts/gen_fwupdate_blob.py) and put the replay blobs in `_private/assets/` (git-ignored), or point JORO_FW_DIR at
+// the folder that holds them. Only the flasher needs them; the rest of the daemon builds and runs without.
+pub(crate) const STOCK: &str = "fwupdate_stock_replay.bin";
+const STOCK_MOD: &str = "fwupdate_mod_replay.bin";
+
+pub(crate) fn load_blob(name: &str) -> Result<Vec<u8>, String> {
+    let mut dirs: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(d) = std::env::var("JORO_FW_DIR") {
+        dirs.push(d.into());
+    }
+    if let Some(exe_dir) = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf())) {
+        dirs.push(exe_dir.join("_private").join("assets"));
+    }
+    dirs.push(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("_private").join("assets"));
+    for dir in &dirs {
+        if let Ok(bytes) = std::fs::read(dir.join(name)) {
+            return Ok(bytes);
+        }
+    }
+    let looked: Vec<String> = dirs.iter().map(|d| d.display().to_string()).collect();
+    Err(format!(
+        "{name} not found (looked in {}). Razer's firmware isn't included: capture your own update \
+         (see FIRMWARE_RE.md) and save it there, or set JORO_FW_DIR.",
+        looked.join(", ")
+    ))
+}
 
 fn open(api: &HidApi, pid: u16, iface: i32) -> Option<hidapi::HidDevice> {
     // Prefer the exact interface; fall back to first VID/PID match.
@@ -101,7 +126,8 @@ fn dump_devs(api: &HidApi, pid: u16, tag: &str) {
 }
 
 pub fn flash_stock(mode: Mode) -> Result<(), String> {
-    let blob: &[u8] = if mode == Mode::CommitMod { STOCK_MOD } else { STOCK };
+    let owned = load_blob(if mode == Mode::CommitMod { STOCK_MOD } else { STOCK })?;
+    let blob: &[u8] = &owned;
     if blob.len() % PKT != 0 {
         return Err(format!("blob not /{PKT}: {}", blob.len()));
     }

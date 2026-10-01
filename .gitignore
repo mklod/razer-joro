@@ -17,3 +17,7 @@ captures/
 .claude/scheduled_tasks.lock
 __pycache__/
 *.pyc
+
+# Not distributed: Razer firmware (and patched copies), raw Bluetooth/USB captures, support paperwork.
+# Keep them here locally; the flasher reads _private/assets/fwupdate_*.bin.
+_private/
