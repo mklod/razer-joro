@@ -40,3 +40,12 @@ firmware, and re-flashing stock restores it; any official Razer update replaces 
 `FIRMWARE_RE.md` §7.
 
 Bluetooth addresses in the scripts and notes are placeholders (`XX:XX:XX:XX:XX:XX`): use your own keyboard's.
+
+## License
+
+MIT for the code, scripts and write-ups in this repo: see `LICENSE`. Not covered, owned by their makers:
+
+- Razer's firmware, software and protocols (not included; see above). Not affiliated with or endorsed by Razer.
+- Windows icons extracted for the UI (`assets/sysicons/`, `assets/osk_*`, and the tray icons generated from them)
+  remain Microsoft's.
+- `icons8-keyboard-96.png`: keyboard icon by [Icons8](https://icons8.com).
