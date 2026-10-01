@@ -17,7 +17,7 @@ personal details. Mike: keep the project PUBLIC so anyone with a Joro can use th
 - **README.md** added (what's here, build, firmware not included / capture your own via FIRMWARE_RE.md §9).
 - **GitHub:** old repo renamed `razer-joro-old` + made PRIVATE (GitHub still served old commits by SHA); fresh public
   `razer-joro` with the cleaned history, `main` = `master` (default `main` had been stale since April). The 3 unpushed
-  July commits are now published. TODO: delete `razer-joro-old` once the gh token has `delete_repo`.
+  July commits are now published. Mike deleted `razer-joro-old` (2026-10-01); old commit IDs, the PDF and firmware URLs all return 404 on GitHub now. MIT LICENSE added (README lists what it does not cover).
 - Local working copy reset to the new history; `src/remap.rs` WIP (+324/-18) restored untouched (backup in C:\dev\tmp).
   Old objects purged from this NAS repo (reflog expire + gc). Full pre-scrub backup: `C:\dev\tmp
 azer-joro-backup-*.git`.
