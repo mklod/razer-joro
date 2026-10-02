@@ -19,6 +19,8 @@
 - **Draft pass 2 (15:05):** full rewrite on Mike's new index.md dictation (2007 Apple keyboard -> Magic Keyboard ->
   Joro specs, 2.4 GHz preference, $3 dongle vs $40 mouse), wake lag told as "felt like 5 s, measured 1.5 s / first 4
   home-row keys lost", models framed as Opus 4.6 doing the bulk (Fable 5 = July polish), links + 5 more images.
+- **Correction (Mike):** case 260318-000361 (sticking G key, Mar 17) was debris, cleaned out - irrelevant, dropped from
+  the write-up and cropped out of the case-history screenshot. The blog counts are now 4 cases / 8 agents.
 - **Next:** find where the updater gets the Joro image -> `fw-extract <Razer updater.exe>` = no-capture path for
   everyone. Also: public repo HEAD still tracks the 12 screenshots / Razer marketing images moved to `_private/`
   (working-tree deletions not committed).
