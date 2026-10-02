@@ -1,5 +1,25 @@
 # Razer Joro — Status
 
+## Session 2026-10-02--1440 - Blog write-up: support-case history; no-sleep patch to be shared publicly
+
+- **mklod.com write-up** (`C:\dev\mklod-site\src\content\projects\razer-joro\draft.md`, not live until "apply draft"):
+  added the opening summary and a support history built from the 5 case PDFs in `_private/razer support cases/`
+  (Feb 5 - Jun 27, 10 agents). Razer's F1-F3 story: "hard-coded, expected behavior" (Feb 6, Feb 11) -> "unusual, never
+  seen" (Feb 10) -> "ignore previous email" -> "software bug, fix in a Synapse update" (Feb 26, Apr 20) -> "fixed in
+  Synapse 4.0.683" (Jun 24, auto-closed Jun 27). BLE pairing reset: Fn+1 / Fn+F1 5 s / F1 5 s over 14 days; Synapse
+  FACTORY RESET does not clear bonds; Esc+Caps+Space "hard reset" = demo mode with dead keys. Screenshots copied into
+  the site folder, agent names cropped out.
+- **Mike (2026-10-02): the no-sleep patch must be public** so any Joro owner can apply it; only Razer's raw firmware
+  stays in `_private/`. The patcher (`scripts/make_sleep_patch3.py`) and flasher are already in the public repo; the
+  draft now links the repo. Note a patched full .bin is still ~all Razer code - ship the patch, not the patched image.
+- **Gap found:** users can only get a stock image by USB-capturing Razer's updater (FIRMWARE_RE.md §9.1), which runs
+  once per version. Checked Razer's updater package (`captures/fwu_extract/`): the Joro image is NOT present in
+  plaintext in `CustomerFWU2Point5.exe` resources (product images only) or `DeviceUpdater.resources`. Either packed
+  elsewhere or downloaded at update time (`Ry_Online_Update_Dll`).
+- **Next:** find where the updater gets the Joro image -> `fw-extract <Razer updater.exe>` = no-capture path for
+  everyone. Also: public repo HEAD still tracks the 12 screenshots / Razer marketing images moved to `_private/`
+  (working-tree deletions not committed).
+
 ## Session 2026-10-01--0323 - Public repo scrubbed of private files; firmware moved to _private/ (done from the BLOG session)
 
 **Why:** github.com/mklod/razer-joro was public and carried Razer's firmware (stock + modified), raw Bluetooth/USB
